@@ -11,6 +11,7 @@
  * product rather than taking it down.
  */
 import { ScanContextSchema } from '@/lib/core/scan'
+import { currentUser } from '@/lib/db/auth'
 import { isDatabaseConfigured } from '@/lib/db/client'
 import { identifySubject } from '@/lib/db/identity'
 import { consumeQuota } from '@/lib/db/quota'
@@ -45,8 +46,10 @@ export async function POST(req: Request): Promise<Response> {
   let scanId: string | undefined
 
   if (isDatabaseConfigured()) {
-    // Accounts arrive with Phase 4b; until then every requester is a guest.
-    const subject = identifySubject(req.headers, undefined)
+    // A signed-in user gets their own identity, and with it the larger daily
+    // allowance and history that an account is for.
+    const user = await currentUser()
+    const subject = identifySubject(req.headers, user?.id)
 
     if (subject === undefined) {
       // No session and no usable address means no way to enforce a limit.

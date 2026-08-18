@@ -2,6 +2,8 @@
 
 **Research a name before you build on it.**
 
+**Live: https://namevetta.vercel.app**
+
 NameVetta checks how crowded a name is across domains, code namespaces, app stores,
 social handles and the open web — and reports the result with evidence behind every
 finding, rather than a row of green checkmarks.
@@ -130,6 +132,10 @@ npm run build     # production build
 
 ## Status
 
-Early development. The research engine, similarity engine, scoring, Trademark Assist
-and the database layer are built and working. Accounts, history, comparison and the
-AI explanation layer are not yet implemented.
+Live and working: the research engine (9 sources), similarity engine, industry
+relevance, scoring with conflict caps, Trademark Assist, Compare Names, persistence
+with per-day quotas, and a 103-case quality benchmark gating CI.
+
+Not yet built: accounts and history, share links, AI explanations, the pre-screened
+name generator, and three credential-gated sources (web search, Google Play discovery,
+Companies House).

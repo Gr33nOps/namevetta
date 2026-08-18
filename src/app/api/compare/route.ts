@@ -12,6 +12,7 @@
  */
 import { CompareRequestSchema } from '@/lib/core/scan'
 import { compareCandidates, type Candidate } from '@/lib/compare/rank'
+import { currentUser } from '@/lib/db/auth'
 import { isDatabaseConfigured } from '@/lib/db/client'
 import { identifySubject } from '@/lib/db/identity'
 import { consumeQuota } from '@/lib/db/quota'
@@ -41,7 +42,8 @@ export async function POST(req: Request): Promise<Response> {
   // allowance. Charging one would let a user get five scans for the price of
   // one simply by using a different form.
   if (isDatabaseConfigured()) {
-    const subject = identifySubject(req.headers, undefined)
+    const user = await currentUser()
+    const subject = identifySubject(req.headers, user?.id)
     if (subject === undefined) {
       return Response.json(
         { error: 'Could not identify the request for usage limiting.' },

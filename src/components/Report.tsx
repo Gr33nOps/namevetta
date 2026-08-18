@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { SaveNameButton } from '@/components/SaveNameButton'
 import { ScoreHeadline } from '@/components/ScoreHeadline'
 import { TrademarkAssist } from '@/components/TrademarkAssist'
 import { SourceCard } from '@/components/SourceCard'
@@ -45,7 +46,7 @@ export function Report({ scan }: { scan: ReportData }) {
 
       <p className="text-sm text-charcoal-2">
         Researched as <strong className="font-medium">{CATEGORY_LABELS[context.category]}</strong>{' '}
-        · {context.scanType === 'deep' ? 'Deep Check' : 'Quick Check'}
+        · {context.scanType === 'deep' ? 'Deep Research' : 'Quick Check'}
       </p>
 
       {unverified.length > 0 ? (
@@ -90,6 +91,23 @@ export function Report({ scan }: { scan: ReportData }) {
       <section className="rounded-xl border border-line bg-surface p-5">
         <h2 className="font-semibold">Next steps</h2>
         <div className="mt-3 flex flex-wrap gap-2">
+          <SaveNameButton
+            name={context.name}
+            category={context.category}
+            {...(context.description === undefined ? {} : { note: context.description })}
+          />
+          <Link
+            href="/compare"
+            className="rounded-lg border border-line-strong px-3 py-2 text-sm transition hover:border-accent hover:text-accent"
+          >
+            Compare with another name
+          </Link>
+          <Link
+            href="/history"
+            className="rounded-lg border border-line-strong px-3 py-2 text-sm transition hover:border-accent hover:text-accent"
+          >
+            View history
+          </Link>
           <Link
             href="/"
             className="rounded-lg border border-line-strong px-3 py-2 text-sm transition hover:border-accent hover:text-accent"

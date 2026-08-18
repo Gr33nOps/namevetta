@@ -1,8 +1,8 @@
-'use client'
-
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { signOut } from '@/app/auth/actions'
+import { currentUser } from '@/lib/db/auth'
+import { isDatabaseConfigured } from '@/lib/db/client'
+import { NavLinks } from './NavLinks'
 
 /** The wordmark glyph — a stylised N, from the design system. */
 function Mark() {
@@ -15,17 +15,16 @@ function Mark() {
   )
 }
 
-const LINKS = [
-  { href: '/', label: 'New Check' },
-  { href: '/compare', label: 'Compare' },
-] as const
-
-export function SiteNav() {
-  const pathname = usePathname()
-  const [menuOpen, setMenuOpen] = useState(false)
-
-  const isActive = (href: string): boolean =>
-    href === '/' ? pathname === '/' || pathname.startsWith('/scan') : pathname.startsWith(href)
+/**
+ * Site navigation.
+ *
+ * A server component so the signed-in state is correct on first paint rather
+ * than flashing signed-out and then correcting itself. The interactive parts
+ * live in `NavLinks`.
+ */
+export async function SiteNav() {
+  const user = await currentUser()
+  const accountsAvailable = isDatabaseConfigured()
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-surface/95 backdrop-blur-sm">
@@ -40,69 +39,39 @@ export function SiteNav() {
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-0.5 md:flex">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
-                isActive(link.href)
-                  ? 'bg-muted-bg font-medium text-charcoal'
-                  : 'text-charcoal-2 hover:bg-muted-bg hover:text-charcoal'
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        <NavLinks signedIn={user !== undefined} />
 
         <div className="flex items-center gap-2">
-          {/* Accounts land in Phase 4; the entry points are present but honest
-              about not being wired up yet rather than silently doing nothing. */}
-          <span className="hidden text-sm text-faint md:block">Accounts coming soon</span>
-
-          <button
-            type="button"
-            onClick={() => setMenuOpen(!menuOpen)}
-            className="flex h-8 w-8 flex-col items-center justify-center gap-1.5 md:hidden"
-            aria-label="Toggle menu"
-            aria-expanded={menuOpen}
-          >
-            <span
-              className={`block h-[1.5px] w-5 bg-charcoal transition-all duration-200 ${
-                menuOpen ? 'translate-y-[6.75px] rotate-45' : ''
-              }`}
-            />
-            <span
-              className={`block h-[1.5px] w-5 bg-charcoal transition-all duration-200 ${
-                menuOpen ? 'opacity-0' : ''
-              }`}
-            />
-            <span
-              className={`block h-[1.5px] w-5 bg-charcoal transition-all duration-200 ${
-                menuOpen ? '-translate-y-[6.75px] -rotate-45' : ''
-              }`}
-            />
-          </button>
+          {!accountsAvailable ? null : user !== undefined ? (
+            <>
+              <span className="hidden text-sm text-charcoal-2 md:block">{user.displayName}</span>
+              <form action={signOut}>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-line px-3 py-1.5 text-sm text-charcoal-2 transition-colors hover:border-line-strong hover:text-charcoal"
+                >
+                  Sign out
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <Link
+                href="/auth"
+                className="hidden px-2 py-1.5 text-sm text-charcoal-2 transition-colors hover:text-charcoal md:block"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/auth"
+                className="rounded-lg bg-charcoal px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-charcoal/90"
+              >
+                Create account
+              </Link>
+            </>
+          )}
         </div>
       </div>
-
-      {menuOpen ? (
-        <div className="animate-fade-in border-t border-line bg-surface md:hidden">
-          <div className="flex flex-col gap-1 p-4">
-            {LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setMenuOpen(false)}
-                className="rounded-lg px-3 py-2.5 text-left text-sm text-charcoal hover:bg-muted-bg"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-      ) : null}
     </header>
   )
 }

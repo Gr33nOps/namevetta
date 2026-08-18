@@ -43,6 +43,11 @@ Automated trademark research returns later as an **optional module** behind the 
 
 An incomplete trademark check can never produce a green or available result. Banned wording — *legally safe*, *trademark cleared*, *guaranteed available*, *safe to register* — is enforced by a test over the source tree.
 
+## Deployment
+
+Live at **https://namevetta.vercel.app** (Vercel free tier, auto-deploys from ).
+Supabase project  in us-east-1.
+
 ## Phase status
 
 | Phase | Scope | State |
@@ -53,7 +58,7 @@ An incomplete trademark check can never produce a green or available result. Ban
 | 3 | Similarity engine: normalization, variants, Levenshtein, Damerau, Jaro-Winkler, n-grams, Double Metaphone | **Done** (pulled forward) |
 | T | Trademark Assist + `TrademarkProvider` seam + Digital Viability rename | **Done** |
 | 4a | Supabase: schema, RLS, quota functions, data layer, scan persistence | **Done** (awaiting a project to apply against) |
-| 4b | Supabase auth, history UI, saved names, share links, Realtime transport | Next |
+| 4b | Supabase auth, history, saved names, share links | **Done** (Realtime transport deferred) |
 | 5 | App Store (iTunes Search, rate-limited), Wikidata, SEC EDGAR, socials | **Done** |
 | 6a | YouTube via the official Data API | **Next** |
 | 6b | Companies House (free API key) | After YouTube |
