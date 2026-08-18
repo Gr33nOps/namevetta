@@ -1,0 +1,132 @@
+import { Badge } from '@/components/ui/Badge'
+import { SOURCE_MANIFEST } from '@/lib/core/adapter'
+import type { Match, SourceResult } from '@/lib/core/types'
+import { SEVERITY_PRESENTATION, STATUS_PRESENTATION } from '@/lib/presentation'
+
+function MatchRow({ match }: { match: Match }) {
+  const severity = SEVERITY_PRESENTATION[match.severity]
+  return (
+    <li className="rounded-lg border border-line bg-muted-bg p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="font-medium">{match.name}</span>
+        <Badge tone={severity.tone} glyph={false}>
+          {severity.label}
+        </Badge>
+      </div>
+
+      {match.owner ? <p className="mt-1 text-sm text-charcoal-2">{match.owner}</p> : null}
+      {match.description ? (
+        <p className="mt-1 text-sm text-charcoal-2">{match.description}</p>
+      ) : null}
+
+      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+        <div>
+          <dt className="text-faint">Text</dt>
+          <dd className="tabular-nums">{match.similarity.text}%</dd>
+        </div>
+        <div>
+          <dt className="text-faint">Phonetic</dt>
+          <dd className="tabular-nums">{match.similarity.phonetic}%</dd>
+        </div>
+        <div>
+          <dt className="text-faint">Visual</dt>
+          <dd className="tabular-nums">{match.similarity.visual}%</dd>
+        </div>
+        <div>
+          <dt className="text-faint">Industry</dt>
+          {/* Never invent a figure we do not have. */}
+          <dd className="tabular-nums">
+            {match.similarity.industry === undefined ? '—' : `${match.similarity.industry}%`}
+          </dd>
+        </div>
+      </dl>
+
+      {match.categories.length > 0 ? (
+        <p className="mt-2 text-xs text-faint">Type: {match.categories.join(', ')}</p>
+      ) : null}
+
+      {match.url ? (
+        <a
+          href={match.url}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="mt-2 inline-block text-xs font-medium text-accent underline underline-offset-2 hover:text-accent"
+        >
+          Open source record
+        </a>
+      ) : null}
+    </li>
+  )
+}
+
+/**
+ * One source's findings, with its evidence always available.
+ *
+ * Confidence is shown as a number rather than hidden behind a colour, because a
+ * user comparing a 95-confidence USPTO result against a 50-confidence web
+ * result should be able to see why one carries more weight than the other.
+ */
+export function SourceCard({ result }: { result: SourceResult }) {
+  const manifest = SOURCE_MANIFEST[result.source]
+  const status = STATUS_PRESENTATION[result.status]
+  const matches = [...result.exactMatches, ...result.similarMatches]
+
+  return (
+    <article className="rounded-xl border border-line bg-surface p-5">
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="font-semibold">{manifest.label}</h3>
+          <p className="mt-0.5 text-sm text-charcoal-2">{status.detail}</p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <Badge tone={status.tone}>{status.label}</Badge>
+          <span className="text-xs text-faint">
+            {result.confidence > 0 ? `Confidence ${result.confidence}` : 'No confidence'}
+            {result.fromCache ? ' · cached' : ''}
+          </span>
+        </div>
+      </header>
+
+      {result.error ? (
+        <p className="mt-3 rounded-lg bg-unknown-soft px-3 py-2 text-sm text-unknown">
+          {result.error.message}
+          {result.error.retryable ? ' — this source can be retried.' : ''}
+        </p>
+      ) : null}
+
+      {matches.length > 0 ? (
+        <ul className="mt-4 space-y-2">
+          {matches.map((m) => (
+            <MatchRow key={`${m.externalId}-${m.name}`} match={m} />
+          ))}
+        </ul>
+      ) : null}
+
+      {result.evidence.length > 0 ? (
+        <details className="mt-4 group">
+          <summary className="cursor-pointer text-sm font-medium text-accent hover:text-accent">
+            View evidence ({result.evidence.length})
+          </summary>
+          <ul className="mt-2 space-y-1.5 text-sm">
+            {result.evidence.map((e, i) => (
+              <li key={`${e.label}-${i}`} className="text-charcoal-2">
+                {e.url ? (
+                  <a
+                    href={e.url}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-accent underline underline-offset-2 hover:text-accent"
+                  >
+                    {e.label}
+                  </a>
+                ) : (
+                  e.label
+                )}
+              </li>
+            ))}
+          </ul>
+        </details>
+      ) : null}
+    </article>
+  )
+}

@@ -1,0 +1,90 @@
+@import 'tailwindcss';
+
+/*
+  Design tokens, from the Figma design system.
+
+  Committed to a single light palette rather than a light/dark pair: the design
+  is built around a warm paper canvas with a grid, and a dark inversion would be
+  a different design rather than the same one recoloured.
+
+  The status ramp is the one place the product adds to the design language.
+  "Unverified" must never borrow amber — amber reads as "minor problem", and the
+  truth is "no information at all". It gets its own neutral slate instead, so a
+  failed check can never be mistaken for a mild warning or, worse, a pass.
+*/
+@theme {
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  --font-display: var(--font-fraunces), Georgia, serif;
+
+  /* Surfaces */
+  --color-canvas: #fafaf8;
+  --color-surface: #ffffff;
+  --color-muted-bg: #f5f5f3;
+
+  /* Ink */
+  --color-charcoal: #141c2e;
+  --color-charcoal-2: #3d4a5c;
+  --color-faint: #8b93a1;
+
+  /* Accent */
+  --color-accent: #0f766e;
+  --color-accent-hover: #0c5f58;
+  --color-accent-soft: #f0fdfa;
+  --color-accent-border: #99f6e4;
+
+  /* Lines */
+  --color-line: #e5e7eb;
+  --color-line-strong: #d1d5db;
+
+  /* Status */
+  --color-ok: #059669;
+  --color-ok-soft: #ecfdf5;
+  --color-warn: #d97706;
+  --color-warn-soft: #fffbeb;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fef2f2;
+  --color-unknown: #64748b;
+  --color-unknown-soft: #f1f5f9;
+}
+
+body {
+  background-color: var(--color-canvas);
+  color: var(--color-charcoal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* The faint graph-paper canvas behind the hero. */
+.grid-canvas {
+  background-image:
+    linear-gradient(#141c2e 1px, transparent 1px),
+    linear-gradient(90deg, #141c2e 1px, transparent 1px);
+  background-size: 44px 44px;
+  opacity: 0.025;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
