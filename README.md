@@ -65,6 +65,8 @@ checked part of it", and the report says exactly that.
 | Wikidata | Zero-dollar | Fair-use limited |
 | SEC EDGAR | Free | Fair-access policy; identifying User-Agent required |
 | YouTube | Free tier | Quota units per call |
+| Google Play | Free tier | Web-index discovery only; no official API |
+| Web presence (Tavily) | 1,000 credits/mo | **No credit card required**; 1 request per Deep Check, cached 30 days |
 | Social handles | — | **Manual only** |
 
 Nothing in this project scrapes. Where a source cannot be automated legitimately and

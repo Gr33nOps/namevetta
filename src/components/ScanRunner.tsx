@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/Badge'
 import { SOURCE_MANIFEST, sourcesFor } from '@/lib/core/adapter'
 import type { ScanContext } from '@/lib/core/scan'
 import type { SourceId, SourceResult } from '@/lib/core/types'
-import type { ScanEvent, ScanSummary } from '@/lib/orchestrator/run'
+import type { AiSummaryEvent, ScanEvent, ScanSummary } from '@/lib/orchestrator/run'
 import { STATUS_PRESENTATION } from '@/lib/presentation'
 
 type SourcePhase =
@@ -16,6 +16,7 @@ type SourcePhase =
 interface State {
   phases: Record<string, SourcePhase>
   summary: ScanSummary | undefined
+  aiSummary: AiSummaryEvent | undefined
   error: string | undefined
 }
 
@@ -23,6 +24,7 @@ type Action =
   | { type: 'reset'; sources: SourceId[] }
   | { type: 'source'; result: SourceResult }
   | { type: 'complete'; summary: ScanSummary }
+  | { type: 'ai_summary'; summary: AiSummaryEvent }
   | { type: 'error'; message: string }
 
 function reducer(state: State, action: Action): State {
@@ -31,6 +33,7 @@ function reducer(state: State, action: Action): State {
       return {
         phases: Object.fromEntries(action.sources.map((id) => [id, { phase: 'pending' as const }])),
         summary: undefined,
+        aiSummary: undefined,
         error: undefined,
       }
     case 'source':
@@ -40,6 +43,8 @@ function reducer(state: State, action: Action): State {
       }
     case 'complete':
       return { ...state, summary: action.summary }
+    case 'ai_summary':
+      return { ...state, aiSummary: action.summary }
     case 'error':
       return { ...state, error: action.message }
   }
@@ -59,6 +64,7 @@ export function ScanRunner({ context }: { context: ScanContext }) {
   const [state, dispatch] = useReducer(reducer, undefined, () => ({
     phases: {},
     summary: undefined,
+    aiSummary: undefined,
     error: undefined,
   }))
 
@@ -115,6 +121,7 @@ export function ScanRunner({ context }: { context: ScanContext }) {
 
             if (event.type === 'source') dispatch({ type: 'source', result: event.result })
             else if (event.type === 'complete') dispatch({ type: 'complete', summary: event.summary })
+            else if (event.type === 'ai_summary') dispatch({ type: 'ai_summary', summary: event.summary })
             else if (event.type === 'error') dispatch({ type: 'error', message: event.message })
           }
         }
@@ -146,7 +153,12 @@ export function ScanRunner({ context }: { context: ScanContext }) {
   }
 
   if (state.summary !== undefined) {
-    return <Report scan={{ context, ...state.summary } satisfies ReportData} />
+    return (
+      <Report
+        scan={{ context, ...state.summary } satisfies ReportData}
+        aiSummary={state.aiSummary}
+      />
+    )
   }
 
   const done = order.filter((id) => state.phases[id]?.phase === 'done').length

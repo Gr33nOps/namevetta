@@ -49,9 +49,9 @@ Every source declares how it may be used, and the product holds itself to it.
 | App Store (iTunes Search) | Free | **~20 requests/minute, documented** | Rate-limited, not unmetered. Limiter + cache |
 | Wikidata | Zero-dollar | **Fair-use limited**, no published ceiling | Identified UA, self-imposed limit, 429 backoff |
 | SEC EDGAR | Free | Fair-access policy; identifying UA **required** | SEC registrants only — not a US-company database |
-| YouTube | Free tier | 10,000 quota units/day; search.list costs 100 | Next to implement |
-| Companies House | Free w/ key | 600 requests / 5 minutes | After YouTube |
-| Brave (web, Play discovery) | ~1,000/month free | Metered, budget-guarded | **Last resort, never mandatory** |
+| YouTube | Free tier | 10,000 quota units/day; search.list costs 100 | Exact handle lookup; no search.list spend |
+| Companies House | Free w/ key | 600 requests / 5 minutes | `advanced-search` — exact containment, and the only declared industry signal (SIC) |
+| Tavily (web, Play discovery) | 1,000 credits/month free, **no card** | Metered, budget-guarded | One request per Deep Check; second only where an app store matters |
 | Socials | n/a | **Manual only** | No unauthenticated profile fetching, ever |
 
 **Product Hunt is deliberately not implemented.** It is not a core source unless and

@@ -28,6 +28,17 @@ export interface SeverityContext {
    * Containment is therefore a floor on severity, not a similarity adjustment.
    */
   contained?: boolean
+  /**
+   * True when the candidate is the *head* of the match's name — "Monzo" in
+   * "Monzo Bank Limited" — rather than merely present in it.
+   *
+   * The distinction is the difference between somebody trading under your name
+   * and somebody who happens to use the word. Containment alone tops out at
+   * `medium`, which understated an active, same-industry registered company
+   * whose name is your name plus a descriptor. Leading escalates that to `high`
+   * — but never to `critical`, which stays reserved for a near-exact string.
+   */
+  leading?: boolean
 }
 
 /**
@@ -85,7 +96,8 @@ export function severityFor(
   // reading.
   if (context.contained === true && active) {
     const related = industry !== undefined && industry >= RELATED_INDUSTRY_FLOOR
-    const floor = legallyWeighted && related ? 2 : 1
+    let floor = legallyWeighted && related ? 2 : 1
+    if (context.leading === true && legallyWeighted && related) floor = 3
     adjusted = Math.max(adjusted, floor)
   }
 

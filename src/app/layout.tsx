@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import Link from 'next/link'
 import { Fraunces, Inter, JetBrains_Mono } from 'next/font/google'
 import { SiteNav } from '@/components/SiteNav'
 import { SCOPE_NOTICE } from '@/lib/presentation'
@@ -31,10 +32,18 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         <main className="flex-1">{children}</main>
 
         <footer className="border-t border-line bg-surface">
-          <div className="mx-auto w-full max-w-[1200px] px-6 py-6">
+          <div className="mx-auto flex w-full max-w-[1200px] flex-wrap items-center justify-between gap-3 px-6 py-6">
             <p className="text-xs leading-relaxed text-faint">
               {SCOPE_NOTICE} Nothing here is legal advice.
             </p>
+            <nav className="flex items-center gap-4 text-xs text-faint">
+              <Link href="/terms" className="transition-colors hover:text-charcoal-2">
+                Terms
+              </Link>
+              <Link href="/privacy" className="transition-colors hover:text-charcoal-2">
+                Privacy
+              </Link>
+            </nav>
           </div>
         </footer>
       </body>

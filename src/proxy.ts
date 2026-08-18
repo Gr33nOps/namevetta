@@ -9,11 +9,11 @@ import { NextResponse, type NextRequest } from 'next/server'
  * the auth cookies onto the outgoing response.
  *
  * It deliberately does **not** guard routes. Authorisation lives in RLS, where
- * the database enforces it; a middleware redirect is a convenience, and treating
- * it as a security boundary is how people end up with unprotected API routes
+ * the database enforces it; a proxy redirect is a convenience, and treating it
+ * as a security boundary is how people end up with unprotected API routes
  * behind a protected page.
  */
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 

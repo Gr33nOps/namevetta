@@ -9,7 +9,7 @@ import {
 } from './distance'
 import { collapseRepeats, normalize, normalizeTokens, skeleton } from './normalize'
 import { phoneticKeys, phoneticSimilarity, soundex } from './phonetic'
-import { compareNames, containsNameAsWord, textSimilarity, visualSimilarity } from './score'
+import { compareNames, containsNameAsWord, textSimilarity, visualSimilarity , leadsWithName} from './score'
 import { generateVariants } from './variants'
 
 describe('normalize', () => {
@@ -307,5 +307,33 @@ describe('generateVariants', () => {
 
   it('returns nothing for input that normalizes to empty', () => {
     expect(generateVariants('!!!')).toEqual([])
+  })
+})
+
+describe('leadsWithName', () => {
+  it('is true when the candidate is the head of the name', () => {
+    expect(leadsWithName('Monzo', 'Monzo Bank')).toBe(true)
+    expect(leadsWithName('Stripe', 'Stripe Dashboard')).toBe(true)
+    expect(leadsWithName('Stripe', 'StripeDashboard')).toBe(true)
+  })
+
+  it('is false when the candidate is only a modifier', () => {
+    // The distinction the rule exists for: "Monzo Bank" is somebody trading
+    // under the name, "Kids Monzo" is somebody borrowing the word.
+    expect(leadsWithName('Monzo', 'Kids Monzo')).toBe(false)
+    expect(leadsWithName('Vault', 'HashiCorp Vault')).toBe(false)
+  })
+
+  it('is false for an exact match, which callers handle separately', () => {
+    expect(leadsWithName('Monzo', 'Monzo')).toBe(false)
+  })
+
+  it('does not fire mid-word', () => {
+    expect(leadsWithName('Env', 'Environment Canada')).toBe(false)
+    expect(leadsWithName('Stripe', 'Pinstriped Suits')).toBe(false)
+  })
+
+  it('ignores names too short to be distinctive', () => {
+    expect(leadsWithName('Go', 'Go Cardless')).toBe(false)
   })
 })

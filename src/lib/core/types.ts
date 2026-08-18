@@ -122,6 +122,16 @@ export const MatchSchema = z.object({
   externalId: z.string().min(1),
   /** The competing name as the source spells it. */
   name: z.string().min(1),
+  /**
+   * The form to compare against, when it differs from the display name.
+   *
+   * A company register returns "MONZO BANK LIMITED": the legal suffix is real
+   * and belongs on screen, but scoring "Monzo" against it drags the similarity
+   * down over three characters of boilerplate every UK company carries. The
+   * adapter strips those once and records the result here so later re-scoring
+   * compares like for like instead of silently undoing the work.
+   */
+  comparisonName: z.string().min(1).optional(),
   /** Owning entity where known (company, org, publisher, registrant). */
   owner: z.string().optional(),
   /** Free-text description used for industry classification. */

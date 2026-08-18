@@ -1,9 +1,12 @@
 'use server'
 
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { sessionClient } from '@/lib/db/auth'
 import { isDatabaseConfigured } from '@/lib/db/client'
+import { clientIp } from '@/lib/db/identity'
+import { verifyTurnstile } from '@/lib/turnstile'
 
 /**
  * Authentication actions.
@@ -60,6 +63,20 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   })
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? 'Check your details' }
+  }
+
+  // Scoped to account creation, not every request — this is the one flow
+  // where a bot has something to gain. A no-op when TURNSTILE_SECRET_KEY is
+  // unset, so a deployment that hasn't configured it behaves exactly as it
+  // did before this existed.
+  const reqHeaders = await headers()
+  const turnstileToken = formData.get('cf-turnstile-response')
+  const verified = await verifyTurnstile(
+    typeof turnstileToken === 'string' ? turnstileToken : undefined,
+    clientIp(reqHeaders),
+  )
+  if (!verified) {
+    return { error: 'Verification failed. Please try again.' }
   }
 
   const supabase = await sessionClient()

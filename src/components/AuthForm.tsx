@@ -1,11 +1,12 @@
 'use client'
 
+import Script from 'next/script'
 import { useActionState, useState } from 'react'
 import { signIn, signUp, type AuthState } from '@/app/auth/actions'
 
 const initial: AuthState = {}
 
-export function AuthForm() {
+export function AuthForm({ turnstileSiteKey }: { turnstileSiteKey?: string }) {
   const [mode, setMode] = useState<'signin' | 'signup'>('signin')
   const [signInState, signInAction, signingIn] = useActionState(signIn, initial)
   const [signUpState, signUpAction, signingUp] = useActionState(signUp, initial)
@@ -16,6 +17,10 @@ export function AuthForm() {
 
   return (
     <div className="rounded-xl border border-line bg-surface p-6">
+      {turnstileSiteKey === undefined ? null : (
+        <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" async defer />
+      )}
+
       <div className="mb-6 flex gap-1 rounded-lg bg-muted-bg p-1">
         {(
           [
@@ -70,6 +75,14 @@ export function AuthForm() {
             className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm outline-none transition-all placeholder:text-faint focus:border-accent-border focus:ring-2 focus:ring-accent/20"
           />
         </div>
+
+        {/* Scoped to account creation, not sign-in — that's the one flow a
+            bot has something to gain from. A fresh key on each mode switch so
+            Cloudflare's script reliably picks up the element as newly mounted
+            rather than an update to one it already rendered into. */}
+        {!isSignIn && turnstileSiteKey !== undefined ? (
+          <div key="signup-turnstile" className="cf-turnstile" data-sitekey={turnstileSiteKey} />
+        ) : null}
 
         {state.error !== undefined ? (
           <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">

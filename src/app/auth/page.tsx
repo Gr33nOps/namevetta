@@ -22,7 +22,13 @@ export default async function Page() {
       </p>
 
       <div className="mt-8">
-        <AuthForm />
+        <AuthForm
+          turnstileSiteKey={
+            process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY === ''
+              ? undefined
+              : process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+          }
+        />
       </div>
     </div>
   )

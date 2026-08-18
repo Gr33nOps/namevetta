@@ -14,7 +14,7 @@ import type { ScanContext } from '@/lib/core/scan'
 import { isVerified, type Match, type SourceResult } from '@/lib/core/types'
 import { SOURCE_GROUP } from '@/lib/scoring/weights'
 import { NON_COMMERCIAL_TAG, severityFor } from '@/lib/sources/severity'
-import { compareNames, containsNameAsWord } from '@/lib/similarity/score'
+import { compareNames, containsNameAsWord, leadsWithName } from '@/lib/similarity/score'
 import { classifyMatch, classifyScan, type Classification } from './classify'
 import { industryRelevance } from './relevance'
 
@@ -33,9 +33,10 @@ function enrichMatch(ctx: ScanContext, scan: Classification, match: Match, legal
   // Recompute the blend with industry folded in, then re-derive severity from
   // the updated picture. Severity computed before we knew the industry was a
   // provisional reading; this is the real one.
+  const comparable = match.comparisonName ?? match.name
   const similarity = compareNames(
     ctx.name,
-    match.name,
+    comparable,
     relevance === undefined ? {} : { industry: relevance },
   )
 
@@ -46,7 +47,8 @@ function enrichMatch(ctx: ScanContext, scan: Classification, match: Match, legal
     : severityFor(similarity, {
         active: match.active ?? true,
         legallyWeighted,
-        contained: containsNameAsWord(ctx.name, match.name),
+        contained: containsNameAsWord(ctx.name, comparable),
+        leading: leadsWithName(ctx.name, comparable),
       })
 
   return { ...match, similarity, severity }

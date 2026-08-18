@@ -10,13 +10,14 @@
  * credential-less deploy working, and it means a database outage degrades the
  * product rather than taking it down.
  */
+import { generateSummary } from '@/lib/ai/summarize'
 import { ScanContextSchema } from '@/lib/core/scan'
 import { currentUser } from '@/lib/db/auth'
 import { isDatabaseConfigured } from '@/lib/db/client'
 import { identifySubject } from '@/lib/db/identity'
 import { consumeQuota } from '@/lib/db/quota'
-import { completeScan, createScan, failScan, saveSourceResult } from '@/lib/db/scans'
-import { runScan } from '@/lib/orchestrator/run'
+import { completeScan, createScan, failScan, saveAiSummary, saveSourceResult } from '@/lib/db/scans'
+import { runScan, type ScanSummary } from '@/lib/orchestrator/run'
 
 /**
  * Fluid compute allows up to 300s on Hobby. Sources are individually bounded
@@ -79,6 +80,9 @@ export async function POST(req: Request): Promise<Response> {
         controller.enqueue(encoder.encode(`${JSON.stringify(value)}\n`))
       }
 
+      let completedSummary: ScanSummary | undefined
+      let completedReportId: string | undefined
+
       try {
         for await (const event of runScan(ctx, {
           log: (name, data) => {
@@ -87,16 +91,31 @@ export async function POST(req: Request): Promise<Response> {
             console.log(JSON.stringify({ event: name, ...data }))
           },
         })) {
-          if (scanId !== undefined) {
+          if (scanId !== undefined && event.type === 'source') {
             // Persistence is best-effort: a write failure costs the user their
             // history, never their results.
-            if (event.type === 'source') {
-              void saveSourceResult(scanId, event.result).catch(() => {})
-            } else if (event.type === 'complete') {
-              void completeScan(scanId, event.summary).catch(() => {})
+            void saveSourceResult(scanId, event.result).catch(() => {})
+          }
+          if (event.type === 'complete') {
+            completedSummary = event.summary
+            if (scanId !== undefined) {
+              completedReportId = await completeScan(scanId, event.summary).catch(() => undefined)
             }
           }
           send(event)
+        }
+
+        // A separate step after `complete`, deliberately. The report the user
+        // came for is already on screen; the explanation is the slow,
+        // rate-limited part, and it must never hold up the score or evidence —
+        // only Deep Check pays for it, since a five-source Quick Check does not
+        // carry enough evidence to explain.
+        if (ctx.scanType === 'deep' && completedSummary !== undefined) {
+          const outcome = await generateSummary(ctx, completedSummary)
+          send({ type: 'ai_summary', summary: outcome })
+          if (outcome.status === 'ready' && completedReportId !== undefined) {
+            void saveAiSummary(completedReportId, outcome.text, outcome.model, true).catch(() => {})
+          }
         }
       } catch (cause) {
         // The orchestrator is built not to throw, so reaching here is a bug.

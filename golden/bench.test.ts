@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GOLDEN_CASES } from './index'
-import { runBenchmark } from './runner'
+import { formatReport, runBenchmark } from './runner'
 
 /**
  * The regression gate (§54).
@@ -11,6 +11,15 @@ import { runBenchmark } from './runner'
  */
 describe('golden dataset', () => {
   const report = runBenchmark(GOLDEN_CASES)
+
+  // Printed, not just asserted. The pass/fail gate below is what protects the
+  // build, but the figures are what tell you whether a change made the engine
+  // genuinely better or merely kept it inside the thresholds.
+  it('reports its metrics', () => {
+    console.log(`
+${formatReport(report)}`)
+    expect(report.total).toBe(GOLDEN_CASES.length)
+  })
 
   it('has no duplicate case ids', () => {
     const ids = GOLDEN_CASES.map((c) => c.id)

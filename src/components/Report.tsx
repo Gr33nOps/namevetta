@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge'
 import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import { CATEGORY_LABELS, type ScanContext } from '@/lib/core/scan'
 import { isVerified } from '@/lib/core/types'
-import type { ScanSummary } from '@/lib/orchestrator/run'
+import type { AiSummaryEvent, ScanSummary } from '@/lib/orchestrator/run'
 import { SCOPE_NOTICE } from '@/lib/presentation'
 import { GROUP_LABELS, SOURCE_GROUP, type ScoreGroup } from '@/lib/scoring/weights'
 
@@ -23,7 +23,20 @@ export interface ReportData extends ScanSummary {
  * listed at the top, ahead of the per-source detail, so a user skimming the page
  * cannot miss that part of the research did not complete.
  */
-export function Report({ scan }: { scan: ReportData }) {
+export function Report({
+  scan,
+  aiSummary,
+}: {
+  scan: ReportData
+  /**
+   * Undefined means "not applicable or not arrived yet" — Quick Check never
+   * requests one, and a Deep Check's explanation streams in a moment after
+   * the score. Both look identical here: the section simply isn't rendered
+   * until there's something to show, never a placeholder or a spinner that
+   * could imply the score itself is still pending.
+   */
+  aiSummary?: AiSummaryEvent
+}) {
   const { context, results, viability, coverage } = scan
 
   const unverified = results.filter((r) => !isVerified(r.status))
@@ -48,6 +61,30 @@ export function Report({ scan }: { scan: ReportData }) {
         Researched as <strong className="font-medium">{CATEGORY_LABELS[context.category]}</strong>{' '}
         · {context.scanType === 'deep' ? 'Deep Research' : 'Quick Check'}
       </p>
+
+      {aiSummary?.status === 'ready' ? (
+        <section className="rounded-xl border border-line bg-surface p-5">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-faint">
+            AI summary — generated from the evidence above
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-charcoal">{aiSummary.text}</p>
+          <p className="mt-3 text-xs text-faint">
+            Written by an AI model from the findings in this report only. Not legal advice, and not
+            a substitute for reading the evidence yourself.
+          </p>
+        </section>
+      ) : context.scanType === 'deep' && aiSummary === undefined ? (
+        // Only a Deep Check ever requests one, so this is the one case where
+        // "not here yet" (rather than "never coming") is worth signalling —
+        // it usually resolves within a few seconds of the score appearing.
+        <section className="flex items-center gap-2 rounded-xl border border-line bg-surface px-5 py-4 text-sm text-charcoal-2">
+          <span
+            aria-hidden="true"
+            className="h-3 w-3 animate-spin rounded-full border-2 border-line-strong border-t-accent"
+          />
+          Writing an AI summary of these findings…
+        </section>
+      ) : null}
 
       {unverified.length > 0 ? (
         <section className="rounded-xl border border-unknown/30 bg-unknown-soft p-5">

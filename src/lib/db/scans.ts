@@ -127,9 +127,19 @@ export async function saveSourceResult(scanId: string, result: SourceResult): Pr
   }
 }
 
-/** Write the final report and mark the scan complete. */
-export async function completeScan(scanId: string, summary: ScanSummary): Promise<void> {
-  if (!isDatabaseConfigured()) return
+/**
+ * Write the final report and mark the scan complete.
+ *
+ * Returns the report id so a caller can attach something to it afterwards —
+ * today that is only the AI summary, written in a second step once the
+ * (rate-limited, sometimes slow) explanation is ready, rather than holding up
+ * `completeScan` itself.
+ */
+export async function completeScan(
+  scanId: string,
+  summary: ScanSummary,
+): Promise<string | undefined> {
+  if (!isDatabaseConfigured()) return undefined
   const db = serviceClient()
 
   const { data, error } = await db
@@ -177,6 +187,31 @@ export async function completeScan(scanId: string, summary: ScanSummary): Promis
     .from('scans')
     .update({ status: 'complete', completed_at: new Date().toISOString() })
     .eq('id', scanId)
+
+  return data === null ? undefined : (data as { id: string }).id
+}
+
+/**
+ * Attach the AI explanation to a report, once generated.
+ *
+ * `grounded` is stored alongside the text so a future audit — or a support
+ * question about a specific report — can see whether the shown summary passed
+ * the grounding check outright or only on the retry, without needing to
+ * reconstruct that from logs.
+ */
+export async function saveAiSummary(
+  reportId: string,
+  summary: string,
+  model: string,
+  grounded: boolean,
+): Promise<void> {
+  if (!isDatabaseConfigured()) return
+  await serviceClient()
+    .from('ai_summaries')
+    .upsert(
+      { report_id: reportId, summary, model, grounded },
+      { onConflict: 'report_id' },
+    )
 }
 
 /** Mark a scan failed so a reconnecting client is not left waiting forever. */

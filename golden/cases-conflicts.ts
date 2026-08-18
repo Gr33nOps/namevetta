@@ -9,6 +9,7 @@ import type { GoldenCase } from './types'
 
 const SECURITY = 'Secure developer secrets manager with encryption'
 const PAYMENTS = 'Payment processing platform for developers'
+const BANKING = 'Mobile banking app and current account'
 
 export const CONFLICT_CASES: GoldenCase[] = [
   /* ── exact collisions ─────────────────────────────────────────────────── */
@@ -537,5 +538,41 @@ export const CONFLICT_CASES: GoldenCase[] = [
     expect: { minOverall: 95, severityAtLeast: 'high' },
     tags: ['neighbouring-field', 'exact'],
     note: 'Games and entertainment sit in different sectors but overlap in practice.',
+  },
+
+  /* ── company registers: the candidate is the head of a longer legal name ─ */
+  {
+    id: 'registry-001',
+    kind: 'conflict',
+    candidate: 'Monzo',
+    category: 'finance',
+    description: BANKING,
+    match: 'Monzo Bank',
+    matchCategories: ['banking'],
+    active: true,
+    legallyWeighted: true,
+    expect: { minIndustry: 70, severityAtLeast: 'high' },
+    tags: ['registry', 'containment', 'leading', 'same-industry'],
+    note:
+      'The real case this rule was built for. Length asymmetry drags the blended ' +
+      'similarity to roughly 54, so the floor alone hid an active UK bank trading ' +
+      'under the exact candidate name. The candidate is the head of the name and ' +
+      'the field matches, which is a serious obstacle however the string scores.',
+  },
+  {
+    id: 'registry-002',
+    kind: 'conflict',
+    candidate: 'Envryn',
+    category: 'saas',
+    description: SECURITY,
+    match: 'Envryn Security',
+    matchCategories: ['security'],
+    active: true,
+    legallyWeighted: true,
+    expect: { minIndustry: 70, severityAtLeast: 'high' },
+    tags: ['registry', 'containment', 'leading', 'same-industry'],
+    note:
+      'The invented-name version of registry-001, so the rule is not tuned to one ' +
+      'famous brand. Candidate plus an industry descriptor, same field, active.',
   },
 ]

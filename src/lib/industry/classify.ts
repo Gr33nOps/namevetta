@@ -6,7 +6,7 @@
  * a provider outage to take a core scoring input with it.
  */
 import type { Category } from '@/lib/core/scan'
-import { CATEGORY_INDUSTRIES, INDUSTRIES, type IndustryNode } from './taxonomy'
+import { CATEGORY_INDUSTRIES, INDUSTRIES, type IndustryNode, industryById } from './taxonomy'
 
 export interface Classification {
   /** Node id → weight in 0..1, strongest first. Empty when nothing matched. */
@@ -156,7 +156,11 @@ export function classifyMatch(input: {
 }): Classification {
   const fromCategories = new Map<string, number>()
   for (const category of input.categories ?? []) {
-    const mapped = CATEGORY_HINTS[category.toLowerCase().trim()]
+    const key = category.toLowerCase().trim()
+    // A source that already speaks taxonomy — Companies House, via its declared
+    // SIC codes — needs no lexicon hop. Its own classification beats anything we
+    // could infer from a postal address.
+    const mapped = CATEGORY_HINTS[key] ?? (industryById(key) === undefined ? undefined : key)
     if (mapped !== undefined) fromCategories.set(mapped, 1)
   }
 

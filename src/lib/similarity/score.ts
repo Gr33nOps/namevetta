@@ -150,6 +150,34 @@ export function containsNameAsWord(candidate: string, other: string): boolean {
 }
 
 /**
+ * Whether `other` *begins* with the candidate name.
+ *
+ * A stronger claim than containment, and worth separating. "Monzo Bank" is the
+ * Monzo brand with a descriptor appended — the brand is the head of the name.
+ * "Kids Monzo" merely borrows the word as a modifier, and the head of that name
+ * is something else. Both contain "Monzo"; only the first is somebody operating
+ * under it.
+ *
+ * A single-token match is not "leading" — it is exact, which the callers
+ * already handle on its own terms.
+ */
+export function leadsWithName(candidate: string, other: string): boolean {
+  const needle = normalize(candidate)
+  if (needle.length < 3) return false
+
+  const tokens = normalizeTokens(other)
+  if (tokens.length > 1 && tokens[0] === needle) return true
+
+  const camelParts = other
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .split(/\s+/)
+    .map((part) => normalize(part))
+    .filter((part) => part.length > 0)
+
+  return camelParts.length > 1 && camelParts[0] === needle
+}
+
+/**
  * Weights for the headline `overall` figure. Text dominates because it is the
  * most reliable signal; industry relevance is folded in when known, since §18
  * is clear that an exact spelling match in an unrelated field matters less than

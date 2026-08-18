@@ -39,23 +39,73 @@ const EnvSchema = z.object({
   YOUTUBE_API_KEY: optionalSecret,
   // No trademark registry credentials: V1 performs no automated trademark
   // research. When a TrademarkProvider is added, its credentials belong here.
-  /** Brave Search — metered, guarded by `provider_budget` (§22, §23). */
-  BRAVE_API_KEY: optionalSecret,
+  /**
+   * Tavily web search — metered, guarded by `provider_budget` (§22, §23).
+   *
+   * Chosen over Brave because Tavily's free tier requires **no card on file**,
+   * so there is no path by which this product can begin costing money.
+   * Server-side only: never prefixed NEXT_PUBLIC_, never logged.
+   */
+  TAVILY_API_KEY: optionalSecret,
   /** Groq — the AI explanation layer, always optional (§25). */
   GROQ_API_KEY: optionalSecret,
+  /**
+   * Sentry — server-side error tracking. Optional, free tier, no card.
+   * Its client counterpart, `NEXT_PUBLIC_SENTRY_DSN`, is read directly in
+   * `instrumentation-client.ts` for the same reason the Turnstile site key
+   * is read directly rather than through this server-only accessor.
+   */
+  SENTRY_DSN: optionalSecret,
+  /**
+   * Cloudflare Turnstile — bot protection on account creation.
+   *
+   * Optional, like everything else here. Its counterpart,
+   * `NEXT_PUBLIC_TURNSTILE_SITE_KEY`, is not secret and is read directly where
+   * it's needed rather than through this server-only accessor, since a
+   * client component must be able to see it.
+   */
+  TURNSTILE_SECRET_KEY: optionalSecret,
+  /**
+   * Companies House (UK) — free registry API key.
+   *
+   * Worth having: it is the only source that reports a *declared* industry
+   * (SIC codes) rather than one we infer from free text, and industry
+   * relevance is what keeps a same-field conflict separate from a coincidence.
+   */
+  COMPANIES_HOUSE_API_KEY: optionalSecret,
 
   /** Daily allowances, configurable without redeploying logic (§33). */
   GUEST_QUICK_LIMIT: optionalNumber(5),
   GUEST_DEEP_LIMIT: optionalNumber(1),
   USER_QUICK_LIMIT: optionalNumber(25),
   USER_DEEP_LIMIT: optionalNumber(5),
+  /**
+   * The name generator (§12) researches ~30 candidates with a Quick Check
+   * each — roughly six times a guest's entire Quick Check allowance — so it
+   * gets its own low daily ceiling rather than borrowing the quick/deep ones.
+   */
+  GUEST_GENERATE_LIMIT: optionalNumber(1),
+  USER_GENERATE_LIMIT: optionalNumber(3),
 
   /**
-   * Hard ceiling on metered web-search requests per calendar month. Brave's
-   * free allowance is roughly 1,000, so this defaults below it: exhausting the
-   * budget must degrade the product, never produce a bill.
+   * Hard ceiling on web-search **credits** per calendar month.
+   *
+   * Tavily's free tier is 1,000 credits and a basic search costs one, so this
+   * default stops well short of the allowance. Exhausting the budget must
+   * degrade the product, never produce a bill — pay-as-you-go is never enabled.
    */
   WEB_SEARCH_MONTHLY_BUDGET: optionalNumber(900),
+
+  /**
+   * Hard ceiling on Groq **completions** per calendar month.
+   *
+   * Groq's measured free-tier ceiling is 1,000 requests/day — a monthly figure
+   * doesn't map onto that daily reset directly, so this is set well below the
+   * naive product (30,000) to leave real headroom against an uneven day. A
+   * summary is generated once per report and cached by report hash, so actual
+   * spend sits far below either number in practice.
+   */
+  AI_MONTHLY_BUDGET: optionalNumber(6000),
 
   /** Contact address sent in User-Agent to APIs that require one (SEC EDGAR). */
   CONTACT_EMAIL: z.preprocess(

@@ -210,7 +210,7 @@ export const SOURCE_MANIFEST: Record<SourceId, SourceManifestEntry> = {
     rateLimit: {
       requestsPerMinute: 20,
       documented: true,
-      note: 'Runs through the same metered web-search provider as `web`.',
+      note: 'Runs through the same metered provider as `web`, and only for categories where an app store actually matters.',
     },
   },
   web: {
@@ -227,7 +227,7 @@ export const SOURCE_MANIFEST: Record<SourceId, SourceManifestEntry> = {
     rateLimit: {
       requestsPerMinute: 20,
       documented: true,
-      note: 'Brave free tier is roughly 1 request/second and ~1,000/month. Budget-guarded and used last.',
+      note: 'Tavily free tier is 1,000 credits/month and a basic search costs one. Budget-guarded, cached for 30 days, one request per Deep Check.',
     },
   },
   wikidata: {

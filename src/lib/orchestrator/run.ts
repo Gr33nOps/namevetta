@@ -26,10 +26,24 @@ export interface ScanSummary {
   coverage: number
 }
 
+/**
+ * The AI explanation, as a distinct step after `complete`.
+ *
+ * Never blocks the report: scores and evidence are already on screen by the
+ * time this arrives, or does not arrive. `unavailable` carries a reason so the
+ * UI can say why rather than leaving a spinner forever — a missing key, an
+ * exhausted allowance, and "could not be verified against the report" are
+ * different situations and read differently to a user.
+ */
+export type AiSummaryEvent =
+  | { status: 'ready'; text: string; model: string }
+  | { status: 'unavailable'; reason: string }
+
 export type ScanEvent =
   | { type: 'started'; sources: SourceId[] }
   | { type: 'source'; result: SourceResult }
   | { type: 'complete'; summary: ScanSummary }
+  | { type: 'ai_summary'; summary: AiSummaryEvent }
 
 export interface RunOptions {
   /** Overall ceiling for the whole scan, independent of per-source timeouts. */

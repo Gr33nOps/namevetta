@@ -11,7 +11,7 @@
 import { classifyMatch, classifyScan } from '@/lib/industry/classify'
 import { industryRelevance } from '@/lib/industry/relevance'
 import { severityFor } from '@/lib/sources/severity'
-import { compareNames, containsNameAsWord } from '@/lib/similarity/score'
+import { compareNames, containsNameAsWord, leadsWithName } from '@/lib/similarity/score'
 import {
   SEVERITY_RANK,
   type BenchmarkReport,
@@ -40,6 +40,7 @@ export function evaluateCase(testCase: GoldenCase): CaseOutcome {
     // Mirrors `enrichMatch`. If the benchmark computed severity differently
     // from the product, it would be measuring something the product never does.
     contained: containsNameAsWord(testCase.candidate, testCase.match),
+    leading: leadsWithName(testCase.candidate, testCase.match),
   })
 
   const e = testCase.expect

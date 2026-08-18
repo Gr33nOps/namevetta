@@ -9,6 +9,7 @@
 import type { GoldenCase } from './types'
 
 const SECURITY = 'Secure developer secrets manager with encryption'
+const BANKING = 'Mobile banking app and current account'
 const APPAREL = 'Streetwear clothing and apparel brand'
 const RESTAURANT = 'Neighbourhood restaurant and cafe'
 
@@ -308,5 +309,58 @@ export const CLEAR_CASES: GoldenCase[] = [
     expect: { industryUnknown: true },
     tags: ['unknown-industry'],
     note: 'Unclassifiable prose must not be forced into a taxonomy node.',
+  },
+
+  /* ── company registers: contained but not the head, or not the field ───── */
+  {
+    id: 'registry-003',
+    kind: 'clear',
+    candidate: 'Monzo',
+    category: 'finance',
+    description: BANKING,
+    match: 'Monzo Tyres',
+    matchCategories: ['automotive'],
+    active: true,
+    legallyWeighted: true,
+    expect: { maxIndustry: 40, severityAtMost: 'low' },
+    tags: ['registry', 'containment', 'cross-category'],
+    note:
+      'Leading containment on its own must not escalate. A tyre fitter shares the ' +
+      'word but not the field, and telling a fintech founder this blocks their name ' +
+      'would be the false alarm that makes the whole report untrustworthy.',
+  },
+  {
+    id: 'registry-004',
+    kind: 'clear',
+    candidate: 'Monzo',
+    category: 'finance',
+    description: BANKING,
+    match: 'Kids Monzo',
+    matchCategories: ['entertainment'],
+    active: true,
+    legallyWeighted: true,
+    expect: { severityAtMost: 'low' },
+    tags: ['registry', 'containment', 'trailing'],
+    note:
+      'Contains the candidate as a modifier rather than as the head of the name. ' +
+      'Weaker evidence than "Monzo Bank" and must score that way, which is the ' +
+      'distinction `leadsWithName` exists to draw.',
+  },
+  {
+    id: 'registry-005',
+    kind: 'clear',
+    candidate: 'Monzo',
+    category: 'finance',
+    description: BANKING,
+    match: 'Monzo Books',
+    matchCategories: ['retail'],
+    active: false,
+    legallyWeighted: true,
+    expect: { severityAtMost: 'low' },
+    tags: ['registry', 'containment', 'inactive'],
+    note:
+      'Dissolved. A struck-off company is worth showing as context and worth ' +
+      'nothing as an obstacle, so the inactive penalty must survive the ' +
+      'containment floor rather than being overridden by it.',
   },
 ]

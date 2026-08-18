@@ -60,9 +60,9 @@ Supabase project  in us-east-1.
 | 4a | Supabase: schema, RLS, quota functions, data layer, scan persistence | **Done** (awaiting a project to apply against) |
 | 4b | Supabase auth, history, saved names, share links | **Done** (Realtime transport deferred) |
 | 5 | App Store (iTunes Search, rate-limited), Wikidata, SEC EDGAR, socials | **Done** |
-| 6a | YouTube via the official Data API | **Next** |
-| 6b | Companies House (free API key) | After YouTube |
-| 6c | Brave web/Play discovery — last-resort, budget-guarded, never mandatory | |
+| 6a | YouTube via the official Data API | **Done** |
+| 6b | Companies House (free API key), with SIC-code industry mapping | **Done** |
+| 6c | Tavily web/Play discovery — last-resort, budget-guarded, never mandatory | **Done** |
 | 7 | Industry relevance: 40-node taxonomy, lexicon classifier, central enrichment | **Done** |
 | 8 | Socials: YouTube verified, everything else manual-link with honest status | |
 | 9 | Viability engine refinement: sub-scores, caps, category tuning | |

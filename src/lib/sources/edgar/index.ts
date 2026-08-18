@@ -25,7 +25,7 @@ import { requestJson, SourceRequestError } from '@/lib/sources/http'
 import { buildResult, makeEvidence, statusFromMatches, unverifiable } from '@/lib/sources/result'
 import { severityFor } from '@/lib/sources/severity'
 import { normalize } from '@/lib/similarity/normalize'
-import { compareNames } from '@/lib/similarity/score'
+import { compareNames, containsNameAsWord } from '@/lib/similarity/score'
 
 const TICKERS_URL = 'https://www.sec.gov/files/company_tickers.json'
 
@@ -137,10 +137,15 @@ export const edgarAdapter: SourceAdapter = {
     for (const record of loaded.records) {
       const isExact = record.normalized === target
       // Cheap length gate before running the full comparison across ~10k rows.
-      if (!isExact && Math.abs(record.normalized.length - target.length) > 4) continue
+      // Names that *contain* the candidate are exempt: they are legitimately
+      // longer, and gating them out is what hid "<Name> Holdings" style filers.
+      const contains = !isExact && record.normalized.includes(target) && target.length >= 3
+      if (!isExact && !contains && Math.abs(record.normalized.length - target.length) > 4) continue
 
-      const similarity = compareNames(ctx.name, stripSuffixes(record.title))
-      if (!isExact && similarity.overall < SIMILARITY_FLOOR) continue
+      const stripped = stripSuffixes(record.title)
+      const wholeWord = contains && containsNameAsWord(ctx.name, stripped)
+      const similarity = compareNames(ctx.name, stripped)
+      if (!isExact && !wholeWord && similarity.overall < SIMILARITY_FLOOR) continue
 
       const titleKey = record.normalized
       if (seenTitles.has(titleKey)) continue
@@ -154,7 +159,7 @@ export const edgarAdapter: SourceAdapter = {
         active: true,
         url,
         similarity,
-        severity: severityFor(similarity, { legallyWeighted: true }),
+        severity: severityFor(similarity, { legallyWeighted: true, contained: wholeWord }),
         evidence: [
           makeEvidence(
             'edgar',

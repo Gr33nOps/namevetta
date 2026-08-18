@@ -44,7 +44,12 @@ export async function SiteNav() {
         <div className="flex items-center gap-2">
           {!accountsAvailable ? null : user !== undefined ? (
             <>
-              <span className="hidden text-sm text-charcoal-2 md:block">{user.displayName}</span>
+              <Link
+                href="/account"
+                className="hidden text-sm text-charcoal-2 transition-colors hover:text-charcoal md:block"
+              >
+                {user.displayName}
+              </Link>
               <form action={signOut}>
                 <button
                   type="submit"
