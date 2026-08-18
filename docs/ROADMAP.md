@@ -62,9 +62,9 @@ An incomplete trademark check can never produce a green or available result. Ban
 | 8 | Socials: YouTube verified, everything else manual-link with honest status | |
 | 9 | Viability engine refinement: sub-scores, caps, category tuning | |
 | 10 | AI explanations via Groq behind `LLMProvider`, with grounding validator | |
-| 11 | Compare Names — 2–5 names, side-by-side, winner + why | |
+| 11 | Compare Names — 2–5 names, side-by-side, winner + why | **Done** |
 | 12 | Pre-screened name generation — generate, auto Quick Check, discard failures, return top 5 | |
-| 13 | Golden dataset: 200 → 500+ names, recorded fixtures, false-negative gate in CI | |
+| 13 | Golden dataset: 103 labelled cases, false-negative gate in CI | **Done** (grow toward 200/500) |
 | 14 | Production hardening: retries, circuit breakers, RLS tests, Turnstile, Sentry, headers, Terms/Privacy | |
 | Later | **Optional** automated trademark module: implement `TrademarkProvider` for USPTO/EUIPO | |
 

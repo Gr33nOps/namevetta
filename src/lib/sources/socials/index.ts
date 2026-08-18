@@ -16,7 +16,7 @@
  * That is deliberately less impressive than a row of green ticks, and
  * considerably more truthful.
  */
-import type { AdapterDeps, SourceAdapter } from '@/lib/core/adapter'
+import type { SourceAdapter } from '@/lib/core/adapter'
 import type { ScanContext } from '@/lib/core/scan'
 import type { Evidence, SourceResult } from '@/lib/core/types'
 import { buildResult, makeEvidence, unverifiable } from '@/lib/sources/result'
@@ -43,7 +43,7 @@ const PLATFORMS: Platform[] = [
 export const socialsAdapter: SourceAdapter = {
   id: 'socials',
 
-  async run(ctx: ScanContext, _deps: AdapterDeps): Promise<SourceResult> {
+  async run(ctx: ScanContext): Promise<SourceResult> {
     const handle = normalize(ctx.name)
     if (handle.length === 0) {
       return unverifiable('socials', 'INVALID_NAME', 'Name contains no usable characters', false)

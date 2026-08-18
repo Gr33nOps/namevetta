@@ -48,7 +48,11 @@ const MATCHERS: { node: IndustryNode; term: string; weight: number; re: RegExp }
       weight: keywordWeight(term),
       // Word boundaries matter: "app" must not fire on "apparel", and "bar"
       // must not fire on "barcode".
-      re: new RegExp(`\\b${escape(term)}\\b`, 'i'),
+      //
+      // Single words also match their simple plural, because "courses" and
+      // "payments" are the same signal as "course" and "payment" and listing
+      // both forms in every keyword list would be noise waiting to drift.
+      re: new RegExp(`\\b${escape(term)}${term.includes(' ') ? '' : 's?'}\\b`, 'i'),
     })),
   )
 

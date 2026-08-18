@@ -13,7 +13,7 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts', 'tests/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'tests/**/*.test.ts', 'golden/**/*.test.ts'],
     coverage: { provider: 'v8', reporter: ['text', 'html'] },
   },
 })

@@ -85,6 +85,14 @@ export function phoneticSimilarity(a: string, b: string): number {
   if (ka.primary === kb.alternate || ka.alternate === kb.primary) return 0.9
   if (ka.alternate === kb.alternate) return 0.85
 
+  // A trailing sibilant is almost always a plural or possessive, not a
+  // different-sounding name. Double Metaphone encodes "Keyora" as KR and
+  // "Keyoras" as KRS, which the prefix fallback below scores at ~0.47 - far too
+  // harsh for two names a listener could not tell apart.
+  const shorter = ka.primary.length <= kb.primary.length ? ka.primary : kb.primary
+  const longer = ka.primary.length <= kb.primary.length ? kb.primary : ka.primary
+  if (shorter !== '' && longer === `${shorter}S`) return 0.9
+
   // No exact code match: fall back to how close the primary codes are, so
   // near-homophones still register instead of dropping to zero.
   const longest = Math.max(ka.primary.length, kb.primary.length)

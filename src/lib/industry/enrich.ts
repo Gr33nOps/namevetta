@@ -14,7 +14,7 @@ import type { ScanContext } from '@/lib/core/scan'
 import { isVerified, type Match, type SourceResult } from '@/lib/core/types'
 import { SOURCE_GROUP } from '@/lib/scoring/weights'
 import { NON_COMMERCIAL_TAG, severityFor } from '@/lib/sources/severity'
-import { compareNames } from '@/lib/similarity/score'
+import { compareNames, containsNameAsWord } from '@/lib/similarity/score'
 import { classifyMatch, classifyScan, type Classification } from './classify'
 import { industryRelevance } from './relevance'
 
@@ -43,7 +43,11 @@ function enrichMatch(ctx: ScanContext, scan: Classification, match: Match, legal
   // something enrichment does not. Respect it rather than recomputing over it.
   const severity = match.categories.includes(NON_COMMERCIAL_TAG)
     ? 'low'
-    : severityFor(similarity, { active: match.active ?? true, legallyWeighted })
+    : severityFor(similarity, {
+        active: match.active ?? true,
+        legallyWeighted,
+        contained: containsNameAsWord(ctx.name, match.name),
+      })
 
   return { ...match, similarity, severity }
 }

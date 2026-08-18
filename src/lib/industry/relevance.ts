@@ -20,6 +20,54 @@ import { isUnclassified, type Classification } from './classify'
  * Different sectors is close to unrelated, but not zero: a large brand can
  * assert itself well beyond its own field, so the floor is deliberately above 0.
  */
+/**
+ * Industry pairs that are genuinely adjacent, regardless of sector.
+ *
+ * Sector membership alone is too coarse to carry this. "Software" contains both
+ * security tooling and mobile games, which share nothing commercially — yet a
+ * sector rule rated them 55% related. Meanwhile messaging apps and social
+ * networks sit in different sectors and are obviously neighbours.
+ *
+ * Explicit adjacency states what is actually true instead of inferring it from
+ * a taxonomy shape that was never meant to carry that weight.
+ */
+const RELATED_PAIRS: ReadonlySet<string> = new Set(
+  [
+    ['security', 'devops'],
+    ['security', 'dev_tools'],
+    ['dev_tools', 'devops'],
+    ['dev_tools', 'design_tools'],
+    ['data', 'ai'],
+    ['data', 'devops'],
+    ['communication', 'social'],
+    ['communication', 'productivity'],
+    ['fintech_software', 'banking'],
+    ['fintech_software', 'insurance'],
+    ['healthtech', 'healthcare'],
+    ['edtech', 'education'],
+    ['martech', 'advertising'],
+    ['gaming', 'entertainment'],
+    ['retail', 'marketplace'],
+    ['retail', 'fashion'],
+    ['retail', 'beauty'],
+    ['retail', 'home_goods'],
+    ['food_products', 'restaurant'],
+    ['video', 'entertainment'],
+    ['video', 'social'],
+    ['music', 'entertainment'],
+    ['publishing', 'entertainment'],
+    ['logistics', 'marketplace'],
+    ['real_estate', 'construction'],
+    ['energy', 'manufacturing'],
+    ['automotive', 'manufacturing'],
+    ['telecom', 'communication'],
+  ].map(([a, b]) => `${a}|${b}`),
+)
+
+function areRelated(a: string, b: string): boolean {
+  return RELATED_PAIRS.has(`${a}|${b}`) || RELATED_PAIRS.has(`${b}|${a}`)
+}
+
 function pairRelevance(a: string, b: string): number {
   if (a === b) return 1
 
@@ -27,7 +75,10 @@ function pairRelevance(a: string, b: string): number {
   const nodeB = industryById(b)
   if (nodeA === undefined || nodeB === undefined) return 0
 
-  if (nodeA.sector === nodeB.sector) return 0.55
+  // Explicit adjacency first: these are the pairs a customer could actually
+  // confuse. Merely sharing a broad sector earns far less.
+  if (areRelated(a, b)) return 0.7
+  if (nodeA.sector === nodeB.sector) return 0.35
   return 0.12
 }
 
@@ -78,8 +129,11 @@ export function explainRelevance(a: Classification, b: Classification): string {
   if (nodeA === undefined || nodeB === undefined) return 'No industry overlap found.'
 
   if (best.idA === best.idB) return `Both operate in ${nodeA.label}.`
-  if (nodeA.sector === nodeB.sector) {
+  if (areRelated(best.idA, best.idB)) {
     return `${nodeB.label} and ${nodeA.label} are neighbouring fields.`
+  }
+  if (nodeA.sector === nodeB.sector) {
+    return `${nodeB.label} and ${nodeA.label} share a broad sector but little else.`
   }
   return `${nodeB.label} is unrelated to ${nodeA.label}.`
 }

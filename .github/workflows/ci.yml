@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The quality gate. `npm test` includes the golden dataset, so a change that
+# starts missing real conflicts fails the build rather than merging quietly —
+# which is the whole point of having the dataset (§54).
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests and quality benchmark
+        run: npm test
+
+      - name: Build
+        run: npm run build
+        env:
+          # The build must succeed with no credentials at all. Sources that need
+          # a key report `unable_to_verify` and coverage drops — the product is
+          # designed to degrade, not to break.
+          NEXT_TELEMETRY_DISABLED: '1'

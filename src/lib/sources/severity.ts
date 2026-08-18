@@ -18,6 +18,16 @@ export interface SeverityContext {
    * merely inconvenient — trademarks, and registered company names.
    */
   legallyWeighted?: boolean
+  /**
+   * True when the candidate appears as a whole word inside the match, e.g.
+   * "Vault" within "HashiCorp Vault".
+   *
+   * Length asymmetry crushes the blended similarity for these — "Vault" against
+   * "HashiCorp Vault" scores low purely because most of the second string is
+   * unmatched — yet somebody naming a product "Vault" plainly needs to see it.
+   * Containment is therefore a floor on severity, not a similarity adjustment.
+   */
+  contained?: boolean
 }
 
 /**
@@ -27,6 +37,9 @@ export interface SeverityContext {
  * character into a naming conflict.
  */
 export const NON_COMMERCIAL_TAG = 'non-commercial'
+
+/** Industry relevance at or above which a contained name is worth escalating. */
+const RELATED_INDUSTRY_FLOOR = 50
 
 const NEAR_EXACT = 95
 const STRONG = 80
@@ -65,6 +78,16 @@ export function severityFor(
     if (!related || !legallyWeighted) level = 3
   }
 
-  const adjusted = Math.max(0, level - inactivePenalty)
+  let adjusted = Math.max(0, level - inactivePenalty)
+
+  // Containment sets a floor: `medium` when the field is related and the source
+  // carries legal weight, `low` otherwise. It never lowers an already-higher
+  // reading.
+  if (context.contained === true && active) {
+    const related = industry !== undefined && industry >= RELATED_INDUSTRY_FLOOR
+    const floor = legallyWeighted && related ? 2 : 1
+    adjusted = Math.max(adjusted, floor)
+  }
+
   return (['none', 'low', 'medium', 'high', 'critical'] as const)[adjusted] ?? 'none'
 }

@@ -13,7 +13,7 @@
  */
 import type { ScanContext } from '@/lib/core/scan'
 import { suggestClasses, suggestGoodsAndServices, type NiceClass } from './classes'
-import { JURISDICTION_LABELS, type Jurisdiction } from './provider'
+import type { Jurisdiction } from './provider'
 import { normalize } from '@/lib/similarity/normalize'
 import { phoneticKeys } from '@/lib/similarity/phonetic'
 import { generateVariants } from '@/lib/similarity/variants'

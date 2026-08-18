@@ -187,7 +187,14 @@ export function compareNames(
     visual * OVERALL_WEIGHTS.visual
 
   let overall = nameOnly
-  if (options.industry !== undefined) {
+
+  // An exact match is 100% similar as a name, full stop. Damping it by industry
+  // would show a user "88%" for two identical strings, which reads as a bug.
+  // Industry does its work through severity and through its own reported field,
+  // so it must not also quietly rewrite the similarity figure.
+  const identical = normalize(candidate) === normalize(other)
+
+  if (options.industry !== undefined && !identical) {
     // Industry relevance modulates rather than replaces the name signal: a
     // same-industry match is amplified, an unrelated one is damped, but neither
     // can manufacture or erase a spelling collision on its own.
