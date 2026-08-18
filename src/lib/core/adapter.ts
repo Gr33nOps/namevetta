@@ -164,6 +164,81 @@ export const SOURCE_MANIFEST: Record<SourceId, SourceManifestEntry> = {
       note: 'PyPI asks for considerate use of the JSON API; this is a courtesy ceiling.',
     },
   },
+  crates_io: {
+    id: 'crates_io',
+    label: 'crates.io',
+    runsOn: ['quick', 'deep'],
+    timeoutMs: 8_000,
+    cacheTtlSeconds: 12 * HOUR,
+    baseConfidenceCeiling: 95,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 55,
+      documented: true,
+      note: "crates.io's crawler policy asks for no more than 1 request/second; we hold below it and require an identifying User-Agent on every call.",
+    },
+  },
+  rubygems: {
+    id: 'rubygems',
+    label: 'RubyGems',
+    runsOn: ['quick', 'deep'],
+    timeoutMs: 8_000,
+    cacheTtlSeconds: 12 * HOUR,
+    baseConfidenceCeiling: 95,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 60,
+      documented: false,
+      note: 'RubyGems publishes no hard limit for the read API; this is a courtesy ceiling.',
+    },
+  },
+  nuget: {
+    id: 'nuget',
+    label: 'NuGet',
+    runsOn: ['quick', 'deep'],
+    timeoutMs: 8_000,
+    cacheTtlSeconds: 12 * HOUR,
+    baseConfidenceCeiling: 95,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 60,
+      documented: false,
+      note: 'NuGet publishes no hard limit for the public feed; this is a courtesy ceiling.',
+    },
+  },
+  docker_hub: {
+    id: 'docker_hub',
+    label: 'Docker Hub',
+    runsOn: ['quick', 'deep'],
+    timeoutMs: 8_000,
+    cacheTtlSeconds: 12 * HOUR,
+    baseConfidenceCeiling: 95,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 60,
+      documented: false,
+      note: 'Docker Hub publishes no hard limit for the public read API; this is a courtesy ceiling.',
+    },
+  },
+  homebrew: {
+    id: 'homebrew',
+    label: 'Homebrew',
+    runsOn: ['quick', 'deep'],
+    timeoutMs: 8_000,
+    cacheTtlSeconds: 24 * HOUR,
+    baseConfidenceCeiling: 95,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 60,
+      documented: false,
+      note: 'formulae.brew.sh is a static JSON API with no published limit and no search endpoint, so this probes the exact name plus close variants, the same shape as PyPI.',
+    },
+  },
   youtube: {
     id: 'youtube',
     label: 'YouTube',
@@ -194,6 +269,28 @@ export const SOURCE_MANIFEST: Record<SourceId, SourceManifestEntry> = {
       requestsPerMinute: 18,
       documented: true,
       note: 'Apple documents roughly 20 requests per minute for the iTunes Search API. We hold below it.',
+    },
+  },
+  flathub: {
+    id: 'flathub',
+    label: 'Flathub',
+    runsOn: ['quick', 'deep'],
+    timeoutMs: 10_000,
+    // The app list itself is fetched at most once a day (see the adapter);
+    // this is the cache TTL for the resulting SourceResult, kept shorter
+    // since a specific search outcome is cheaper to recompute than the
+    // download is to repeat.
+    cacheTtlSeconds: 24 * HOUR,
+    // Official id list, but the display name is inferred from the id rather
+    // than published directly — the same epistemic tier as the iTunes Search
+    // API, for the same reason: real and structured, but not a verified name.
+    baseConfidenceCeiling: 75,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 60,
+      documented: false,
+      note: 'Flathub publishes no rate limit for this endpoint; it is fetched at most once a day per process, so this ceiling is never approached in practice.',
     },
   },
   play_store: {

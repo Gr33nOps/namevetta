@@ -66,7 +66,20 @@ export const SOURCE_GROUP: Record<SourceId, ScoreGroup> = {
   github: 'github',
   npm: 'packages',
   pypi: 'packages',
+  crates_io: 'packages',
+  rubygems: 'packages',
+  nuget: 'packages',
+  docker_hub: 'packages',
+  homebrew: 'packages',
   app_store: 'app_store',
+  // Grouped with Apple's App Store rather than given its own weight slot:
+  // both are curated, reviewed software-distribution platforms with real
+  // structured data, unlike Google Play (no public API at all — web-search
+  // discovery, its own separate group at a much lower confidence ceiling).
+  // A dedicated Flathub slot would need redistributing all twelve category
+  // weight tables for a niche desktop-Linux audience; sharing the existing
+  // app_store slot costs nothing and is the more honest fit anyway.
+  flathub: 'app_store',
   play_store: 'play_store',
   youtube: 'youtube',
   socials: 'social',

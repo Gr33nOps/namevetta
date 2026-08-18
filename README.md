@@ -61,16 +61,28 @@ checked part of it", and the report says exactly that.
 | GitHub | Free | 5,000/hr authenticated |
 | npm | Free | Courtesy ceiling |
 | PyPI | Free | No search API — exact + variant probes |
+| crates.io | Free | ~1 req/sec crawler policy; identifying User-Agent required |
+| RubyGems | Free | Courtesy ceiling |
+| NuGet | Free | Courtesy ceiling |
+| Docker Hub | Free | Courtesy ceiling; only the curated `library` namespace counts as exact |
+| Homebrew | Free | No search API — exact + variant probes |
 | App Store (iTunes Search) | Free | ~20 req/min, documented |
+| Flathub | Free | No search API — the ~90 KB app-id list is fetched once/day and searched locally |
 | Wikidata | Zero-dollar | Fair-use limited |
 | SEC EDGAR | Free | Fair-access policy; identifying User-Agent required |
+| Companies House (UK) | Free w/ key | 600 req/5 min; only source with a declared industry code |
 | YouTube | Free tier | Quota units per call |
 | Google Play | Free tier | Web-index discovery only; no official API |
 | Web presence (Tavily) | 1,000 credits/mo | **No credit card required**; 1 request per Deep Check, cached 30 days |
-| Social handles | — | **Manual only** |
+| Social handles (12 platforms) | — | **Manual only** |
 
 Nothing in this project scrapes. Where a source cannot be automated legitimately and
 for free, the product uses a transparent manual workflow instead of guessing.
+
+**F-Droid was evaluated and left out.** Its only structured endpoint is the full
+repository index — about 56 MB, three times larger than the Homebrew index this
+product already judged too big to fetch per scan. There is no lighter-weight search
+API, so it stays out rather than being forced in.
 
 A rate-limited or blocked source can never be reported as clear. It returns
 `unable_to_verify`, scores zero confidence, and drops coverage.
@@ -134,10 +146,15 @@ npm run build     # production build
 
 ## Status
 
-Live and working: the research engine (9 sources), similarity engine, industry
-relevance, scoring with conflict caps, Trademark Assist, Compare Names, persistence
-with per-day quotas, and a 103-case quality benchmark gating CI.
+Live and working: the research engine (18 sources, including five package
+registries beyond npm/PyPI and Flathub for Linux desktop apps), similarity engine, industry
+relevance, scoring with conflict caps, Trademark Assist, Compare Names, the name
+generator (Groq proposes ~30 candidates, every one gets a real Quick Check, exact
+conflicts are discarded, the top 5 survivors are ranked), accounts with
+history/saved names/share links, per-day quotas, AI explanations on Deep Check (Groq,
+grounded against the report's own evidence), a 116-case quality benchmark gating CI,
+security headers, Terms/Privacy, optional Turnstile on signup, optional Sentry error
+tracking, and account data export/deletion.
 
-Not yet built: accounts and history, share links, AI explanations, the pre-screened
-name generator, and three credential-gated sources (web search, Google Play discovery,
-Companies House).
+Not yet built: scoring refinement beyond the caps already in place, and Realtime
+transport for scans that survive navigating away.

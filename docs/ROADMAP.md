@@ -64,14 +64,16 @@ Supabase project  in us-east-1.
 | 6b | Companies House (free API key), with SIC-code industry mapping | **Done** |
 | 6c | Tavily web/Play discovery — last-resort, budget-guarded, never mandatory | **Done** |
 | 7 | Industry relevance: 40-node taxonomy, lexicon classifier, central enrichment | **Done** |
-| 8 | Socials: YouTube verified, everything else manual-link with honest status | |
-| 9 | Viability engine refinement: sub-scores, caps, category tuning | |
-| 10 | AI explanations via Groq behind `LLMProvider`, with grounding validator | |
+| 8 | Socials: YouTube verified, everything else manual-link with honest status | **Done** |
+| 9 | Viability engine refinement: sub-scores, caps, category tuning | **Reviewed** — all 12 weight tables verified to sum to 100 (enforced by test), cap logic and dead-code safety nets checked against the schema invariants; no defect found. Real remaining risk reduction comes from growing the golden dataset (§13), which is what actually surfaces scoring bugs. |
+| 10 | AI explanations via Groq behind `LLMProvider`, with grounding validator | **Done** |
 | 11 | Compare Names — 2–5 names, side-by-side, winner + why | **Done** |
-| 12 | Pre-screened name generation — generate, auto Quick Check, discard failures, return top 5 | |
-| 13 | Golden dataset: 103 labelled cases, false-negative gate in CI | **Done** (grow toward 200/500) |
-| 14 | Production hardening: retries, circuit breakers, RLS tests, Turnstile, Sentry, headers, Terms/Privacy | |
+| 12 | Pre-screened name generation — Groq generates ~30, auto Quick Check, discard exact conflicts, return top 5 | **Done** |
+| 13 | Golden dataset: 116 labelled cases, false-negative gate in CI | **Done** (grow toward 200/500) |
+| 14 | Production hardening: security headers, Terms/Privacy, Turnstile, Sentry, account export/delete | **Done** (retries, backoff and per-source health tracking were already in place from earlier phases) |
 | Later | **Optional** automated trademark module: implement `TrademarkProvider` for USPTO/EUIPO | |
+| 15 | Package registry breadth — crates.io, RubyGems, NuGet, Docker Hub, Homebrew, all in the existing `packages` group alongside npm/PyPI | **Done** |
+| 16 | Source breadth continued — Flathub (grouped with App Store), expanded per-category domain TLDs, 5 more manual-link social platforms. F-Droid evaluated and left out (56 MB index, no lighter search) | **Done** |
 
 Effort freed by dropping automated trademark work is reallocated to phases 5–9 and 11–13 — the digital research quality the product now leads with.
 

@@ -38,6 +38,11 @@ const PLATFORMS: Platform[] = [
   { name: 'Reddit', url: (h) => `https://reddit.com/r/${h}`, weight: 'low' },
   { name: 'Twitch', url: (h) => `https://twitch.tv/${h}`, weight: 'low' },
   { name: 'Threads', url: (h) => `https://threads.net/@${h}`, weight: 'medium' },
+  { name: 'Bluesky', url: (h) => `https://bsky.app/profile/${h}.bsky.social`, weight: 'medium' },
+  { name: 'Mastodon', url: (h) => `https://mastodon.social/@${h}`, weight: 'medium' },
+  { name: 'Substack', url: (h) => `https://${h}.substack.com`, weight: 'low' },
+  { name: 'dev.to', url: (h) => `https://dev.to/${h}`, weight: 'low' },
+  { name: 'GitLab', url: (h) => `https://gitlab.com/${h}`, weight: 'low' },
 ]
 
 export const socialsAdapter: SourceAdapter = {

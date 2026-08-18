@@ -22,20 +22,30 @@ import { normalize } from '@/lib/similarity/normalize'
 const IANA_BOOTSTRAP = 'https://data.iana.org/rdap/dns.json'
 const DOH_ENDPOINT = 'https://cloudflare-dns.com/dns-query'
 
-/** Which TLDs to check, by what the user is naming (§7). */
+/**
+ * Which TLDs to check, by what the user is naming (§7).
+ *
+ * Deliberately targeted rather than exhaustive: domain runs on both Quick and
+ * Deep, so every extra TLD is a real request cost paid on every single scan,
+ * not a one-off. A competitor checking 37 TLDs unconditionally is checking
+ * plenty a restaurant or a finance product will never register — .lol and
+ * .wtf tell a founder nothing useful. Every addition below was checked
+ * against the live IANA RDAP bootstrap first, so none of them silently
+ * degrade to the lower-confidence DNS fallback the way `.ai` does.
+ */
 const TLDS_BY_CATEGORY: Partial<Record<Category, string[]>> = {
-  saas: ['com', 'io', 'ai', 'app', 'dev', 'co'],
-  developer_tool: ['com', 'io', 'dev', 'ai', 'sh', 'app'],
-  mobile_app: ['com', 'app', 'io', 'co'],
-  game: ['com', 'io', 'gg', 'app'],
-  creator_brand: ['com', 'co', 'tv', 'me'],
-  ecommerce: ['com', 'co', 'shop', 'store'],
-  fashion: ['com', 'co', 'shop', 'style'],
-  restaurant: ['com', 'co', 'menu'],
+  saas: ['com', 'io', 'ai', 'app', 'dev', 'co', 'xyz', 'cloud'],
+  developer_tool: ['com', 'io', 'dev', 'ai', 'sh', 'app', 'tech'],
+  mobile_app: ['com', 'app', 'io', 'co', 'xyz'],
+  game: ['com', 'io', 'gg', 'app', 'xyz'],
+  creator_brand: ['com', 'co', 'tv', 'me', 'studio', 'live'],
+  ecommerce: ['com', 'co', 'shop', 'store', 'online'],
+  fashion: ['com', 'co', 'shop', 'style', 'store'],
+  restaurant: ['com', 'co', 'menu', 'online'],
   finance: ['com', 'io', 'co', 'finance'],
   education: ['com', 'org', 'io', 'academy'],
-  business: ['com', 'co', 'io', 'org'],
-  other: ['com', 'io', 'co', 'app'],
+  business: ['com', 'co', 'io', 'org', 'agency', 'digital'],
+  other: ['com', 'io', 'co', 'app', 'xyz', 'site'],
 }
 
 const DEFAULT_TLDS = ['com', 'io', 'co', 'app']

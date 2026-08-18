@@ -10,12 +10,18 @@ import type { SourceAdapter } from '@/lib/core/adapter'
 import type { SourceId } from '@/lib/core/types'
 import { appStoreAdapter } from '@/lib/sources/app_store'
 import { companiesHouseAdapter } from '@/lib/sources/companies_house'
+import { cratesIoAdapter } from '@/lib/sources/crates_io'
+import { dockerHubAdapter } from '@/lib/sources/docker_hub'
 import { domainAdapter } from '@/lib/sources/domain'
 import { edgarAdapter } from '@/lib/sources/edgar'
+import { flathubAdapter } from '@/lib/sources/flathub'
 import { githubAdapter } from '@/lib/sources/github'
+import { homebrewAdapter } from '@/lib/sources/homebrew'
 import { npmAdapter } from '@/lib/sources/npm'
+import { nugetAdapter } from '@/lib/sources/nuget'
 import { playStoreAdapter } from '@/lib/sources/play_store'
 import { pypiAdapter } from '@/lib/sources/pypi'
+import { rubygemsAdapter } from '@/lib/sources/rubygems'
 import { socialsAdapter } from '@/lib/sources/socials'
 import { webAdapter } from '@/lib/sources/web'
 import { wikidataAdapter } from '@/lib/sources/wikidata'
@@ -26,8 +32,14 @@ export const ADAPTERS: Partial<Record<SourceId, SourceAdapter>> = {
   github: githubAdapter,
   npm: npmAdapter,
   pypi: pypiAdapter,
+  crates_io: cratesIoAdapter,
+  rubygems: rubygemsAdapter,
+  nuget: nugetAdapter,
+  docker_hub: dockerHubAdapter,
+  homebrew: homebrewAdapter,
   youtube: youtubeAdapter,
   app_store: appStoreAdapter,
+  flathub: flathubAdapter,
   wikidata: wikidataAdapter,
   edgar: edgarAdapter,
   socials: socialsAdapter,

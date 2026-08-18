@@ -46,13 +46,24 @@ Every source declares how it may be used, and the product holds itself to it.
 | GitHub | Free | 5,000/hr authenticated, 60/hr without | Token strongly recommended |
 | npm | Free | No published limit; courtesy ceiling | |
 | PyPI | Free | Considerate-use request; courtesy ceiling | No search API — exact + variant probes only |
+| crates.io | Free | ~1 req/sec crawler policy, documented | Requires an identifying User-Agent, sent on every outbound request by default |
+| RubyGems | Free | No published limit; courtesy ceiling | |
+| NuGet | Free | No published limit; courtesy ceiling | Exact check and search both go through the search service — `packageid:` is an exact filter within it |
+| Docker Hub | Free | No published limit; courtesy ceiling | Namespaced, not flat — only the curated `library` namespace produces an exact match; a same-named repo under an individual account scores as similar |
+| Homebrew | Free | No published limit; courtesy ceiling | No search API (full index is ~18 MB) — exact + variant probes only. Served from GitHub Pages, whose 404 is HTML, not JSON — handled explicitly rather than assumed |
 | App Store (iTunes Search) | Free | **~20 requests/minute, documented** | Rate-limited, not unmetered. Limiter + cache |
+| Flathub | Free | No published limit; fetched at most once/day per process | No query API — the ~90 KB app-id list (~3,300 apps) is fetched and searched locally, same shape as EDGAR. Display name is inferred from the id's final segment, since Flathub publishes no name field |
 | Wikidata | Zero-dollar | **Fair-use limited**, no published ceiling | Identified UA, self-imposed limit, 429 backoff |
 | SEC EDGAR | Free | Fair-access policy; identifying UA **required** | SEC registrants only — not a US-company database |
 | YouTube | Free tier | 10,000 quota units/day; search.list costs 100 | Exact handle lookup; no search.list spend |
 | Companies House | Free w/ key | 600 requests / 5 minutes | `advanced-search` — exact containment, and the only declared industry signal (SIC) |
 | Tavily (web, Play discovery) | 1,000 credits/month free, **no card** | Metered, budget-guarded | One request per Deep Check; second only where an app store matters |
-| Socials | n/a | **Manual only** | No unauthenticated profile fetching, ever |
+| Socials (12 platforms) | n/a | **Manual only** | No unauthenticated profile fetching, ever |
+
+**F-Droid was evaluated and left out.** Its only structured endpoint is the full
+repository index (~56 MB) — three times larger than Homebrew's, which was already the
+largest index this product accepts fetching per scan. No lighter-weight search exists,
+so it is left out rather than forced in with a slow or wasteful implementation.
 
 **Product Hunt is deliberately not implemented.** It is not a core source unless and
 until we have permission for our intended public-product use, so it does not appear
@@ -110,6 +121,27 @@ Weights are per category (`src/lib/scoring/weights.ts`) and must sum to 100 — 
 **Confidence** — `base_ceiling × health × freshness`. Official first-party APIs ceiling at 95; web-derived inference at 50; manual-only at 30.
 
 **Caps** (§20) — one survives in V1: an exact, major, same-industry business found through web research caps the score at 40. The two trademark caps are gone from the automatic path, because a cap fired from evidence we never gathered would be fabricated.
+
+## AI explanation layer
+
+A second, deliberately separate step after a Deep Check's `complete` event, never inside `runScan` itself — the score and evidence must exist and be correct with the AI provider dead, unconfigured, or out of budget, and keeping the call out of the orchestrator is what makes that true by construction rather than by discipline.
+
+```
+complete event ──► buildDigest(ctx, summary) ──► Groq (LLMProvider) ──► checkGrounding
+                       │                                                    │
+                       │                                          pass ─────┤──► ai_summary event { ready }
+                       │                                          fail ─► retry once ─► fail again ─► { unavailable }
+                       └── token-budgeted, and the closed world of
+                           facts (`Facts`) the answer is checked against
+```
+
+**`buildDigest`** (`src/lib/ai/digest.ts`) compacts a `ScanSummary` to fit a hard token ceiling, dropping the least severe findings first, and simultaneously builds `Facts` — every name, number and source label the model is allowed to mention. This is the same data serialised two ways: one copy is the prompt, the other is the allow-list the answer is checked against.
+
+**`checkGrounding`** (`src/lib/ai/grounding.ts`) rejects a forbidden legal-conclusion phrase, a number absent from `Facts`, or an entity absent from it — checked both as an exact phrase and, for a multi-word phrase, as a set of individually-known words, so a reordering of a real label ("UK Companies House" for "Companies House (UK)") passes while a genuinely invented name does not. A summary that fails twice (one retry, with the mistake named to the model) is dropped, never shown edited.
+
+**Groq** (`src/lib/providers/groq.ts`) is the `LLMProvider` implementation, on `openai/gpt-oss-120b` with `reasoning_effort: 'low'` — a reasoning model given a low effort budget still spends part of its token allowance thinking before it writes, and the default effort was observed, against the live API, to occasionally spend the whole allowance that way and return nothing. Requests are serialised through an in-process queue against Groq's measured 8,000-tokens/minute ceiling (not the 30 RPM/6k TPM the free-tier docs implied), and a monthly `provider_budget` row stops it well short of the real 1,000-requests/day limit.
+
+Only a Deep Check requests one — a five-source Quick Check carries too little evidence to explain, and the explanation must never delay the score arriving.
 
 ## Trademark: the module boundary
 

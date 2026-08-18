@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 
 const BASE = [
   { href: '/', label: 'New Check' },
+  { href: '/generate', label: 'Generate' },
   { href: '/compare', label: 'Compare' },
 ] as const
 

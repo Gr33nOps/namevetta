@@ -110,3 +110,18 @@ export const CompareRequestSchema = z.object({
   scanType: ScanTypeSchema,
 })
 export type CompareRequest = z.infer<typeof CompareRequestSchema>
+
+/**
+ * The name generator (§12): "generate ~30, auto Quick Check, discard
+ * failures, return top 5." No `scanType` — every generated candidate is
+ * researched with a Quick Check, never Deep, since researching thirty names
+ * to Deep-Check depth in one request is neither fast nor within any
+ * reasonable free-tier budget.
+ */
+export const GenerateRequestSchema = z.object({
+  category: CategorySchema,
+  description: z.string().trim().max(MAX_DESCRIPTION_LENGTH).optional(),
+  /** Optional starting point — "names like this one," not a name to check. */
+  seed: CandidateNameSchema.optional(),
+})
+export type GenerateRequest = z.infer<typeof GenerateRequestSchema>
