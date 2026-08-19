@@ -57,7 +57,7 @@ checked part of it", and the report says exactly that.
 
 | Source | Cost | Limit posture |
 |---|---|---|
-| Domains (RDAP + DNS fallback) | Free | Open protocol |
+| Domains, 37 TLDs (RDAP + DNS fallback) | Free | Open protocol; six lookups in flight at a time |
 | GitHub | Free | 5,000/hr authenticated |
 | npm | Free | Courtesy ceiling |
 | PyPI | Free | No search API — exact + variant probes |
@@ -66,6 +66,21 @@ checked part of it", and the report says exactly that.
 | NuGet | Free | Courtesy ceiling |
 | Docker Hub | Free | Courtesy ceiling; only the curated `library` namespace counts as exact |
 | Homebrew | Free | No search API — exact + variant probes |
+| Packagist (PHP) | Free | Search API; namespace is `vendor/package` |
+| Hex (Elixir) | Free | Exact lookup, flat namespace |
+| CRAN (R) | Free | Exact lookup via the crandb mirror |
+| VS Code Marketplace | Free | The gallery query its own front end uses |
+| Firefox Add-ons | Free | Exact slug lookup |
+| Steam | Free | Public store search, no key |
+| itch.io | Free | Subdomain probe; a 302 means the account exists |
+| Maven Central, pub.dev, CocoaPods, Anaconda | Free | Exact lookup |
+| Hackage, Deno, CPAN, Terraform, Snap Store | Free | Exact lookup |
+| WordPress Plugins, F-Droid | Free | Exact lookup |
+| Product Hunt, Dribbble, Behance, Vimeo | Free | Profile probe, HEAD where supported |
+| SoundCloud, Gravatar, Codeberg, Hacker News | Free | Profile probe |
+| X / Twitter, Bitbucket, Linktree, About.me | Free | Profile probe |
+| Flickr, DailyMotion, Slack, Patreon, last.fm | Free | Profile probe |
+| Chocolatey, Go Modules | Free | Package page / registry search |
 | App Store (iTunes Search) | Free | ~20 req/min, documented |
 | Flathub | Free | No search API — the ~90 KB app-id list is fetched once/day and searched locally |
 | Wikidata | Zero-dollar | Fair-use limited |
@@ -182,13 +197,20 @@ are stubbed so the suite can't spend quota or hammer an upstream.
   research depth as a real radio group, and the comparison grid carries table semantics
   so a score is announced with the name and metric it belongs to. Each of these is
   asserted in the Playwright suite rather than checked once by hand.
+- **Every new source is probed before it ships.** A registry is only added once a
+  known-taken and a known-free name produce different answers from it. Instagram,
+  X, TikTok and Threads all return `200 OK` for a handle that does not exist, and
+  GitLab's user API answers `200` either way, so none of them is checked by status
+  and none is reported as free. `exact-probe.ts` carries that rule, and a test
+  pins it: an unexpected 403, 429 or 500 must resolve to `unable_to_verify`,
+  never to a clean result.
 - **`npm run check-sources`** hits every new live endpoint once and checks its response
   shape, on its own daily GitHub Actions schedule (`source-health-check.yml`) — separate
   from the PR-blocking suite, since a live check is inherently flakier than the mocked one.
 
 ## Status
 
-Live and working: the research engine (22 sources, including five package
+Live and working: the research engine (60 sources, including twenty package
 registries beyond npm/PyPI, Flathub for Linux desktop apps, a second and third company
 register beyond Companies House, OpenStreetMap for local businesses, and Bluesky),
 similarity engine, industry relevance, scoring with conflict caps, Trademark Assist,

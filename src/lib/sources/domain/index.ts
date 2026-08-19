@@ -48,6 +48,31 @@ const TLDS_BY_CATEGORY: Partial<Record<Category, string[]>> = {
   other: ['com', 'io', 'co', 'app', 'xyz', 'site'],
 }
 
+/**
+ * Every TLD checked on a scan.
+ *
+ * The category tables above no longer decide *whether* a TLD is checked, only
+ * which ones lead: a founder who picks "SaaS" still wants to know their .co is
+ * gone. So the category list is checked first and the rest follow, and the
+ * report shows them all.
+ *
+ * Thirty-seven lookups is a lot more than the four to eight this used to do.
+ * They run in bounded batches rather than all at once, because thirty-seven
+ * simultaneous RDAP requests from one address is exactly the burst the
+ * per-source rate limiter exists to prevent.
+ */
+const ALL_TLDS = [
+  'com', 'net', 'org', 'io', 'ai', 'co', 'dev',
+  'app', 'xyz', 'tech', 'me', 'info', 'pro', 'page',
+  'run', 'cloud', 'site', 'online', 'live', 'space',
+  'one', 'name', 'design', 'studio', 'store', 'blog',
+  'agency', 'digital', 'world', 'wtf', 'lol', 'tv', 'cc',
+  'ly', 'to', 'fm', 'in',
+]
+
+/** How many RDAP lookups are in flight at once. */
+const TLD_BATCH = 6
+
 const DEFAULT_TLDS = ['com', 'io', 'co', 'app']
 
 interface BootstrapFile {
@@ -228,22 +253,28 @@ export const domainAdapter: SourceAdapter = {
       )
     }
 
-    const tlds = TLDS_BY_CATEGORY[ctx.category] ?? DEFAULT_TLDS
+    // Category first, then everything else, so the most relevant answers land
+    // first and a timeout costs the least useful ones.
+    const preferred = TLDS_BY_CATEGORY[ctx.category] ?? DEFAULT_TLDS
+    const tlds = [...preferred, ...ALL_TLDS.filter((t) => !preferred.includes(t))]
 
-    const checks = await Promise.all(
-      tlds.map(async (tld): Promise<DomainCheck> => {
-        const domain = `${label}.${tld}`
-        const base = bootstrap.get(tld)
-        try {
-          return base === undefined
-            ? await checkViaDns(domain, deps.signal)
-            : await checkViaRdap(domain, base, deps.signal)
-        } catch {
-          // One TLD failing must not lose the answers for the others.
-          return { domain, state: 'unknown', note: `${domain}: lookup failed.` }
-        }
-      }),
-    )
+    const checkOne = async (tld: string): Promise<DomainCheck> => {
+      const domain = `${label}.${tld}`
+      const base = bootstrap.get(tld)
+      try {
+        return base === undefined
+          ? await checkViaDns(domain, deps.signal)
+          : await checkViaRdap(domain, base, deps.signal)
+      } catch {
+        // One TLD failing must not lose the answers for the others.
+        return { domain, state: 'unknown', note: `${domain}: lookup failed.` }
+      }
+    }
+
+    const checks: DomainCheck[] = []
+    for (let i = 0; i < tlds.length; i += TLD_BATCH) {
+      checks.push(...(await Promise.all(tlds.slice(i, i + TLD_BATCH).map(checkOne))))
+    }
 
     deps.log('domain.checked', { tlds: tlds.length })
 

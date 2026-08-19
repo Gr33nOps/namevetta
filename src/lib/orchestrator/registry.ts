@@ -26,6 +26,43 @@ import { osmAdapter } from '@/lib/sources/osm'
 import { playStoreAdapter } from '@/lib/sources/play_store'
 import { pypiAdapter } from '@/lib/sources/pypi'
 import { rubygemsAdapter } from '@/lib/sources/rubygems'
+import { anacondaAdapter } from '@/lib/sources/anaconda'
+import { behanceAdapter } from '@/lib/sources/behance'
+import { cocoapodsAdapter } from '@/lib/sources/cocoapods'
+import { codebergAdapter } from '@/lib/sources/codeberg'
+import { cpanAdapter } from '@/lib/sources/cpan'
+import { denoAdapter } from '@/lib/sources/deno'
+import { dribbbleAdapter } from '@/lib/sources/dribbble'
+import { fdroidAdapter } from '@/lib/sources/f_droid'
+import { gravatarAdapter } from '@/lib/sources/gravatar'
+import { hackageAdapter } from '@/lib/sources/hackage'
+import { hackerNewsAdapter } from '@/lib/sources/hacker_news'
+import { mavenCentralAdapter } from '@/lib/sources/maven_central'
+import { productHuntAdapter } from '@/lib/sources/product_hunt'
+import { pubDevAdapter } from '@/lib/sources/pub_dev'
+import { snapStoreAdapter } from '@/lib/sources/snap_store'
+import { soundcloudAdapter } from '@/lib/sources/soundcloud'
+import { terraformAdapter } from '@/lib/sources/terraform'
+import { vimeoAdapter } from '@/lib/sources/vimeo'
+import { wordpressPluginsAdapter } from '@/lib/sources/wordpress_plugins'
+import { aboutMeAdapter } from '@/lib/sources/about_me'
+import { bitbucketAdapter } from '@/lib/sources/bitbucket'
+import { chocolateyAdapter } from '@/lib/sources/chocolatey'
+import { dailymotionAdapter } from '@/lib/sources/dailymotion'
+import { flickrAdapter } from '@/lib/sources/flickr'
+import { goModulesAdapter } from '@/lib/sources/go_modules'
+import { lastfmAdapter } from '@/lib/sources/lastfm'
+import { linktreeAdapter } from '@/lib/sources/linktree'
+import { patreonAdapter } from '@/lib/sources/patreon'
+import { slackAdapter } from '@/lib/sources/slack'
+import { xTwitterAdapter } from '@/lib/sources/x_twitter'
+import { cranAdapter } from '@/lib/sources/cran'
+import { firefoxAddonsAdapter } from '@/lib/sources/firefox_addons'
+import { hexAdapter } from '@/lib/sources/hex'
+import { itchIoAdapter } from '@/lib/sources/itch_io'
+import { packagistAdapter } from '@/lib/sources/packagist'
+import { steamAdapter } from '@/lib/sources/steam'
+import { vscodeMarketplaceAdapter } from '@/lib/sources/vscode_marketplace'
 import { socialCheckAdapter } from '@/lib/sources/social_check'
 import { socialsAdapter } from '@/lib/sources/socials'
 import { webAdapter } from '@/lib/sources/web'
@@ -49,6 +86,43 @@ export const ADAPTERS: Partial<Record<SourceId, SourceAdapter>> = {
   edgar: edgarAdapter,
   socials: socialsAdapter,
   social_check: socialCheckAdapter,
+  packagist: packagistAdapter,
+  hex: hexAdapter,
+  cran: cranAdapter,
+  vscode_marketplace: vscodeMarketplaceAdapter,
+  firefox_addons: firefoxAddonsAdapter,
+  steam: steamAdapter,
+  itch_io: itchIoAdapter,
+  pub_dev: pubDevAdapter,
+  cocoapods: cocoapodsAdapter,
+  wordpress_plugins: wordpressPluginsAdapter,
+  anaconda: anacondaAdapter,
+  hackage: hackageAdapter,
+  deno: denoAdapter,
+  cpan: cpanAdapter,
+  terraform: terraformAdapter,
+  snap_store: snapStoreAdapter,
+  maven_central: mavenCentralAdapter,
+  codeberg: codebergAdapter,
+  vimeo: vimeoAdapter,
+  gravatar: gravatarAdapter,
+  dribbble: dribbbleAdapter,
+  behance: behanceAdapter,
+  soundcloud: soundcloudAdapter,
+  product_hunt: productHuntAdapter,
+  hacker_news: hackerNewsAdapter,
+  f_droid: fdroidAdapter,
+  x_twitter: xTwitterAdapter,
+  bitbucket: bitbucketAdapter,
+  linktree: linktreeAdapter,
+  about_me: aboutMeAdapter,
+  flickr: flickrAdapter,
+  dailymotion: dailymotionAdapter,
+  slack: slackAdapter,
+  patreon: patreonAdapter,
+  lastfm: lastfmAdapter,
+  chocolatey: chocolateyAdapter,
+  go_modules: goModulesAdapter,
   web: webAdapter,
   play_store: playStoreAdapter,
   companies_house: companiesHouseAdapter,

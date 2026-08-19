@@ -32,7 +32,6 @@ interface Platform {
 
 const PLATFORMS: Platform[] = [
   { name: 'Instagram', url: (h) => `https://instagram.com/${h}`, weight: 'high' },
-  { name: 'X', url: (h) => `https://x.com/${h}`, weight: 'high' },
   { name: 'TikTok', url: (h) => `https://tiktok.com/@${h}`, weight: 'high' },
   { name: 'Reddit', url: (h) => `https://reddit.com/r/${h}`, weight: 'low' },
   { name: 'Twitch', url: (h) => `https://twitch.tv/${h}`, weight: 'low' },
@@ -64,7 +63,7 @@ export const socialsAdapter: SourceAdapter = {
       ),
       makeEvidence(
         'socials',
-        'YouTube, Bluesky, LinkedIn, Substack, Mastodon, dev.to and GitLab are checked properly and reported separately, because each gives a server a clear answer. The platforms left here do not: they return the same response whether or not the handle exists.',
+        'Most platforms are now checked properly and reported separately, X included. The four left here are the ones that genuinely cannot be: Instagram and TikTok return the same response whether or not a handle exists, and Reddit and Twitch refuse a server outright.',
       ),
     )
 

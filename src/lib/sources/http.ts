@@ -30,7 +30,7 @@ export interface HttpOptions {
   /** Abort signal from the orchestrator, carrying the per-source timeout. */
   signal?: AbortSignal
   headers?: Record<string, string>
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'HEAD'
   body?: string
   /** Retry attempts for transient failures. Total tries = retries + 1. */
   retries?: number
