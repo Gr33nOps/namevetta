@@ -1,75 +1,25 @@
-import { SearchForm } from '@/components/SearchForm'
-import { SCOPE_NOTICE } from '@/lib/presentation'
-
-const VALUE_POINTS = [
-  {
-    number: '01',
-    title: 'Similarity-aware',
-    body: 'Finds similar spellings, phonetic matches and confusingly close names, not just exact hits.',
-  },
-  {
-    number: '02',
-    title: 'Evidence-backed',
-    body: 'Every score is explained by real findings. See exactly what was checked and what was found.',
-  },
-  {
-    number: '03',
-    title: 'Honest about gaps',
-    body: 'If a source cannot be verified, the report says so. Silence is never counted as good news.',
-  },
-]
+import { NameSearch } from '@/components/NameSearch'
 
 /**
- * Homepage (§60).
+ * The homepage.
  *
- * Positioned on what the answer is worth rather than how many sites we hit —
- * "we check 25 sources!" is a claim about us, not about the user's decision.
+ * Centred in the viewport rather than sitting at the top with a large empty
+ * band beneath it, which left the footer floating mid-page and made the screen
+ * read as unfinished. `flex-1` on the wrapper claims the space `main` already
+ * has, so the search box lands where the eye goes first.
  */
 export default function Page() {
   return (
-    <div>
-      <section className="pb-20 pt-16 md:pb-24 md:pt-24">
-        <div className="mx-auto w-full max-w-[640px] px-6">
-          <div className="text-center">
-            <h1 className="mb-5 font-display text-4xl font-extrabold leading-[1.05] tracking-tighter text-charcoal md:text-5xl lg:text-[58px]">
-              Research a name
-              <br />
-              <span className="text-accent">before you build on it.</span>
-            </h1>
+    <div className="flex min-h-[calc(100vh-8.5rem)] flex-col items-center justify-center px-5 py-16">
+      <h1 className="mb-8 text-center font-display text-[34px] font-extrabold leading-tight tracking-tight text-charcoal sm:text-[44px]">
+        Is your name taken?
+      </h1>
 
-            <p className="mb-4 text-lg leading-relaxed text-charcoal-2">
-              Check how crowded a name is across domains, code registries, app stores, company
-              registers, social handles and the open web. Evidence-backed, not a row of green
-              checkmarks.
-            </p>
+      <NameSearch autoFocus />
 
-            <p className="mb-10 text-sm text-faint">{SCOPE_NOTICE}</p>
-          </div>
-
-          <SearchForm autoFocus />
-
-          <p className="mt-4 text-center text-sm text-faint">
-            5 Quick Checks and 1 Deep Research per day as a guest, always free
-          </p>
-        </div>
-      </section>
-
-      <section className="border-t border-line bg-surface py-14">
-        <div className="mx-auto w-full max-w-[900px] px-6">
-          <div className="grid gap-8 divide-y divide-line text-center sm:grid-cols-3 sm:gap-6 sm:divide-y-0 sm:divide-x">
-            {VALUE_POINTS.map((item) => (
-              <div
-                key={item.title}
-                className="pt-6 first:pt-0 sm:px-6 sm:pt-0 sm:first:pl-0 sm:last:pr-0"
-              >
-                <span className="font-mono text-xs text-faint">{item.number}</span>
-                <h2 className="mt-1 text-sm font-semibold text-charcoal">{item.title}</h2>
-                <p className="mt-1 text-sm leading-relaxed text-charcoal-2">{item.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <p className="mt-5 text-center text-[13.5px] text-faint">
+        Domains, GitHub, npm, social handles, app stores and more.
+      </p>
     </div>
   )
 }

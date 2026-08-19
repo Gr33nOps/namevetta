@@ -33,7 +33,7 @@ test.describe('theme', () => {
     await page.getByRole('button', { name: /Switch to (light|dark) mode/ }).click()
     const chosen = await page.locator('html').getAttribute('data-theme')
 
-    await page.getByRole('link', { name: 'Methodology' }).first().click()
+    await page.getByRole('link', { name: 'How it works' }).first().click()
     await expect(page).toHaveURL(/\/methodology$/)
     expect(await page.locator('html').getAttribute('data-theme')).toBe(chosen)
   })

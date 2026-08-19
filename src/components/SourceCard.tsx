@@ -45,31 +45,40 @@ function MatchRow({ match }: { match: Match }) {
         <p className="mt-1 text-sm text-charcoal-2">{match.description}</p>
       ) : null}
 
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
-        <div>
-          <dt className="text-faint">Text</dt>
-          <dd className="tabular-nums">{match.similarity.text}%</dd>
-        </div>
-        <div>
-          <dt className="text-faint">Phonetic</dt>
-          <dd className="tabular-nums">{match.similarity.phonetic}%</dd>
-        </div>
-        <div>
-          <dt className="text-faint">Visual</dt>
-          <dd className="tabular-nums">{match.similarity.visual}%</dd>
-        </div>
-        <div>
-          <dt className="text-faint">Industry</dt>
-          {/* Never invent a figure we do not have. */}
-          <dd className="tabular-nums">
-            {match.similarity.industry === undefined ? '–' : `${match.similarity.industry}%`}
-          </dd>
-        </div>
-      </dl>
-
-      {match.categories.length > 0 ? (
-        <p className="mt-2 text-xs text-faint">Type: {match.categories.join(', ')}</p>
-      ) : null}
+      {/*
+        Four percentages per match, three matches to a card, is twelve numbers
+        a person cannot act on. They are the workings behind the severity badge
+        already shown above, so they belong behind the question they answer.
+      */}
+      <details className="mt-2.5">
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-faint marker:content-none hover:text-charcoal-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+          <span aria-hidden="true">▸</span> Why is this similar?
+        </summary>
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
+          <div>
+            <dt className="text-faint">Text</dt>
+            <dd className="tabular-nums">{match.similarity.text}%</dd>
+          </div>
+          <div>
+            <dt className="text-faint">Phonetic</dt>
+            <dd className="tabular-nums">{match.similarity.phonetic}%</dd>
+          </div>
+          <div>
+            <dt className="text-faint">Visual</dt>
+            <dd className="tabular-nums">{match.similarity.visual}%</dd>
+          </div>
+          <div>
+            <dt className="text-faint">Industry</dt>
+            {/* Never invent a figure we do not have. */}
+            <dd className="tabular-nums">
+              {match.similarity.industry === undefined ? '–' : `${match.similarity.industry}%`}
+            </dd>
+          </div>
+        </dl>
+        {match.categories.length > 0 ? (
+          <p className="mt-2 text-xs text-faint">Type: {match.categories.join(', ')}</p>
+        ) : null}
+      </details>
 
       {match.url ? (
         <a
@@ -109,7 +118,13 @@ export function CompactSourceRow({
         <Badge tone={status.tone} glyph={false}>
           {status.label}
         </Badge>
-        <span className="text-xs text-faint">
+        {/*
+          Hidden on a phone. Twelve rows each repeating "95 confidence · just
+          now" was most of the old page's width and all of its noise; the figure
+          still matters to anyone auditing a result, so it stays where there is
+          room for it.
+        */}
+        <span className="hidden text-xs text-faint sm:inline">
           {result.confidence > 0 ? `${result.confidence} confidence` : 'No confidence'} ·{' '}
           {relativeTime(result.checkedAt)}
         </span>
@@ -142,7 +157,7 @@ export function SourceCard({ result }: { result: SourceResult }) {
         </div>
         <div className="flex items-center gap-2">
           <Badge tone={status.tone}>{status.label}</Badge>
-          <span className="text-xs text-faint">
+          <span className="hidden text-xs text-faint sm:inline">
             {result.confidence > 0 ? `${result.confidence} confidence` : 'No confidence'}
             {result.fromCache ? ' · cached' : ''} · {relativeTime(result.checkedAt)}
           </span>
@@ -160,6 +175,32 @@ export function SourceCard({ result }: { result: SourceResult }) {
         <ul className="mt-4 space-y-2">
           {matches.map((m) => (
             <MatchRow key={`${m.externalId}-${m.name}`} match={m} />
+          ))}
+        </ul>
+      ) : result.evidence.length > 0 ? (
+        /*
+          Not every source reports through `Match` objects. The domain check
+          states its finding in evidence, which left its card saying "worth
+          investigating, see the evidence below" above nothing at all, with the
+          actual finding a click away. Show the first few inline: a card that
+          flags a problem should say what the problem is.
+        */
+        <ul className="mt-3 space-y-1.5 text-sm">
+          {result.evidence.slice(0, 3).map((e, i) => (
+            <li key={`${e.label}-${i}`} className="text-charcoal-2">
+              {e.url ? (
+                <a
+                  href={e.url}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="text-accent underline underline-offset-2"
+                >
+                  {e.label}
+                </a>
+              ) : (
+                e.label
+              )}
+            </li>
           ))}
         </ul>
       ) : null}

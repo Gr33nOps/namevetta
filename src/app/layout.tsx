@@ -1,12 +1,11 @@
 import type { Metadata, Viewport } from 'next'
 import Link from 'next/link'
-import { Inter, JetBrains_Mono, Outfit } from 'next/font/google'
+import { Inter, Outfit } from 'next/font/google'
 import { SiteNav } from '@/components/SiteNav'
 import { SCOPE_NOTICE } from '@/lib/presentation'
 import { SITE_URL } from '@/lib/site'
 import './globals.css'
 
-const jetbrains = JetBrains_Mono({ variable: '--font-jetbrains', subsets: ['latin'] })
 // Two typefaces split by role, not by "brand vs body" the way a
 // serif+sans pairing would: Outfit carries the hero headline, page
 // titles and score numerals, where its geometric character is the
@@ -16,7 +15,7 @@ const jetbrains = JetBrains_Mono({ variable: '--font-jetbrains', subsets: ['lati
 const outfit = Outfit({
   variable: '--font-outfit',
   subsets: ['latin'],
-  weight: ['600', '700', '800', '900'],
+  weight: ['700', '800'],
 })
 const inter = Inter({
   variable: '--font-inter',
@@ -80,42 +79,25 @@ const STRUCTURED_DATA = {
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 }
 
-const FOOTER_COLUMNS = [
-  {
-    id: 'footer-product',
-    heading: 'Product',
-    links: [
-      { href: '/', label: 'New Check' },
-      { href: '/generate', label: 'Generate' },
-      { href: '/compare', label: 'Compare' },
-      { href: '/history', label: 'History' },
-    ],
-  },
-  {
-    // Methodology and source status are not legal pages, and filing them
-    // under "Legal" hid the two pages that explain how the score works.
-    id: 'footer-how',
-    heading: 'How it works',
-    links: [
-      { href: '/methodology', label: 'Methodology' },
-      { href: '/status', label: 'Source status' },
-    ],
-  },
-  {
-    id: 'footer-legal',
-    heading: 'Legal',
-    links: [
-      { href: '/terms', label: 'Terms' },
-      { href: '/privacy', label: 'Privacy' },
-    ],
-  },
+/**
+ * One line, not three columns.
+ *
+ * These are the pages a person visits once, if ever. Giving them a grid of
+ * headings implied there was a site to explore; there isn't, there's a search
+ * box and an answer.
+ */
+const FOOTER_LINKS = [
+  { href: '/methodology', label: 'How it works' },
+  { href: '/status', label: 'Source status' },
+  { href: '/privacy', label: 'Privacy' },
+  { href: '/terms', label: 'Terms' },
 ] as const
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html
       lang="en"
-      className={`${outfit.variable} ${inter.variable} ${jetbrains.variable} h-full`}
+      className={`${outfit.variable} ${inter.variable} h-full`}
       suppressHydrationWarning
     >
       <head>
@@ -148,35 +130,17 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         </main>
 
         <footer className="border-t border-line bg-surface print:hidden">
-          <div className="mx-auto w-full max-w-[1200px] px-6 py-10">
-            <div className="flex flex-wrap justify-center gap-x-16 gap-y-8 text-center">
-              {FOOTER_COLUMNS.map((column) => (
-                <div key={column.id}>
-                  <h2
-                    id={column.id}
-                    className="font-mono text-[11px] font-normal uppercase tracking-widest text-faint"
-                  >
-                    {column.heading}
-                  </h2>
-                  <ul aria-labelledby={column.id} className="mt-3 space-y-2 text-sm">
-                    {column.links.map((link) => (
-                      <li key={link.href}>
-                        <Link
-                          href={link.href}
-                          className="rounded text-charcoal-2 transition-colors hover:text-charcoal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-                        >
-                          {link.label}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
-
-            <p className="mt-8 border-t border-line pt-6 text-center text-xs leading-relaxed text-faint">
-              {SCOPE_NOTICE} Nothing here is legal advice.
-            </p>
+          <div className="mx-auto flex w-full max-w-[880px] flex-wrap items-center justify-center gap-x-5 gap-y-2 px-5 py-7 text-center">
+            {FOOTER_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="rounded text-[12.5px] text-faint transition-colors hover:text-charcoal-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                {link.label}
+              </Link>
+            ))}
+            <span className="w-full text-[12px] text-faint">{SCOPE_NOTICE}</span>
           </div>
         </footer>
       </body>

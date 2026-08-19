@@ -34,45 +34,20 @@ test.describe('keyboard access', () => {
     await expect(page.locator('main#content')).toBeVisible()
   })
 
-  test('research depth is a radio group, not a row of toggles', async ({ page }) => {
-    await page.goto('/')
-    await page.getByLabel('Name to research').fill('testname')
-
-    const group = page.getByRole('radiogroup', { name: 'Research depth' })
-    await expect(group).toBeVisible()
-
-    const quick = page.getByRole('radio', { name: /Quick Check/ })
-    const deep = page.getByRole('radio', { name: /Deep Research/ })
-
-    await expect(quick).toHaveAttribute('aria-checked', 'true')
-    await expect(deep).toHaveAttribute('aria-checked', 'false')
-
-    // One tab stop, arrows to move: the pattern a radio group owes a keyboard.
-    await quick.focus()
-    await page.keyboard.press('ArrowRight')
-    await expect(deep).toHaveAttribute('aria-checked', 'true')
-    await expect(deep).toBeFocused()
-
-    await page.keyboard.press('ArrowLeft')
-    await expect(quick).toHaveAttribute('aria-checked', 'true')
-  })
 })
 
 test.describe('landmarks and structure', () => {
-  test('both navigation landmarks are named', async ({ page }) => {
+  test('any navigation landmark is named', async ({ page }) => {
     await page.goto('/')
-    // Two nav elements render (one per breakpoint). Unnamed, a screen reader's
-    // landmark list reads "navigation, navigation".
     for (const nav of await page.locator('nav').all()) {
-      const label = await nav.getAttribute('aria-label')
-      expect(label, 'every nav landmark needs a name').toBeTruthy()
+      expect(await nav.getAttribute('aria-label'), 'every nav landmark needs a name').toBeTruthy()
     }
   })
 
-  test('footer link lists are associated with their headings', async ({ page }) => {
+  test('the footer is one line of links', async ({ page }) => {
     await page.goto('/')
-    for (const heading of ['Product', 'How it works', 'Legal']) {
-      await expect(page.getByRole('list', { name: heading })).toBeVisible()
+    for (const label of ['How it works', 'Source status', 'Privacy', 'Terms']) {
+      await expect(page.getByRole('contentinfo').getByRole('link', { name: label })).toBeVisible()
     }
   })
 

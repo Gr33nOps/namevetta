@@ -1,18 +1,16 @@
 import Link from 'next/link'
-import { ResultsNav } from '@/components/ResultsNav'
-import { ResultsSummary } from '@/components/ResultsSummary'
 import { SaveNameButton } from '@/components/SaveNameButton'
+import { ScoreBreakdown } from '@/components/ScoreBreakdown'
 import { ScoreHeadline } from '@/components/ScoreHeadline'
 import { TrademarkAssist } from '@/components/TrademarkAssist'
 import { CompactSourceRow, isRetryable, SourceCard } from '@/components/SourceCard'
 import { Badge } from '@/components/ui/Badge'
 import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import { CATEGORY_LABELS, type ScanContext } from '@/lib/core/scan'
-import { isVerified, type SourceId } from '@/lib/core/types'
+import { isVerified, type SourceId, type SourceResult } from '@/lib/core/types'
 import type { AiSummaryEvent, ScanSummary } from '@/lib/orchestrator/run'
 import { SCOPE_NOTICE } from '@/lib/presentation'
 import { oldest, relativeTime } from '@/lib/relativeTime'
-import { GROUP_LABELS, SOURCE_GROUP, type ScoreGroup } from '@/lib/scoring/weights'
 
 /**
  * Where a wrong report goes.
@@ -29,24 +27,60 @@ import { GROUP_LABELS, SOURCE_GROUP, type ScoreGroup } from '@/lib/scoring/weigh
  */
 const FEEDBACK_URL = 'https://github.com/Gr33nOps/NameVetta/issues/new'
 
-/** Statuses compact enough to collapse into a single-line row by default. */
-const COMPACT_STATUSES = new Set(['no_conflict', 'unable_to_verify'])
-
-function groupId(group: ScoreGroup): string {
-  return `group-${group}`
-}
-
 /** A completed scan plus the request that produced it. */
 export interface ReportData extends ScanSummary {
   context: ScanContext
 }
 
+/** A collapsible block. Shared so every fold on the page behaves identically. */
+function Fold({
+  title,
+  meta,
+  open = false,
+  children,
+}: {
+  title: string
+  meta?: React.ReactNode
+  open?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <details open={open} className="rounded-2xl border border-line bg-surface">
+      <summary className="flex cursor-pointer list-none items-center gap-2.5 px-5 py-3.5 text-[14.5px] font-semibold text-charcoal marker:content-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+        <span aria-hidden="true" className="text-[11px] text-faint">
+          ▸
+        </span>
+        {title}
+        {meta === undefined ? null : (
+          <span className="ml-auto text-[12.5px] font-normal text-faint">{meta}</span>
+        )}
+      </summary>
+      <div className="border-t border-line px-5 py-4">{children}</div>
+    </details>
+  )
+}
+
+function SectionHead({ title, count }: { title: string; count?: number }) {
+  return (
+    <div className="mb-3 flex items-baseline gap-2.5">
+      <h2 className="font-display text-[17px] font-bold tracking-tight text-charcoal">{title}</h2>
+      {count === undefined ? null : <span className="text-[12.5px] text-faint">{count}</span>}
+    </div>
+  )
+}
+
 /**
  * The results page (§59).
  *
- * Ordered so the caveats arrive before the reassurance: anything unverified is
- * listed at the top, ahead of the per-source detail, so a user skimming the page
- * cannot miss that part of the research did not complete.
+ * Ordered by what a person needs, in the order they need it: the answer, then
+ * anything that needs a decision, then anything that could not be established,
+ * then everything that was fine, then the arithmetic, then trademark.
+ *
+ * Nothing here is dropped. The twelve identical "Clear" rows the old layout
+ * printed in full, each repeating its confidence and timestamp, are folded into
+ * one line that opens; the score breakdown and the trademark workflow are whole
+ * and one click away. What changed is that a page about whether a name is taken
+ * now leads with the parts that say it might be.
  */
 export function Report({
   scan,
@@ -58,30 +92,26 @@ export function Report({
   /**
    * Undefined means "not applicable or not arrived yet" — Quick Check never
    * requests one, and a Deep Check's explanation streams in a moment after
-   * the score. Both look identical here: the section simply isn't rendered
-   * until there's something to show, never a placeholder or a spinner that
-   * could imply the score itself is still pending.
+   * the score.
    */
   aiSummary?: AiSummaryEvent
-  /** Omitted where retry isn't wired up — there is only one call site today. */
   onRetrySource?: (source: SourceId) => void
   retryingSources?: ReadonlySet<SourceId>
 }) {
   const { context, results, viability, coverage } = scan
 
+  const flagged = results.filter(
+    (r) => r.status === 'similar_found' || r.status === 'confirmed_conflict',
+  )
   const unverified = results.filter((r) => !isVerified(r.status))
+  const cleared = results.filter((r) => r.status === 'no_conflict')
   const retryableUnverified = unverified.filter(isRetryable)
   const oldestChecked = oldest(results.filter((r) => isVerified(r.status)).map((r) => r.checkedAt))
-  const byGroup = new Map<ScoreGroup, typeof results>()
-  for (const r of results) {
-    const group = SOURCE_GROUP[r.source]
-    const bucket = byGroup.get(group)
-    if (bucket === undefined) byGroup.set(group, [r])
-    else bucket.push(r)
-  }
+
+  const label = (r: SourceResult): string => SOURCE_MANIFEST[r.source].label
 
   return (
-    <div className="mx-auto w-full max-w-[900px] space-y-6 px-6 py-10">
+    <div className="mx-auto w-full max-w-[880px] space-y-4 px-5 py-10">
       <ScoreHeadline
         name={context.name}
         description={context.description}
@@ -90,126 +120,117 @@ export function Report({
         results={results}
       />
 
-      <div className="space-y-2">
-        <p className="text-sm text-charcoal-2">
-          Researched as{' '}
-          <strong className="font-medium">{CATEGORY_LABELS[context.category]}</strong> ·{' '}
-          {context.scanType === 'deep' ? 'Deep Research' : 'Quick Check'}
-          {oldestChecked !== undefined ? ` · oldest finding ${relativeTime(oldestChecked)}` : null}
-        </p>
-        <ResultsSummary results={results} />
-      </div>
+      <p className="px-1 text-[13px] text-faint">
+        Researched as <span className="text-charcoal-2">{CATEGORY_LABELS[context.category]}</span> ·{' '}
+        {context.scanType === 'deep' ? 'Deep Research' : 'Quick Check'}
+        {oldestChecked === undefined ? null : ` · oldest finding ${relativeTime(oldestChecked)}`}
+      </p>
 
       {aiSummary?.status === 'ready' ? (
-        <section className="rounded-xl border border-line bg-surface p-5">
-          <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
-            AI summary, generated from the evidence above
-          </p>
-          <p className="mt-2 text-sm leading-relaxed text-charcoal">{aiSummary.text}</p>
+        <section className="rounded-2xl border border-accent-border bg-accent-soft p-5">
+          <p className="text-[15px] leading-relaxed text-charcoal">{aiSummary.text}</p>
           <p className="mt-3 text-xs text-faint">
-            Written by an AI model from the findings in this report only. Not legal advice, and not
-            a substitute for reading the evidence yourself.
+            Written by an AI model from the findings on this page only. Not legal advice, and not a
+            substitute for reading the evidence yourself.
           </p>
         </section>
       ) : context.scanType === 'deep' && aiSummary === undefined ? (
-        // Only a Deep Check ever requests one, so this is the one case where
-        // "not here yet" (rather than "never coming") is worth signalling —
-        // it usually resolves within a few seconds of the score appearing.
-        <section className="flex items-center gap-2 rounded-xl border border-line bg-surface px-5 py-4 text-sm text-charcoal-2">
+        <section className="flex items-center gap-2 rounded-2xl border border-line bg-surface px-5 py-4 text-sm text-charcoal-2">
           <span
             aria-hidden="true"
             className="h-3 w-3 animate-spin rounded-full border-2 border-line-strong border-t-accent"
           />
-          Writing an AI summary of these findings…
+          Writing a summary of these findings…
         </section>
       ) : null}
 
-      {unverified.length > 0 ? (
-        <section className="rounded-xl border border-unknown/30 bg-unknown-soft p-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h2 className="font-semibold text-unknown">
-                {unverified.length} {unverified.length === 1 ? 'check' : 'checks'} did not complete
-              </h2>
-              <p className="mt-1 text-sm text-unknown/90">
-                These are not evidence that the name is free. Nothing below accounts for them.
-              </p>
-            </div>
-            {onRetrySource !== undefined && retryableUnverified.length > 0 ? (
-              <button
-                type="button"
-                onClick={() => retryableUnverified.forEach((r) => onRetrySource(r.source))}
-                disabled={retryableUnverified.every((r) => retryingSources?.has(r.source) ?? false)}
-                className="flex-shrink-0 rounded-lg border border-unknown/40 px-3 py-1.5 text-sm font-medium text-unknown transition hover:bg-unknown/10 disabled:cursor-wait disabled:opacity-60 print:hidden"
-              >
-                Retry {retryableUnverified.length === 1 ? 'this check' : `all ${retryableUnverified.length}`}
-              </button>
-            ) : null}
-          </div>
-          <ul className="mt-3 flex flex-wrap gap-2">
-            {/* Source labels, not group labels: five sources share the "web"
-                group, and repeating the group name five times reads like a bug
-                rather than telling the user which checks are actually missing. */}
-            {unverified.map((r) => (
-              <li key={r.source}>
-                <Badge tone="unknown">{SOURCE_MANIFEST[r.source].label}</Badge>
-              </li>
+      {/* ── 1. what needs a decision ─────────────────────────────────────── */}
+      <section>
+        <SectionHead title="Needs your attention" count={flagged.length} />
+        {flagged.length === 0 ? (
+          <p className="rounded-2xl border border-line bg-surface px-5 py-4 text-[14px] text-charcoal-2">
+            Nothing came back as a conflict or a close match.
+          </p>
+        ) : (
+          <div className="grid gap-3">
+            {flagged.map((r) => (
+              <SourceCard key={r.source} result={r} />
             ))}
-          </ul>
-        </section>
-      ) : null}
-
-      <TrademarkAssist context={context} />
-
-      <section className="space-y-6">
-        <h2 className="text-xl font-semibold">Findings by source</h2>
-
-        <ResultsNav
-          items={[...byGroup.entries()].map(([group, groupResults]) => ({
-            id: groupId(group),
-            label: GROUP_LABELS[group],
-            count: groupResults.length,
-          }))}
-        />
-
-        {[...byGroup.entries()].map(([group, groupResults]) => {
-          const flagged = groupResults.filter((r) => !COMPACT_STATUSES.has(r.status))
-          const compact = groupResults.filter((r) => COMPACT_STATUSES.has(r.status))
-
-          return (
-            <div key={group} id={groupId(group)} className="scroll-mt-28 space-y-3">
-              <h3 className="text-sm font-medium uppercase tracking-wide text-faint">
-                {GROUP_LABELS[group]}
-              </h3>
-
-              {flagged.length > 0 ? (
-                <div className="grid gap-3">
-                  {flagged.map((r) => (
-                    <SourceCard key={r.source} result={r} />
-                  ))}
-                </div>
-              ) : null}
-
-              {compact.length > 0 ? (
-                <div className="divide-y divide-line rounded-xl border border-line bg-surface px-4">
-                  {compact.map((r) => (
-                    <CompactSourceRow
-                      key={r.source}
-                      result={r}
-                      {...(onRetrySource === undefined ? {} : { onRetry: onRetrySource })}
-                      retrying={retryingSources?.has(r.source) ?? false}
-                    />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-          )
-        })}
+          </div>
+        )}
       </section>
 
-      <section className="rounded-xl border border-line bg-surface p-5 print:hidden">
-        <h2 className="font-semibold">Next steps</h2>
-        <div className="mt-3 flex flex-wrap gap-2">
+      {/* ── 2. what could not be established ─────────────────────────────── */}
+      {unverified.length > 0 ? (
+        <section>
+          <SectionHead title="Couldn't be checked" count={unverified.length} />
+          <div className="rounded-2xl border border-unknown/30 bg-unknown-soft p-5">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <p className="max-w-[52ch] text-[14px] text-unknown">
+                These are not evidence that the name is free. Nothing above accounts for them.
+              </p>
+              {onRetrySource !== undefined && retryableUnverified.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => retryableUnverified.forEach((r) => onRetrySource(r.source))}
+                  disabled={retryableUnverified.every((r) => retryingSources?.has(r.source) ?? false)}
+                  className="flex-shrink-0 rounded-lg border border-unknown/40 px-3 py-1.5 text-sm font-medium text-unknown transition hover:bg-unknown/10 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent print:hidden"
+                >
+                  Try {retryableUnverified.length === 1 ? 'it' : 'them'} again
+                </button>
+              ) : null}
+            </div>
+            <ul className="mt-3 flex flex-wrap gap-2">
+              {unverified.map((r) => (
+                <li key={r.source}>
+                  <Badge tone="unknown">{label(r)}</Badge>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      ) : null}
+
+      {/* ── 3. everything that was fine ──────────────────────────────────── */}
+      {cleared.length > 0 ? (
+        <Fold
+          title={`${cleared.length} ${cleared.length === 1 ? 'place is' : 'places are'} clear`}
+          meta={cleared
+            .slice(0, 4)
+            .map(label)
+            .join(', ')
+            .concat(cleared.length > 4 ? ` and ${cleared.length - 4} more` : '')}
+        >
+          <div className="divide-y divide-line">
+            {cleared.map((r) => (
+              <CompactSourceRow key={r.source} result={r} />
+            ))}
+          </div>
+        </Fold>
+      ) : null}
+
+      {/* ── 4. the arithmetic ────────────────────────────────────────────── */}
+      <Fold
+        title="How the score was worked out"
+        meta={`${viability.groups.filter((g) => g.weight > 0).length} groups, weighted for this category`}
+      >
+        <ScoreBreakdown viability={viability} coverage={coverage} results={results} />
+      </Fold>
+
+      {/* ── 5. a separate job, for later ─────────────────────────────────── */}
+      <Fold title="Trademark search" meta="Not included in the score">
+        <TrademarkAssist context={context} />
+      </Fold>
+
+      {/* ── 6. what next ─────────────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-line bg-surface p-5 print:hidden">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+          <Link
+            href="/"
+            className="rounded-xl bg-accent px-5 py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            Check another name
+          </Link>
           <SaveNameButton
             name={context.name}
             category={context.category}
@@ -217,40 +238,32 @@ export function Report({
           />
           <Link
             href="/compare"
-            className="rounded-lg border border-line-strong px-3 py-2 text-sm transition hover:border-accent hover:text-accent"
+            className="text-[13.5px] text-charcoal-2 underline decoration-line-strong underline-offset-4 hover:text-charcoal"
           >
             Compare with another name
           </Link>
           <Link
             href="/history"
-            className="rounded-lg border border-line-strong px-3 py-2 text-sm transition hover:border-accent hover:text-accent"
+            className="text-[13.5px] text-charcoal-2 underline decoration-line-strong underline-offset-4 hover:text-charcoal"
           >
-            View history
-          </Link>
-          <Link
-            href="/"
-            className="rounded-lg border border-line-strong px-3 py-2 text-sm transition hover:border-accent hover:text-accent"
-          >
-            Check another name
+            History
           </Link>
           <button
             type="button"
             onClick={() => window.print()}
-            className="rounded-lg border border-line-strong px-3 py-2 text-sm transition hover:border-accent hover:text-accent"
+            className="text-[13.5px] text-charcoal-2 underline decoration-line-strong underline-offset-4 hover:text-charcoal"
           >
             Print or save as PDF
           </button>
         </div>
-        <p className="mt-4 text-xs text-faint">
+
+        <p className="mt-5 border-t border-line pt-4 text-xs leading-relaxed text-faint">
           {SCOPE_NOTICE} Scoring version {viability.scoringVersion}. Every figure above is derived
           from the evidence shown. Nothing is inferred beyond it. See the full{' '}
           <Link href="/methodology" className="text-accent underline underline-offset-2">
             methodology
           </Link>
-          .
-        </p>
-        <p className="mt-3 text-xs text-faint">
-          Something here look wrong?{' '}
+          . Something here look wrong?{' '}
           <a
             href={`${FEEDBACK_URL}?title=${encodeURIComponent(`Report feedback (scoring ${viability.scoringVersion})`)}`}
             target="_blank"
@@ -259,8 +272,7 @@ export function Report({
           >
             Tell us what it got wrong
           </a>
-          . Nothing about your search is attached, so include whatever detail you&rsquo;re happy to
-          share.
+          . Nothing about your search is attached.
         </p>
       </section>
     </div>

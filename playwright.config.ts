@@ -31,6 +31,18 @@ export default defineConfig({
   retries: process.env.CI !== undefined ? 1 : 0,
   reporter: process.env.CI !== undefined ? 'github' : 'list',
 
+  /**
+   * Ceilings, so a stuck run fails instead of burning the runner.
+   *
+   * There were none, and a job that normally finishes in under four minutes
+   * sat past eleven with nothing to show for it. A suite this size has no
+   * legitimate reason to run long; failing fast turns a silent stall into a
+   * result somebody can read.
+   */
+  timeout: 30_000,
+  globalTimeout: 8 * 60_000,
+  expect: { timeout: 5_000 },
+
   use: {
     // `localhost`, not `127.0.0.1`: Next 16's dev server rejects asset requests
     // from an origin it doesn't recognise, and the numeric form comes back 403

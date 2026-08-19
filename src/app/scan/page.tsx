@@ -1,53 +1,27 @@
-import Link from 'next/link'
-import { ScanRunner } from '@/components/ScanRunner'
-import { ScanContextSchema } from '@/lib/core/scan'
+import { permanentRedirect } from 'next/navigation'
 
-// A results page for one query string. Nothing here is a destination a search
-// engine should hold on to, and the name being researched is the user's, not
-// ours to publish.
-export const metadata = {
-  title: 'Researching | NameVetta',
-  robots: { index: false, follow: false },
-}
+export const dynamic = 'force-dynamic'
 
 /**
- * The scan route.
+ * The old results URL.
  *
- * Phase 1 carries the request in the query string because there is no database
- * yet. Phase 4 moves this to `/scan/[id]` backed by a `scans` row, at which
- * point this page reads the row instead of the params — `ScanRunner` and the
- * report do not change.
+ * Kept as a redirect rather than deleted: `/scan?name=…` was shareable, so
+ * links to it exist outside this codebase and breaking them would be a
+ * self-inflicted 404. Category and depth carry across where they were set.
  */
 export default async function Page({ searchParams }: PageProps<'/scan'>) {
   const params = await searchParams
+  const first = (v: string | string[] | undefined): string | undefined =>
+    Array.isArray(v) ? v[0] : v
 
-  const first = (value: string | string[] | undefined): string | undefined =>
-    Array.isArray(value) ? value[0] : value
+  const name = first(params.name)?.trim()
+  if (name === undefined || name === '') permanentRedirect('/')
 
-  const description = first(params.description)
-  const parsed = ScanContextSchema.safeParse({
-    name: first(params.name),
-    category: first(params.category),
-    scanType: first(params.type),
-    ...(description === undefined || description.trim() === '' ? {} : { description }),
-  })
+  const query = new URLSearchParams()
+  const category = first(params.category)
+  if (category !== undefined && category !== '') query.set('as', category)
+  if (first(params.type) === 'deep') query.set('deep', '1')
 
-  if (!parsed.success) {
-    return (
-      <div className="mx-auto mt-14 w-full max-w-[520px] rounded-xl border border-line bg-surface p-6 text-center">
-        <h1 className="font-display text-xl font-semibold">That search request was not valid</h1>
-        <p className="mt-2 text-sm text-charcoal-2">
-          {parsed.error.issues[0]?.message ?? 'Please try again from the homepage.'}
-        </p>
-        <Link
-          href="/"
-          className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
-        >
-          Start a new search
-        </Link>
-      </div>
-    )
-  }
-
-  return <ScanRunner context={parsed.data} />
+  const suffix = query.size === 0 ? '' : `?${query.toString()}`
+  permanentRedirect(`/n/${encodeURIComponent(name)}${suffix}`)
 }

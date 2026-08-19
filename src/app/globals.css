@@ -22,7 +22,10 @@
 */
 @theme {
   --font-sans: var(--font-inter), system-ui, sans-serif;
-  --font-mono: var(--font-jetbrains), ui-monospace, monospace;
+  /* The webfont was dropped: it carried small uppercase labels that the
+     redesign removed. Anything still using `font-mono` falls back to the
+     system's, which costs nothing to download. */
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-display: var(--font-outfit), system-ui, sans-serif;
 
   --color-canvas: var(--nv-canvas);

@@ -1,5 +1,7 @@
 'use client'
 
+import Link from 'next/link'
+
 import { useEffect, useMemo, useReducer } from 'react'
 import { Report, type ReportData } from '@/components/Report'
 import { Badge } from '@/components/ui/Badge'
@@ -18,6 +20,8 @@ interface State {
   summary: ScanSummary | undefined
   aiSummary: AiSummaryEvent | undefined
   error: string | undefined
+  /** True when the refusal was about the daily allowance, not a failure. */
+  outOfChecks: boolean
   scanId: string | undefined
   retrying: Set<SourceId>
   retryError: string | undefined
@@ -29,7 +33,7 @@ type Action =
   | { type: 'source'; result: SourceResult }
   | { type: 'complete'; summary: ScanSummary }
   | { type: 'ai_summary'; summary: AiSummaryEvent }
-  | { type: 'error'; message: string }
+  | { type: 'error'; message: string; outOfChecks?: boolean }
   | { type: 'retry_start'; source: SourceId }
   | { type: 'retry_done'; source: SourceId; summary: ScanSummary }
   | { type: 'retry_failed'; source: SourceId; message: string }
@@ -42,6 +46,7 @@ function reducer(state: State, action: Action): State {
         summary: undefined,
         aiSummary: undefined,
         error: undefined,
+        outOfChecks: false,
         scanId: undefined,
         retrying: new Set(),
         retryError: undefined,
@@ -58,7 +63,7 @@ function reducer(state: State, action: Action): State {
     case 'ai_summary':
       return { ...state, aiSummary: action.summary }
     case 'error':
-      return { ...state, error: action.message }
+      return { ...state, error: action.message, outOfChecks: action.outOfChecks ?? false }
     case 'retry_start': {
       const retrying = new Set(state.retrying)
       retrying.add(action.source)
@@ -93,6 +98,7 @@ export function ScanRunner({ context }: { context: ScanContext }) {
     summary: undefined,
     aiSummary: undefined,
     error: undefined,
+    outOfChecks: false,
     scanId: undefined,
     retrying: new Set<SourceId>(),
     retryError: undefined,
@@ -123,7 +129,11 @@ export function ScanRunner({ context }: { context: ScanContext }) {
           .json()
           .then((b: { error?: string }) => b.error)
           .catch(() => undefined)
-        dispatch({ type: 'error', message: message ?? 'The scan could not be started.' })
+        dispatch({
+          type: 'error',
+          message: message ?? 'The scan could not be started.',
+          outOfChecks: response.status === 429,
+        })
         return
       }
 
@@ -212,6 +222,24 @@ export function ScanRunner({ context }: { context: ScanContext }) {
 
   if (state.error !== undefined) {
     return (
+      state.outOfChecks ? (
+        // Running out is not a failure, and dressing it in red as one makes a
+        // normal daily limit look like something broke. It is also the first
+        // moment an account is worth anything to this person, which is why it
+        // is the only place the product mentions one.
+        <section className="mx-auto w-full max-w-[440px] px-6 py-20 text-center">
+          <h1 className="font-display text-2xl font-bold tracking-tight text-charcoal">
+            That&rsquo;s your checks for today
+          </h1>
+          <p className="mt-2.5 text-[15px] text-charcoal-2">{state.error}</p>
+          <Link
+            href="/auth"
+            className="mt-6 inline-block rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            Sign in for more
+          </Link>
+        </section>
+      ) : (
       <section className="mx-auto w-full max-w-[520px] rounded-xl border border-danger/20 bg-danger-soft p-6 px-6 py-10 text-center">
         <h1 className="font-semibold text-danger">The scan could not complete</h1>
         <p className="mt-2 text-sm text-danger/90">{state.error}</p>
@@ -223,6 +251,7 @@ export function ScanRunner({ context }: { context: ScanContext }) {
           Try again
         </button>
       </section>
+      )
     )
   }
 
