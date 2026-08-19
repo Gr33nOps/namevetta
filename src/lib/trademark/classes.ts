@@ -78,7 +78,7 @@ const CATEGORY_CLASSES: Record<Category, { code: string; rationale: string }[]> 
     { code: '009', rationale: 'Relevant if you sell software or digital goods.' },
   ],
   fashion: [
-    { code: '025', rationale: 'Clothing, footwear and headwear — the core apparel class.' },
+    { code: '025', rationale: 'Clothing, footwear and headwear: the core apparel class.' },
     { code: '018', rationale: 'Bags and leather goods, if part of the range.' },
     { code: '035', rationale: 'Retail services for the products themselves.' },
   ],

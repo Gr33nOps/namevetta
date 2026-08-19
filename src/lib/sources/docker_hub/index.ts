@@ -128,7 +128,7 @@ export const dockerHubAdapter: SourceAdapter = {
         makeEvidence('docker_hub', `Searched repositories for names similar to "${pkg}"`),
         makeEvidence(
           'docker_hub',
-          'Only the curated `library` namespace counts as an exact conflict here — a same-named repository under an individual account does not claim the name itself.',
+          'Only the curated `library` namespace counts as an exact conflict here. A same-named repository under an individual account does not claim the name itself.',
         ),
       )
     } catch {

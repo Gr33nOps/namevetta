@@ -148,7 +148,7 @@ export const wikidataAdapter: SourceAdapter = {
         evidence: [
           makeEvidence(
             'wikidata',
-            description === '' ? `Wikidata entry "${label}"` : `${label} — ${description}`,
+            description === '' ? `Wikidata entry "${label}"` : `${label}: ${description}`,
             url,
           ),
         ],

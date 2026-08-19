@@ -132,7 +132,7 @@ export const githubAdapter: SourceAdapter = {
           evidence: [
             makeEvidence(
               'github',
-              `${repo.full_name} — ${repo.stargazers_count} stars`,
+              `${repo.full_name} (${repo.stargazers_count} stars)`,
               repo.html_url,
             ),
           ],

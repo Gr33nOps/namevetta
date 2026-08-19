@@ -86,7 +86,7 @@ export function ComparisonTable({
       >
         {tooCloseToCall ? (
           <>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-faint">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
               Too close to call
             </p>
             <h2 className="mt-2 font-display text-2xl font-semibold sm:text-3xl">
@@ -97,7 +97,7 @@ export function ComparisonTable({
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-widest opacity-70">
+              <p className="font-mono text-[11px] uppercase tracking-widest opacity-70">
                 Strongest candidate
               </p>
               <h2 className="mt-1 font-display text-3xl font-semibold sm:text-4xl">{winner}</h2>
@@ -127,14 +127,14 @@ export function ComparisonTable({
             className="grid border-b border-line bg-muted-bg"
             style={{ gridTemplateColumns: `minmax(140px, 180px) repeat(${candidates.length}, 1fr)` }}
           >
-            <div className="p-3 font-mono text-[10px] uppercase tracking-widest text-faint">
+            <div className="p-3 font-mono text-[11px] uppercase tracking-widest text-faint">
               Metric
             </div>
             {candidates.map((c) => (
               <div key={c.name} className="border-l border-line p-3">
                 <span className="font-medium">{c.name}</span>
                 {c.name === winner ? (
-                  <span className="ml-1.5 rounded-full bg-accent/10 px-1.5 py-0.5 font-mono text-[10px] text-accent">
+                  <span className="ml-1.5 rounded-full bg-accent/10 px-1.5 py-0.5 font-mono text-[11px] text-accent">
                     #1
                   </span>
                 ) : null}
@@ -185,11 +185,11 @@ export function ComparisonTable({
               muted
               render={(c) => {
                 const cell = c.groups.find((x) => x.group === g.group)
-                // An em dash, never a zero: a group with no usable answer was
+                // An en dash, never a zero: a group with no usable answer was
                 // not checked, and showing 0 would read as a failure.
                 return cell?.subscore === null || cell === undefined ? (
                   <span className="text-faint" title="Not checked">
-                    —
+                    –
                   </span>
                 ) : (
                   <span className="font-mono">{cell.subscore}</span>
@@ -206,7 +206,7 @@ export function ComparisonTable({
           <article key={c.name} className="rounded-2xl border border-line bg-surface p-5">
             <div className="flex items-start justify-between gap-2">
               <div>
-                <h3 className="font-display text-lg font-semibold">{c.name}</h3>
+                <h3 className="text-lg font-semibold">{c.name}</h3>
                 <p className="mt-0.5 text-xs text-faint">Rank #{c.rank}</p>
               </div>
               <span className="font-mono text-2xl font-bold">{c.score}</span>

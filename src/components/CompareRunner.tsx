@@ -144,9 +144,7 @@ export function CompareRunner() {
   if (phase.kind === 'error') {
     return (
       <div className="rounded-xl border border-danger/20 bg-danger-soft p-6 text-center">
-        <h2 className="font-display text-xl font-semibold text-danger">
-          The comparison could not complete
-        </h2>
+        <h2 className="text-xl font-semibold text-danger">The comparison could not complete</h2>
         <p className="mt-2 text-sm text-danger/90">{phase.message}</p>
         <button
           type="button"
@@ -163,7 +161,7 @@ export function CompareRunner() {
     const filled = names.map((n) => n.trim()).filter((n) => n !== '')
     return (
       <div aria-live="polite" aria-busy="true" className="rounded-xl border border-line bg-surface p-6">
-        <h2 className="font-display text-xl font-semibold">Researching {filled.length} names</h2>
+        <h2 className="text-xl font-semibold">Researching {filled.length} names</h2>
         <p className="mt-1 text-sm text-charcoal-2">
           Each name is researched separately, one at a time, so we stay within every source&rsquo;s
           rate limit.
@@ -201,8 +199,8 @@ export function CompareRunner() {
 
   return (
     <form onSubmit={submit}>
-      <fieldset>
-        <legend className="font-mono text-[10px] uppercase tracking-widest text-faint">
+      <fieldset className="min-w-0">
+        <legend className="font-mono text-[11px] uppercase tracking-widest text-faint">
           Candidate names
         </legend>
 
@@ -214,17 +212,18 @@ export function CompareRunner() {
                 onChange={(e) => setName(index, e.target.value)}
                 placeholder={`Name ${index + 1}${index === 0 ? ' · e.g. Envryn' : ''}`}
                 aria-label={`Candidate name ${index + 1}`}
-                className="flex-1 rounded-lg border border-line bg-surface px-4 py-3 text-charcoal outline-none transition-all placeholder:text-faint focus:border-accent-border focus:ring-2 focus:ring-accent/20"
+                className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-4 py-3 text-charcoal outline-none transition-all placeholder:text-faint focus:border-accent-border focus:ring-2 focus:ring-accent/20"
               />
-              <button
-                type="button"
-                onClick={() => removeName(index)}
-                disabled={names.length <= MIN_COMPARE_NAMES}
-                aria-label={`Remove candidate ${index + 1}`}
-                className="flex h-10 w-10 items-center justify-center rounded-lg border border-line text-faint transition-colors hover:border-line-strong hover:text-charcoal disabled:cursor-not-allowed disabled:opacity-30"
-              >
-                ×
-              </button>
+              {index >= MIN_COMPARE_NAMES ? (
+                <button
+                  type="button"
+                  onClick={() => removeName(index)}
+                  aria-label={`Remove candidate ${index + 1}`}
+                  className="flex h-10 w-10 items-center justify-center rounded-lg border border-line text-faint transition-colors hover:border-line-strong hover:text-charcoal"
+                >
+                  ×
+                </button>
+              ) : null}
             </div>
           ))}
         </div>
@@ -242,32 +241,35 @@ export function CompareRunner() {
       </fieldset>
 
       <div className="mt-6 rounded-xl border border-line bg-surface p-5">
-        <p className="font-mono text-[10px] uppercase tracking-widest text-faint">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
           Shared context for all candidates
         </p>
 
-        <div className="mt-4">
-          <label htmlFor="cmp-category" className="mb-1.5 block text-sm font-medium">
-            Category
-          </label>
-          <select
-            id="cmp-category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value as Category)}
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-accent-border focus:ring-2 focus:ring-accent/20"
-          >
+        <fieldset className="mt-4">
+          <legend className="mb-1.5 block text-sm font-medium">Category</legend>
+          <div className="flex flex-wrap gap-2">
             {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCategory(c)}
+                aria-pressed={category === c}
+                className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                  category === c
+                    ? 'border-accent bg-accent-soft font-medium text-accent'
+                    : 'border-line text-charcoal-2 hover:border-line-strong'
+                }`}
+              >
                 {CATEGORY_LABELS[c]}
-              </option>
+              </button>
             ))}
-          </select>
-        </div>
+          </div>
+        </fieldset>
 
         <div className="mt-4">
           <label htmlFor="cmp-description" className="mb-1.5 block text-sm font-medium">
             Description{' '}
-            <span className="font-normal text-faint">(optional — improves relevance)</span>
+            <span className="font-normal text-faint">(optional, improves relevance)</span>
           </label>
           <input
             id="cmp-description"

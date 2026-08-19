@@ -300,11 +300,11 @@ export function computeViability(input: ViabilityInput): ViabilityResult {
 export type Verdict = 'strong' | 'promising' | 'mixed' | 'risky' | 'avoid'
 
 export const VERDICT_LABELS: Record<Verdict, string> = {
-  strong: 'Strong Candidate',
-  promising: 'Promising',
-  mixed: 'Mixed Signals',
-  risky: 'Risky',
-  avoid: 'Serious Conflicts',
+  strong: 'Clear',
+  promising: 'Mostly Clear',
+  mixed: 'Review',
+  risky: 'Conflict',
+  avoid: 'Serious Conflict',
 }
 
 /** Map a Digital Viability Score onto the label shown beside it (§1, §59). */

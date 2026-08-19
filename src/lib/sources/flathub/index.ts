@@ -142,7 +142,7 @@ export const flathubAdapter: SourceAdapter = {
       ),
       makeEvidence(
         'flathub',
-        'Flathub publishes no app names directly, only ids — the name shown here is inferred from the id and may not exactly match the app’s real display name.',
+        'Flathub publishes no app names directly, only ids. The name shown here is inferred from the id and may not exactly match the app’s real display name.',
       ),
     ]
 

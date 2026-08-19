@@ -192,7 +192,7 @@ export const webAdapter: SourceAdapter = {
         description: hit.content.slice(0, 400),
         similarity: best.similarity,
         severity: severityFor(best.similarity, { legallyWeighted: true }),
-        evidence: [makeEvidence('web', `${hit.title} — ${host}`, hit.url)],
+        evidence: [makeEvidence('web', `${hit.title} (${host})`, hit.url)],
       }
 
       seenHosts.add(host)

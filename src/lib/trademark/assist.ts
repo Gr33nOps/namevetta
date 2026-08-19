@@ -67,7 +67,7 @@ export function assistVariants(name: string, limit = 12): AssistVariant[] {
 
   add(exact, 'exact', 'The name exactly as you would register it.')
   if (normalized !== exact.toLowerCase()) {
-    add(normalized, 'normalized', 'Punctuation and spacing removed — registries index this form too.')
+    add(normalized, 'normalized', 'Punctuation and spacing removed. Registries index this form too.')
   }
 
   for (const variant of generateVariants(exact, limit * 2)) {
@@ -140,7 +140,7 @@ export function searchDestinations(): SearchDestination[] {
         'Open USPTO Trademark Search and choose the basic word-mark search.',
         'Search the exact name first, then work down the variant list below.',
         'Filter to the suggested classes to cut out unrelated industries.',
-        'Check both LIVE and DEAD marks — a recently dead mark can still signal prior use.',
+        'Check both LIVE and DEAD marks. A recently dead mark can still signal prior use.',
       ],
       whatToLookFor: [
         'A LIVE mark with the same or a very similar name in your class.',
@@ -157,7 +157,7 @@ export function searchDestinations(): SearchDestination[] {
         'Open TMview, which searches EU and national registries together.',
         'Enter the exact name, then repeat for each variant.',
         'Restrict to the suggested Nice classes.',
-        'Note the territory of any match — an EU mark and a single national mark differ in reach.',
+        'Note the territory of any match. An EU mark and a single national mark differ in reach.',
       ],
       whatToLookFor: [
         'Registered or pending marks in the EU covering your classes.',

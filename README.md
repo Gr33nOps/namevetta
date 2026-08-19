@@ -143,6 +143,7 @@ npm run build     # production build
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — source model, orchestration, scoring, source policy
 - [docs/ROADMAP.md](docs/ROADMAP.md) — phase status and what is deliberately not built
 - [docs/SCHEMA.md](docs/SCHEMA.md) — database schema and RLS posture
+- [docs/COPY_STYLE.md](docs/COPY_STYLE.md) — the standard every piece of user-facing text is held to
 
 ## Status
 

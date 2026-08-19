@@ -1,16 +1,16 @@
+import Image from 'next/image'
 import Link from 'next/link'
 import { signOut } from '@/app/auth/actions'
 import { currentUser } from '@/lib/db/auth'
 import { isDatabaseConfigured } from '@/lib/db/client'
 import { NavLinks } from './NavLinks'
+import { ThemeToggle } from './ThemeToggle'
 
-/** The wordmark glyph — a stylised N, from the design system. */
+/** The wordmark glyph — the brand mark. */
 function Mark() {
   return (
-    <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent">
-      <svg viewBox="0 0 20 20" className="h-4 w-4 fill-current text-white" aria-hidden="true">
-        <path d="M3 4h2v5.5L13 4h2v12h-2V10.5L5 16H3V4z" />
-      </svg>
+    <span className="flex h-7 w-7 items-center justify-center">
+      <Image src="/logo.png" alt="" width={28} height={28} priority className="h-7 w-7" />
     </span>
   )
 }
@@ -28,25 +28,31 @@ export async function SiteNav() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-line bg-surface/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 w-full max-w-[1200px] items-center justify-between px-6">
+      <div className="mx-auto flex h-14 w-full max-w-[1200px] items-center justify-between px-4 sm:px-6">
         <Link href="/" className="flex items-center gap-2.5">
           <Mark />
-          <span className="flex items-center text-sm font-semibold tracking-tight text-charcoal">
+          <span className="flex items-center text-sm font-bold tracking-tight text-charcoal">
             NameVetta
-            <span className="ml-1.5 rounded border border-line px-1 py-0.5 text-xs font-normal text-faint">
+            <span className="ml-1.5 hidden rounded border border-line px-1 py-0.5 text-xs font-normal text-faint sm:inline-block">
               beta
             </span>
           </span>
         </Link>
 
-        <NavLinks signedIn={user !== undefined} />
+        <NavLinks
+          signedIn={user !== undefined}
+          accountsAvailable={accountsAvailable}
+          displayName={user?.displayName}
+          onSignOut={accountsAvailable ? signOut : undefined}
+        />
 
         <div className="flex items-center gap-2">
+          <ThemeToggle />
           {!accountsAvailable ? null : user !== undefined ? (
             <>
               <Link
                 href="/account"
-                className="hidden text-sm text-charcoal-2 transition-colors hover:text-charcoal md:block"
+                className="hidden text-sm text-charcoal-2 transition-colors hover:text-charcoal lg:block"
               >
                 {user.displayName}
               </Link>
@@ -63,13 +69,14 @@ export async function SiteNav() {
             <>
               <Link
                 href="/auth"
-                className="hidden px-2 py-1.5 text-sm text-charcoal-2 transition-colors hover:text-charcoal md:block"
+                className="hidden px-2 py-1.5 text-sm text-charcoal-2 transition-colors hover:text-charcoal lg:block"
               >
                 Sign in
               </Link>
               <Link
                 href="/auth"
-                className="rounded-lg bg-charcoal px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-charcoal/90"
+                title="Save your history, raise your daily limits, no card required"
+                className="hidden rounded-full bg-accent px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover lg:block"
               >
                 Create account
               </Link>

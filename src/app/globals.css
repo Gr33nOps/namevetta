@@ -1,51 +1,162 @@
 @import 'tailwindcss';
 
 /*
-  Design tokens, from the Figma design system.
+  Design tokens, rebuilt around the brand mark (logo.png, solid #635BFF).
 
-  Committed to a single light palette rather than a light/dark pair: the design
-  is built around a warm paper canvas with a grid, and a dark inversion would be
-  a different design rather than the same one recoloured.
+  Both a light and a dark palette are defined as the same set of custom
+  properties, redefined per mode — every `bg-accent` / `text-charcoal` /
+  etc. utility Tailwind generates from `@theme` below just reads a CSS
+  variable, so re-pointing the variable is enough to re-theme the whole
+  site without touching component classNames.
+
+  Three states, highest specificity wins so it composes correctly:
+  - `:root`                              → light (default)
+  - `@media (prefers-color-scheme:dark)` → dark, unless the user picked light
+  - `:root[data-theme="dark"]`           → dark, forced regardless of system
 
   The status ramp is the one place the product adds to the design language.
-  "Unverified" must never borrow amber — amber reads as "minor problem", and the
-  truth is "no information at all". It gets its own neutral slate instead, so a
-  failed check can never be mistaken for a mild warning or, worse, a pass.
+  "Unverified" must never borrow amber — amber reads as "minor problem", and
+  the truth is "no information at all". It gets its own neutral slate
+  instead, so a failed check can never be mistaken for a mild warning or,
+  worse, a pass.
 */
 @theme {
   --font-sans: var(--font-inter), system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), ui-monospace, monospace;
-  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-display: var(--font-outfit), system-ui, sans-serif;
+
+  --color-canvas: var(--nv-canvas);
+  --color-surface: var(--nv-surface);
+  --color-surface-2: var(--nv-surface-2);
+  --color-surface-hover: var(--nv-surface-hover);
+  --color-muted-bg: var(--nv-muted-bg);
+
+  --color-charcoal: var(--nv-charcoal);
+  --color-charcoal-2: var(--nv-charcoal-2);
+  --color-faint: var(--nv-faint);
+  --color-faint-2: var(--nv-faint-2);
+
+  --color-accent: var(--nv-accent);
+  --color-accent-hover: var(--nv-accent-hover);
+  --color-accent-soft: var(--nv-accent-soft);
+  --color-accent-border: var(--nv-accent-border);
+
+  --color-line: var(--nv-line);
+  --color-line-strong: var(--nv-line-strong);
+
+  --color-ok: var(--nv-ok);
+  --color-ok-soft: var(--nv-ok-soft);
+  --color-warn: var(--nv-warn);
+  --color-warn-soft: var(--nv-warn-soft);
+  --color-danger: var(--nv-danger);
+  --color-danger-soft: var(--nv-danger-soft);
+  --color-unknown: var(--nv-unknown);
+  --color-unknown-soft: var(--nv-unknown-soft);
+}
+
+:root {
+  color-scheme: light;
 
   /* Surfaces */
-  --color-canvas: #fafaf8;
-  --color-surface: #ffffff;
-  --color-muted-bg: #f5f5f3;
+  --nv-canvas: #fafafc;
+  --nv-surface: #ffffff;
+  --nv-surface-2: #f6f5fa;
+  --nv-surface-hover: #f6f5fa;
+  --nv-muted-bg: #f2f1f8;
 
   /* Ink */
-  --color-charcoal: #141c2e;
-  --color-charcoal-2: #3d4a5c;
-  --color-faint: #8b93a1;
+  --nv-charcoal: #16151f;
+  --nv-charcoal-2: #4a4959;
+  /* Darkened from #78758a — that was 4.46:1 on white, just under the 4.5:1
+     AA floor for small text. This clears it with room to spare. */
+  --nv-faint: #69667b;
+  --nv-faint-2: #a6a4b6;
 
-  /* Accent */
-  --color-accent: #0f766e;
-  --color-accent-hover: #0c5f58;
-  --color-accent-soft: #f0fdfa;
-  --color-accent-border: #99f6e4;
+  /* Accent — the exact brand color from logo.png */
+  --nv-accent: #635bff;
+  --nv-accent-hover: #4f47e8;
+  --nv-accent-soft: #efedff;
+  --nv-accent-border: #d6d2ff;
 
   /* Lines */
-  --color-line: #e5e7eb;
-  --color-line-strong: #d1d5db;
+  --nv-line: #e7e6f0;
+  --nv-line-strong: #d2d0e2;
 
   /* Status */
-  --color-ok: #059669;
-  --color-ok-soft: #ecfdf5;
-  --color-warn: #d97706;
-  --color-warn-soft: #fffbeb;
-  --color-danger: #dc2626;
-  --color-danger-soft: #fef2f2;
-  --color-unknown: #64748b;
-  --color-unknown-soft: #f1f5f9;
+  --nv-ok: #059669;
+  --nv-ok-soft: #ecfdf5;
+  --nv-warn: #d97706;
+  --nv-warn-soft: #fffbeb;
+  --nv-danger: #dc2626;
+  --nv-danger-soft: #fef2f2;
+  --nv-unknown: #64748b;
+  --nv-unknown-soft: #f1f5f9;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --nv-canvas: #0c0b13;
+    --nv-surface: #15141f;
+    --nv-surface-2: #1a1926;
+    --nv-surface-hover: #201f2e;
+    --nv-muted-bg: #1c1b29;
+
+    --nv-charcoal: #f3f2f9;
+    --nv-charcoal-2: #b6b4c6;
+    --nv-faint: #85829c;
+    --nv-faint-2: #5d5a72;
+
+    --nv-accent: #7a72ff;
+    --nv-accent-hover: #8d86ff;
+    --nv-accent-soft: #211e3d;
+    --nv-accent-border: #3d3773;
+
+    --nv-line: #29283a;
+    --nv-line-strong: #38364c;
+
+    --nv-ok: #34d399;
+    --nv-ok-soft: #0c2a20;
+    --nv-warn: #fbbf24;
+    --nv-warn-soft: #2e2107;
+    --nv-danger: #f87171;
+    --nv-danger-soft: #2e1212;
+    --nv-unknown: #94a3b8;
+    --nv-unknown-soft: #1e2530;
+  }
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --nv-canvas: #0c0b13;
+  --nv-surface: #15141f;
+  --nv-surface-2: #1a1926;
+  --nv-surface-hover: #201f2e;
+  --nv-muted-bg: #1c1b29;
+
+  --nv-charcoal: #f3f2f9;
+  --nv-charcoal-2: #b6b4c6;
+  --nv-faint: #85829c;
+  --nv-faint-2: #5d5a72;
+
+  --nv-accent: #7a72ff;
+  --nv-accent-hover: #8d86ff;
+  --nv-accent-soft: #211e3d;
+  --nv-accent-border: #3d3773;
+
+  --nv-line: #29283a;
+  --nv-line-strong: #38364c;
+
+  --nv-ok: #34d399;
+  --nv-ok-soft: #0c2a20;
+  --nv-warn: #fbbf24;
+  --nv-warn-soft: #2e2107;
+  --nv-danger: #f87171;
+  --nv-danger-soft: #2e1212;
+  --nv-unknown: #94a3b8;
+  --nv-unknown-soft: #1e2530;
 }
 
 body {
@@ -53,15 +164,9 @@ body {
   color: var(--color-charcoal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* The faint graph-paper canvas behind the hero. */
-.grid-canvas {
-  background-image:
-    linear-gradient(#141c2e 1px, transparent 1px),
-    linear-gradient(90deg, #141c2e 1px, transparent 1px);
-  background-size: 44px 44px;
-  opacity: 0.025;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 @keyframes fadeIn {

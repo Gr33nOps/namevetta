@@ -106,18 +106,18 @@ async function checkViaRdap(
     return {
       domain,
       state: 'no_registration',
-      note: `${domain} — no registration found. Confirm with a registrar before purchase.`,
+      note: `${domain}: no registration found. Confirm with a registrar before purchase.`,
     }
   }
   if (response.ok) {
     return {
       domain,
       state: 'registered',
-      note: `${domain} — a registration record exists.`,
+      note: `${domain}: a registration record exists.`,
       url: `https://${domain}`,
     }
   }
-  return { domain, state: 'unknown', note: `${domain} — RDAP returned ${response.status}.` }
+  return { domain, state: 'unknown', note: `${domain}: RDAP returned ${response.status}.` }
 }
 
 /**
@@ -138,14 +138,14 @@ async function checkViaDns(domain: string, signal: AbortSignal): Promise<DomainC
     return {
       domain,
       state: 'registered',
-      note: `${domain} — no RDAP for this TLD, but DNS shows the name is delegated, so it is registered.`,
+      note: `${domain}: no RDAP for this TLD, but DNS shows the name is delegated, so it is registered.`,
       url: `https://${domain}`,
     }
   }
   return {
     domain,
     state: 'unknown',
-    note: `${domain} — no RDAP service for this TLD and DNS shows no delegation. Registration status could not be verified.`,
+    note: `${domain}: no RDAP service for this TLD and DNS shows no delegation. Registration status could not be verified.`,
   }
 }
 
@@ -183,7 +183,7 @@ export const domainAdapter: SourceAdapter = {
             : await checkViaRdap(domain, base, deps.signal)
         } catch {
           // One TLD failing must not lose the answers for the others.
-          return { domain, state: 'unknown', note: `${domain} — lookup failed.` }
+          return { domain, state: 'unknown', note: `${domain}: lookup failed.` }
         }
       }),
     )

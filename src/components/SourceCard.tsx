@@ -36,7 +36,7 @@ function MatchRow({ match }: { match: Match }) {
           <dt className="text-faint">Industry</dt>
           {/* Never invent a figure we do not have. */}
           <dd className="tabular-nums">
-            {match.similarity.industry === undefined ? '—' : `${match.similarity.industry}%`}
+            {match.similarity.industry === undefined ? '–' : `${match.similarity.industry}%`}
           </dd>
         </div>
       </dl>
@@ -60,6 +60,29 @@ function MatchRow({ match }: { match: Match }) {
 }
 
 /**
+ * A single-line row for a source with nothing to read: clear or unreachable.
+ * The full `SourceCard` treatment is reserved for sources that need it.
+ */
+export function CompactSourceRow({ result }: { result: SourceResult }) {
+  const manifest = SOURCE_MANIFEST[result.source]
+  const status = STATUS_PRESENTATION[result.status]
+
+  return (
+    <div className="flex items-center justify-between gap-3 py-2 text-sm">
+      <span className="text-charcoal-2">{manifest.label}</span>
+      <div className="flex items-center gap-2">
+        <Badge tone={status.tone} glyph={false}>
+          {status.label}
+        </Badge>
+        <span className="text-xs text-faint">
+          {result.confidence > 0 ? `${result.confidence} confidence` : 'No confidence'}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+/**
  * One source's findings, with its evidence always available.
  *
  * Confidence is shown as a number rather than hidden behind a colour, because a
@@ -78,10 +101,10 @@ export function SourceCard({ result }: { result: SourceResult }) {
           <h3 className="font-semibold">{manifest.label}</h3>
           <p className="mt-0.5 text-sm text-charcoal-2">{status.detail}</p>
         </div>
-        <div className="flex flex-col items-end gap-1">
+        <div className="flex items-center gap-2">
           <Badge tone={status.tone}>{status.label}</Badge>
           <span className="text-xs text-faint">
-            {result.confidence > 0 ? `Confidence ${result.confidence}` : 'No confidence'}
+            {result.confidence > 0 ? `${result.confidence} confidence` : 'No confidence'}
             {result.fromCache ? ' · cached' : ''}
           </span>
         </div>
@@ -90,7 +113,7 @@ export function SourceCard({ result }: { result: SourceResult }) {
       {result.error ? (
         <p className="mt-3 rounded-lg bg-unknown-soft px-3 py-2 text-sm text-unknown">
           {result.error.message}
-          {result.error.retryable ? ' — this source can be retried.' : ''}
+          {result.error.retryable ? ' (This source can be retried.)' : ''}
         </p>
       ) : null}
 

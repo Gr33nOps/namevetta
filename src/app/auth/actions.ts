@@ -22,9 +22,22 @@ const CredentialsSchema = z.object({
   password: z.string().min(8, 'Passwords must be at least 8 characters'),
 })
 
+const EmailSchema = z.object({
+  email: z.string().email('Enter a valid email address'),
+})
+
 export interface AuthState {
   error?: string
   message?: string
+}
+
+/** The origin to build a redirect link on, taken from the request rather
+ * than an env var since none is configured for this deployment. */
+async function requestOrigin(): Promise<string> {
+  const reqHeaders = await headers()
+  const host = reqHeaders.get('host') ?? 'localhost:3000'
+  const proto = reqHeaders.get('x-forwarded-proto') ?? (host.startsWith('localhost') ? 'http' : 'https')
+  return `${proto}://${host}`
 }
 
 export async function signIn(_prev: AuthState, formData: FormData): Promise<AuthState> {
@@ -44,6 +57,9 @@ export async function signIn(_prev: AuthState, formData: FormData): Promise<Auth
   const { error } = await supabase.auth.signInWithPassword(parsed.data)
 
   if (error !== null) {
+    if (error.status === 429) {
+      return { error: 'Too many attempts. Wait a moment and try again.' }
+    }
     // Deliberately generic: distinguishing "no such account" from "wrong
     // password" tells an attacker which addresses are registered here.
     return { error: 'Those details did not match an account.' }
@@ -83,6 +99,9 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   const { data, error } = await supabase.auth.signUp(parsed.data)
 
   if (error !== null) {
+    if (error.status === 429) {
+      return { error: 'Too many attempts. Wait a moment and try again.' }
+    }
     return { error: 'That account could not be created. Try a different address.' }
   }
 
@@ -102,4 +121,32 @@ export async function signOut(): Promise<void> {
     await supabase.auth.signOut()
   }
   redirect('/')
+}
+
+export async function requestPasswordReset(
+  _prev: AuthState,
+  formData: FormData,
+): Promise<AuthState> {
+  if (!isDatabaseConfigured()) {
+    return { error: 'Accounts are not available in this environment.' }
+  }
+
+  const parsed = EmailSchema.safeParse({ email: formData.get('email') })
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? 'Check your details' }
+  }
+
+  const origin = await requestOrigin()
+  const supabase = await sessionClient()
+  const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
+    redirectTo: `${origin}/auth/reset`,
+  })
+
+  if (error !== null && error.status === 429) {
+    return { error: 'Too many attempts. Wait a moment and try again.' }
+  }
+
+  // Same message whether or not the address has an account — confirming
+  // either way turns this into an account-enumeration oracle.
+  return { message: 'If that address has an account, a reset link is on its way.' }
 }

@@ -57,7 +57,7 @@ export const socialsAdapter: SourceAdapter = {
     const evidence: Evidence[] = PLATFORMS.map((platform) =>
       makeEvidence(
         'socials',
-        `${platform.name} — automatic verification unavailable, check manually`,
+        `${platform.name}: automatic verification unavailable, check manually`,
         platform.url(handle),
       ),
     )

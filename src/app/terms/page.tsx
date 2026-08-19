@@ -1,12 +1,25 @@
 import Link from 'next/link'
+import { LegalToc } from '@/components/LegalToc'
 import { SCOPE_NOTICE, TRADEMARK_DISCLAIMER } from '@/lib/presentation'
 
 export const metadata = {
-  title: 'Terms of Service — NameVetta',
+  title: 'Terms of Service | NameVetta',
   description: 'The terms that govern using NameVetta.',
 }
 
 const UPDATED = '2026-08-18'
+
+const SECTIONS = [
+  { id: 'what-this-is', title: '1. What NameVetta is' },
+  { id: 'accuracy', title: '2. No warranty on research results' },
+  { id: 'accounts', title: '3. Accounts and guest use' },
+  { id: 'acceptable-use', title: '4. Acceptable use' },
+  { id: 'third-party', title: '5. Third-party sources' },
+  { id: 'ip', title: '6. Ownership' },
+  { id: 'liability', title: '7. Limitation of liability' },
+  { id: 'changes', title: '8. Changes' },
+  { id: 'contact', title: '9. Contact' },
+] as const
 
 function Section({
   id,
@@ -19,8 +32,8 @@ function Section({
 }) {
   return (
     <section id={id} className="scroll-mt-20">
-      <h2 className="font-display text-lg font-semibold text-charcoal">{title}</h2>
-      <div className="mt-2 space-y-3 text-sm leading-relaxed text-charcoal-2">{children}</div>
+      <h2 className="text-lg font-semibold text-charcoal">{title}</h2>
+      <div className="mt-2 space-y-3 text-[15px] leading-[1.75] text-charcoal-2">{children}</div>
     </section>
   )
 }
@@ -28,18 +41,22 @@ function Section({
 export default function Page() {
   return (
     <div className="mx-auto w-full max-w-[720px] px-6 py-14">
-      <p className="font-mono text-[10px] uppercase tracking-widest text-faint">Legal</p>
-      <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-charcoal">
-        Terms of Service
-      </h1>
-      <p className="mt-2 text-sm text-faint">Last updated {UPDATED}</p>
+      <div className="text-center">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">Legal</p>
+        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-charcoal">
+          Terms of Service
+        </h1>
+        <p className="mt-2 text-sm text-faint">Last updated {UPDATED}</p>
 
-      <p className="mt-6 text-sm leading-relaxed text-charcoal-2">
-        These terms govern your use of NameVetta (&ldquo;the service&rdquo;). By using it, you
-        agree to them. If you do not agree, do not use the service.
-      </p>
+        <p className="mx-auto mt-6 max-w-[640px] text-sm leading-[1.75] text-charcoal-2">
+          These terms govern your use of NameVetta (&ldquo;the service&rdquo;). By using it, you
+          agree to them. If you do not agree, do not use the service.
+        </p>
+      </div>
 
-      <div className="mt-10 space-y-8">
+      <div className="mt-10 lg:flex lg:items-start lg:gap-12">
+        <LegalToc items={SECTIONS} />
+        <div className="max-w-[640px] space-y-8">
         <Section id="what-this-is" title="1. What NameVetta is">
           <p>
             NameVetta researches whether a name is already in use across domains, code
@@ -53,15 +70,15 @@ export default function Page() {
             Nothing on this service is legal, trademark, business or professional advice of any
             kind. A clean report is not permission to use a name, and a conflict is not a legal
             determination that you cannot. Decisions about registering, launching or defending a
-            name are yours, and you should get advice from a qualified professional — a trademark
-            attorney, in most cases — before making them.
+            name are yours, and you should get advice from a qualified professional (a trademark
+            attorney, in most cases) before making them.
           </p>
         </Section>
 
         <Section id="accuracy" title="2. No warranty on research results">
           <p>
-            Every result on this service comes from a specific, named source — GitHub, npm, the
-            UK company register, and so on — and is presented with the evidence behind it. But
+            Every result on this service comes from a specific, named source (GitHub, npm, the
+            UK company register, and so on) and is presented with the evidence behind it. But
             those sources can be rate-limited, temporarily unavailable, incomplete, or simply
             wrong, and NameVetta reports that honestly rather than guessing. A source marked
             &ldquo;unable to verify&rdquo; or &ldquo;not checked&rdquo; means exactly that: we
@@ -154,6 +171,7 @@ export default function Page() {
             page.
           </p>
         </Section>
+        </div>
       </div>
     </div>
   )

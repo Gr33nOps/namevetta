@@ -1,8 +1,10 @@
 import Link from 'next/link'
+import { ResultsNav } from '@/components/ResultsNav'
+import { ResultsSummary } from '@/components/ResultsSummary'
 import { SaveNameButton } from '@/components/SaveNameButton'
 import { ScoreHeadline } from '@/components/ScoreHeadline'
 import { TrademarkAssist } from '@/components/TrademarkAssist'
-import { SourceCard } from '@/components/SourceCard'
+import { CompactSourceRow, SourceCard } from '@/components/SourceCard'
 import { Badge } from '@/components/ui/Badge'
 import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import { CATEGORY_LABELS, type ScanContext } from '@/lib/core/scan'
@@ -10,6 +12,13 @@ import { isVerified } from '@/lib/core/types'
 import type { AiSummaryEvent, ScanSummary } from '@/lib/orchestrator/run'
 import { SCOPE_NOTICE } from '@/lib/presentation'
 import { GROUP_LABELS, SOURCE_GROUP, type ScoreGroup } from '@/lib/scoring/weights'
+
+/** Statuses compact enough to collapse into a single-line row by default. */
+const COMPACT_STATUSES = new Set(['no_conflict', 'unable_to_verify'])
+
+function groupId(group: ScoreGroup): string {
+  return `group-${group}`
+}
 
 /** A completed scan plus the request that produced it. */
 export interface ReportData extends ScanSummary {
@@ -55,17 +64,22 @@ export function Report({
         description={context.description}
         viability={viability}
         coverage={coverage}
+        results={results}
       />
 
-      <p className="text-sm text-charcoal-2">
-        Researched as <strong className="font-medium">{CATEGORY_LABELS[context.category]}</strong>{' '}
-        · {context.scanType === 'deep' ? 'Deep Research' : 'Quick Check'}
-      </p>
+      <div className="space-y-2">
+        <p className="text-sm text-charcoal-2">
+          Researched as{' '}
+          <strong className="font-medium">{CATEGORY_LABELS[context.category]}</strong> ·{' '}
+          {context.scanType === 'deep' ? 'Deep Research' : 'Quick Check'}
+        </p>
+        <ResultsSummary results={results} />
+      </div>
 
       {aiSummary?.status === 'ready' ? (
         <section className="rounded-xl border border-line bg-surface p-5">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-faint">
-            AI summary — generated from the evidence above
+          <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
+            AI summary, generated from the evidence above
           </p>
           <p className="mt-2 text-sm leading-relaxed text-charcoal">{aiSummary.text}</p>
           <p className="mt-3 text-xs text-faint">
@@ -110,19 +124,44 @@ export function Report({
       <TrademarkAssist context={context} />
 
       <section className="space-y-6">
-        <h2 className="font-display text-xl font-semibold">Findings by source</h2>
-        {[...byGroup.entries()].map(([group, groupResults]) => (
-          <div key={group} className="space-y-3">
-            <h3 className="text-sm font-medium uppercase tracking-wide text-faint">
-              {GROUP_LABELS[group]}
-            </h3>
-            <div className="grid gap-3">
-              {groupResults.map((r) => (
-                <SourceCard key={r.source} result={r} />
-              ))}
+        <h2 className="text-xl font-semibold">Findings by source</h2>
+
+        <ResultsNav
+          items={[...byGroup.entries()].map(([group, groupResults]) => ({
+            id: groupId(group),
+            label: GROUP_LABELS[group],
+            count: groupResults.length,
+          }))}
+        />
+
+        {[...byGroup.entries()].map(([group, groupResults]) => {
+          const flagged = groupResults.filter((r) => !COMPACT_STATUSES.has(r.status))
+          const compact = groupResults.filter((r) => COMPACT_STATUSES.has(r.status))
+
+          return (
+            <div key={group} id={groupId(group)} className="scroll-mt-28 space-y-3">
+              <h3 className="text-sm font-medium uppercase tracking-wide text-faint">
+                {GROUP_LABELS[group]}
+              </h3>
+
+              {flagged.length > 0 ? (
+                <div className="grid gap-3">
+                  {flagged.map((r) => (
+                    <SourceCard key={r.source} result={r} />
+                  ))}
+                </div>
+              ) : null}
+
+              {compact.length > 0 ? (
+                <div className="divide-y divide-line rounded-xl border border-line bg-surface px-4">
+                  {compact.map((r) => (
+                    <CompactSourceRow key={r.source} result={r} />
+                  ))}
+                </div>
+              ) : null}
             </div>
-          </div>
-        ))}
+          )
+        })}
       </section>
 
       <section className="rounded-xl border border-line bg-surface p-5">
@@ -154,7 +193,7 @@ export function Report({
         </div>
         <p className="mt-4 text-xs text-faint">
           {SCOPE_NOTICE} Scoring version {viability.scoringVersion}. Every figure above is derived
-          from the evidence shown — nothing is inferred beyond it.
+          from the evidence shown. Nothing is inferred beyond it.
         </p>
       </section>
     </div>

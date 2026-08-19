@@ -182,7 +182,7 @@ export const edgarAdapter: SourceAdapter = {
       ),
       makeEvidence(
         'edgar',
-        'EDGAR covers SEC registrants and public-reporting entities — not US companies in general. Private companies, most small businesses and non-US companies do not file with the SEC and will not appear here.',
+        'EDGAR covers SEC registrants and public-reporting entities, not US companies in general. Private companies, most small businesses and non-US companies do not file with the SEC and will not appear here.',
       ),
     ]
 

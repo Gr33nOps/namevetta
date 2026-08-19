@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   CATEGORIES,
   CATEGORY_LABELS,
@@ -57,15 +57,32 @@ function SearchIcon() {
  */
 export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
   const router = useRouter()
+  const inputRef = useRef<HTMLInputElement>(null)
   const [name, setName] = useState('')
   const [category, setCategory] = useState<Category>('saas')
   const [description, setDescription] = useState('')
   const [scanType, setScanType] = useState<ScanType>('quick')
   const [expanded, setExpanded] = useState(false)
-  const [focused, setFocused] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Guessed at render, corrected on mount — Mac gets ⌘K, everyone else gets
+  // Ctrl K, so the hint matches the key that actually works.
+  const [isMac, setIsMac] = useState(true)
 
   const canSearch = name.trim().length > 0
+
+  // A quick way in for anyone who reaches for it out of habit — Ctrl/Cmd+K
+  // focuses the search box from anywhere on the page.
+  useEffect(() => {
+    setIsMac(/Mac|iPhone|iPad|iPod/.test(navigator.userAgent))
+
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key.toLowerCase() !== 'k' || !(e.metaKey || e.ctrlKey)) return
+      e.preventDefault()
+      inputRef.current?.focus()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   const submit = (): void => {
     const parsed = ScanContextSchema.safeParse({
@@ -104,11 +121,7 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
       }}
       className="w-full"
     >
-      <div
-        className={`rounded-xl border bg-surface shadow-sm transition-all duration-200 ${
-          focused ? 'border-accent-border ring-2 ring-accent/15' : 'border-line'
-        }`}
-      >
+      <div className="rounded-xl border border-line bg-surface transition-all duration-200 focus-within:border-accent focus-within:shadow-[0_0_0_3px_rgba(99,91,255,0.15),0_8px_24px_-8px_rgba(0,0,0,0.35)]">
         <div className="flex items-center gap-3 px-4 py-3.5">
           <SearchIcon />
           <label htmlFor="name" className="sr-only">
@@ -116,13 +129,12 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
           </label>
           <input
             id="name"
+            ref={inputRef}
             value={name}
             onChange={(e) => {
               setName(e.target.value)
               if (e.target.value.trim()) setExpanded(true)
             }}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
             onKeyDown={onKeyDown}
             maxLength={MAX_NAME_LENGTH}
             autoFocus={autoFocus}
@@ -130,7 +142,7 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
             placeholder="Enter a name to research…"
             aria-invalid={error !== null}
             aria-describedby={error === null ? undefined : 'search-error'}
-            className="flex-1 bg-transparent text-lg text-charcoal outline-none placeholder:text-faint"
+            className="min-w-0 flex-1 bg-transparent text-lg text-charcoal outline-none placeholder:text-faint"
           />
           {name !== '' ? (
             <button
@@ -144,11 +156,19 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
             >
               ×
             </button>
-          ) : null}
+          ) : (
+            <kbd className="hidden shrink-0 rounded border border-line px-1.5 py-0.5 font-mono text-[11px] text-faint-2 sm:inline-block">
+              {isMac ? '⌘K' : 'Ctrl K'}
+            </kbd>
+          )}
         </div>
 
         {expanded ? (
           <div className="animate-fade-in border-t border-line bg-muted-bg/50 px-4 pb-4 pt-3">
+            <p className="mb-3 pt-3 text-xs text-faint">
+              Category and description tell similarity and industry matching what to weigh, so an
+              unrelated company with the same name doesn&rsquo;t count against you.
+            </p>
             <div className="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
               <div>
                 <label htmlFor="category" className="mb-1.5 block text-xs font-medium text-charcoal-2">
@@ -174,7 +194,7 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
                   className="mb-1.5 block text-xs font-medium text-charcoal-2"
                 >
                   Description{' '}
-                  <span className="font-normal text-faint">(optional — improves relevance)</span>
+                  <span className="font-normal text-faint">(optional, improves relevance)</span>
                 </label>
                 <input
                   id="description"
@@ -187,7 +207,7 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
               </div>
             </div>
 
-            <fieldset>
+            <fieldset className="min-w-0">
               <legend className="mb-2 block text-xs font-medium text-charcoal-2">
                 Research depth
               </legend>
@@ -207,7 +227,7 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
                     <span className="mb-0.5 flex items-center justify-between gap-2">
                       <span className="text-sm font-semibold text-charcoal">{depth.label}</span>
                       <span
-                        className={`rounded px-1.5 py-0.5 font-mono text-[10px] ${
+                        className={`rounded px-1.5 py-0.5 font-mono text-[11px] ${
                           scanType === depth.value
                             ? 'bg-accent/10 text-accent'
                             : 'bg-muted-bg text-faint'
@@ -224,7 +244,7 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
           </div>
         ) : null}
 
-        <div className="flex items-center justify-between gap-4 border-t border-line px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-t border-line px-4 py-3">
           {expanded ? (
             <span className="text-xs text-faint">Press Enter to run</span>
           ) : (
@@ -233,14 +253,14 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
               onClick={() => setExpanded(true)}
               className="text-sm text-charcoal-2 transition-colors hover:text-charcoal"
             >
-              + Set category and description
+              + Add context for more accurate results
             </button>
           )}
 
           <button
             type="submit"
             disabled={!canSearch}
-            className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex items-center gap-2 whitespace-nowrap rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             {scanType === 'deep' ? 'Run Deep Research' : 'Run Quick Check'}
             <span aria-hidden="true">→</span>

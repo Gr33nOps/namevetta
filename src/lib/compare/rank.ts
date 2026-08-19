@@ -170,7 +170,7 @@ function explainLeader(
   if (runnerUp === undefined) return `${leader.name} was the only candidate researched.`
 
   if (tooClose) {
-    return `${leader.name} and ${runnerUp.name} score within ${DECISIVE_MARGIN} points of each other. That gap is too small to call one better — compare the individual findings below instead.`
+    return `${leader.name} and ${runnerUp.name} score within ${DECISIVE_MARGIN} points of each other. That gap is too small to call one better. Compare the individual findings below instead.`
   }
 
   // A cap on the runner-up is the most decisive thing that can happen, so it
@@ -214,5 +214,5 @@ function coverageWarningFor(candidates: readonly Scored[]): string | undefined {
   if (highest - lowest < COVERAGE_DISPARITY) return undefined
 
   const weakest = candidates.find((c) => c.coverage === lowest)
-  return `These names were not researched to the same depth — coverage ranges from ${lowest}% to ${highest}%. ${weakest?.name ?? 'One candidate'} has the least evidence behind it, so its score is the least reliable here. Compare the completed checks rather than the totals alone.`
+  return `These names were not researched to the same depth. Coverage ranges from ${lowest}% to ${highest}%. ${weakest?.name ?? 'One candidate'} has the least evidence behind it, so its score is the least reliable here. Compare the completed checks rather than the totals alone.`
 }

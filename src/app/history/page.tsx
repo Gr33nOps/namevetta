@@ -8,7 +8,7 @@ import { identifySubject } from '@/lib/db/identity'
 import { limitsFor, remainingQuota } from '@/lib/db/quota'
 
 export const metadata = {
-  title: 'History — NameVetta',
+  title: 'History | NameVetta',
   description: 'Every name you have researched, with its evidence.',
 }
 
@@ -25,7 +25,7 @@ export const dynamic = 'force-dynamic'
 export default async function Page() {
   if (!isDatabaseConfigured()) {
     return (
-      <div className="mx-auto w-full max-w-[720px] px-6 py-14">
+      <div className="mx-auto w-full max-w-[860px] px-6 py-14 text-center">
         <h1 className="font-display text-3xl font-semibold">History unavailable</h1>
         <p className="mt-3 text-charcoal-2">
           This deployment has no database configured, so research is not stored. Everything else
@@ -42,26 +42,24 @@ export default async function Page() {
   const limits = subject === undefined ? undefined : limitsFor(subject)
 
   return (
-    <div className="mx-auto w-full max-w-[720px] px-6 py-14">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-faint">History</p>
-          <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
-            {user === undefined ? 'Your research' : `Welcome back, ${user.displayName}`}
-          </h1>
-          <p className="mt-2 text-charcoal-2">
-            {user === undefined
-              ? 'Kept on this device. Create an account to keep it anywhere and raise your allowance.'
-              : 'Everything you have researched.'}
-          </p>
-        </div>
+    <div className="mx-auto w-full max-w-[860px] px-6 py-14">
+      <div className="text-center">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">History</p>
+        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
+          {user === undefined ? 'Your research' : `Welcome back, ${user.displayName}`}
+        </h1>
+        <p className="mt-2 text-charcoal-2">
+          {user === undefined
+            ? 'Kept on this device. Create an account to keep it anywhere and raise your allowance.'
+            : 'Everything you have researched.'}
+        </p>
 
         {remaining !== undefined && limits !== undefined ? (
-          <div className="rounded-xl border border-line bg-surface px-4 py-3 text-right">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-faint">
+          <div className="mx-auto mt-5 inline-flex items-center gap-4 rounded-xl border border-line bg-surface px-4 py-3">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
               Left today
             </p>
-            <p className="mt-1 text-sm">
+            <p className="text-sm">
               <span className="font-mono font-semibold">{remaining.quick}</span>
               <span className="text-faint">/{limits.quick} Quick</span>
             </p>

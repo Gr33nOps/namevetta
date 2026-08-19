@@ -44,7 +44,9 @@ export default async function Page({ params }: PageProps<'/r/[token]'>) {
 
   return (
     <div className="mx-auto w-full max-w-[720px] px-6 py-14">
-      <p className="font-mono text-[10px] uppercase tracking-widest text-faint">Shared report</p>
+      <p className="text-center font-mono text-[11px] uppercase tracking-widest text-faint">
+        Shared report
+      </p>
 
       <section className="mt-4 rounded-xl border border-line bg-surface p-6 sm:p-8">
         <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
@@ -56,7 +58,7 @@ export default async function Page({ params }: PageProps<'/r/[token]'>) {
 
         <div className="mt-8 grid gap-8 sm:grid-cols-2">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-faint">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
               Digital Viability
             </p>
             <p className="mt-1 flex items-baseline gap-1">
@@ -71,7 +73,7 @@ export default async function Page({ params }: PageProps<'/r/[token]'>) {
           </div>
 
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-faint">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
               Research coverage
             </p>
             <p className="mt-1 flex items-baseline gap-1">
@@ -105,7 +107,7 @@ export default async function Page({ params }: PageProps<'/r/[token]'>) {
       </p>
 
       <section className="mt-8 rounded-xl border border-line bg-surface p-5">
-        <h2 className="font-display text-lg font-semibold">Research your own name</h2>
+        <h2 className="text-lg font-semibold">Research your own name</h2>
         <p className="mt-1 text-sm text-charcoal-2">
           Free every day, no sign-up required.
         </p>

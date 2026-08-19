@@ -15,7 +15,7 @@ export function SavedList({ names }: { names: SavedName[] }) {
   if (visible.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-line-strong bg-surface p-10 text-center">
-        <h2 className="font-display text-lg font-semibold">Nothing saved yet</h2>
+        <h2 className="text-lg font-semibold">Nothing saved yet</h2>
         <p className="mx-auto mt-2 max-w-sm text-sm text-charcoal-2">
           Save a name from any report to keep it here while you decide.
         </p>

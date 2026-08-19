@@ -1,12 +1,27 @@
 import Link from 'next/link'
+import { LegalToc } from '@/components/LegalToc'
 import { env } from '@/lib/env'
 
 export const metadata = {
-  title: 'Privacy Policy — NameVetta',
+  title: 'Privacy Policy | NameVetta',
   description: 'What NameVetta collects, why, and how to get it back or delete it.',
 }
 
 const UPDATED = '2026-08-18'
+
+const SECTIONS = [
+  { id: 'guests', title: '1. If you never create an account' },
+  { id: 'accounts', title: '2. If you create an account' },
+  { id: 'research-data', title: '3. What a search itself contains' },
+  { id: 'third-parties', title: '4. Who your search is sent to' },
+  { id: 'cookies', title: '5. Cookies' },
+  { id: 'retention', title: '6. How long data is kept' },
+  { id: 'rights', title: '7. Your rights' },
+  { id: 'security', title: '8. Security' },
+  { id: 'children', title: '9. Children' },
+  { id: 'changes', title: '10. Changes' },
+  { id: 'contact', title: '11. Contact' },
+] as const
 
 function Section({
   id,
@@ -19,8 +34,8 @@ function Section({
 }) {
   return (
     <section id={id} className="scroll-mt-20">
-      <h2 className="font-display text-lg font-semibold text-charcoal">{title}</h2>
-      <div className="mt-2 space-y-3 text-sm leading-relaxed text-charcoal-2">{children}</div>
+      <h2 className="text-lg font-semibold text-charcoal">{title}</h2>
+      <div className="mt-2 space-y-3 text-[15px] leading-[1.75] text-charcoal-2">{children}</div>
     </section>
   )
 }
@@ -30,24 +45,28 @@ export default function Page() {
 
   return (
     <div className="mx-auto w-full max-w-[720px] px-6 py-14">
-      <p className="font-mono text-[10px] uppercase tracking-widest text-faint">Legal</p>
-      <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-charcoal">
-        Privacy Policy
-      </h1>
-      <p className="mt-2 text-sm text-faint">Last updated {UPDATED}</p>
+      <div className="text-center">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">Legal</p>
+        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-charcoal">
+          Privacy Policy
+        </h1>
+        <p className="mt-2 text-sm text-faint">Last updated {UPDATED}</p>
 
-      <p className="mt-6 text-sm leading-relaxed text-charcoal-2">
-        This describes exactly what NameVetta collects, exactly who it is shared with and why, and
-        how to get your data back or delete it. Where something isn&rsquo;t built yet, that is
-        stated plainly rather than promised.
-      </p>
+        <p className="mx-auto mt-6 max-w-[640px] text-sm leading-[1.75] text-charcoal-2">
+          This describes exactly what NameVetta collects, exactly who it is shared with and why, and
+          how to get your data back or delete it. Where something isn&rsquo;t built yet, that is
+          stated plainly rather than promised.
+        </p>
+      </div>
 
-      <div className="mt-10 space-y-8">
+      <div className="mt-10 lg:flex lg:items-start lg:gap-12">
+        <LegalToc items={SECTIONS} />
+        <div className="max-w-[640px] space-y-8">
         <Section id="guests" title="1. If you never create an account">
           <p>
             NameVetta works fully without an account. To enforce a daily research limit and to
             show you your own history, requests are tracked using a one-way identifier derived
-            from your IP address — a keyed hash (HMAC-SHA256 under a server-side secret), not the
+            from your IP address: a keyed hash (HMAC-SHA256 under a server-side secret), not the
             address itself. That secret makes the hash impossible to reverse back to an IP without
             it, unlike a plain hash of an IPv4 address, which is small enough to brute-force in
             minutes. Nothing about a guest is linked to an email address, a name, or any other
@@ -58,7 +77,7 @@ export default function Page() {
         <Section id="accounts" title="2. If you create an account">
           <p>
             An account stores an email address and a password (handled by our authentication
-            provider, Supabase Auth — we never see or store your password in plain text), plus
+            provider, Supabase Auth; we never see or store your password in plain text), plus
             whatever you choose to save: your scan history, saved names, and any share links you
             generate. That&rsquo;s the complete list; there is no additional profile data collected
             beyond what you enter to sign up.
@@ -68,7 +87,7 @@ export default function Page() {
         <Section id="research-data" title="3. What a search itself contains">
           <p>
             The name and optional description you research are stored so your history and reports
-            work, and are sent to the sources that research them — see the next section for
+            work, and are sent to the sources that research them. See the next section for
             exactly which ones and what they receive. A share link exposes the score, category and
             headline figures of one report to anyone holding its link; it never exposes your
             account, your other searches, or how you were identified.
@@ -77,14 +96,14 @@ export default function Page() {
 
         <Section id="third-parties" title="4. Who your search is sent to">
           <p>
-            Only the name and description you are researching are ever sent onward — never your
+            Only the name and description you are researching are ever sent onward, never your
             account email, password, or IP address. Each source below receives a search query
             (the candidate name, and for web search, your description) and nothing else about you:
           </p>
           <ul className="ml-5 list-disc space-y-1.5">
-            <li><strong className="font-medium text-charcoal">GitHub, npm, PyPI, YouTube, Apple App Store, Wikidata, SEC EDGAR, UK Companies House</strong> — public read-only registries and search APIs, queried directly with the name.</li>
-            <li><strong className="font-medium text-charcoal">Tavily</strong> — powers general web and Google Play research. Receives the name and, for a Deep Check, your description.</li>
-            <li><strong className="font-medium text-charcoal">Groq</strong> — generates the optional AI explanation on a Deep Check report from a compact summary of what was already found. It never receives your account information.</li>
+            <li><strong className="font-medium text-charcoal">GitHub, npm, PyPI, YouTube, Apple App Store, Wikidata, SEC EDGAR, UK Companies House</strong>: public read-only registries and search APIs, queried directly with the name.</li>
+            <li><strong className="font-medium text-charcoal">Tavily</strong>: powers general web and Google Play research. Receives the name and, for a Deep Check, your description.</li>
+            <li><strong className="font-medium text-charcoal">Groq</strong>: generates the optional AI explanation on a Deep Check report from a compact summary of what was already found. It never receives your account information.</li>
           </ul>
           <p>
             Two infrastructure providers host the service itself rather than researching anything:
@@ -93,7 +112,7 @@ export default function Page() {
             <strong className="font-medium text-charcoal">Vercel</strong> (application hosting).
             If you are outside the United States, your data is processed there as a result.
           </p>
-          <p>None of the above are permitted to use what they receive to advertise to you, and none of them are ad networks or analytics platforms — NameVetta doesn&rsquo;t run any of its own, either.</p>
+          <p>None of the above are permitted to use what they receive to advertise to you, and none of them are ad networks or analytics platforms. NameVetta doesn&rsquo;t run any of its own, either.</p>
         </Section>
 
         <Section id="cookies" title="5. Cookies">
@@ -107,8 +126,8 @@ export default function Page() {
         <Section id="retention" title="6. How long data is kept">
           <p>
             Account and research data is kept until you delete it. There is currently no automatic
-            expiry — stated plainly because promising one that doesn&rsquo;t exist would be worse
-            than not having it. You can delete an individual search from your{' '}
+            expiry. That&rsquo;s stated plainly because promising one that doesn&rsquo;t exist
+            would be worse than not having it. You can delete an individual search from your{' '}
             <Link href="/history" className="text-accent underline underline-offset-2">
               history
             </Link>{' '}
@@ -128,7 +147,7 @@ export default function Page() {
               account settings
             </Link>{' '}
             you can export everything stored about you as a single file, or permanently delete
-            your account and everything attached to it. Both take effect immediately — deletion is
+            your account and everything attached to it. Both take effect immediately. Deletion is
             not reversible. If you use the service as a guest, deleting an individual search from
             your history removes it the same way; there is no account to delete.
           </p>
@@ -174,6 +193,7 @@ export default function Page() {
             )}
           </p>
         </Section>
+        </div>
       </div>
     </div>
   )

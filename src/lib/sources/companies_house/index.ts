@@ -238,7 +238,7 @@ export const companiesHouseAdapter: SourceAdapter = {
           contained: contains,
           leading: leadsWithName(ctx.name, stripped),
         }),
-        evidence: [makeEvidence('companies_house', `${title} — ${detail.join(', ')}`, url)],
+        evidence: [makeEvidence('companies_house', `${title}: ${detail.join(', ')}`, url)],
         ...(url === undefined ? {} : { url }),
       }
 
@@ -253,7 +253,7 @@ export const companiesHouseAdapter: SourceAdapter = {
     const evidence: Evidence[] = [
       makeEvidence(
         'companies_house',
-        `Searched the UK company register for names containing "${ctx.name}" — ${hits} ${hits === 1 ? 'company' : 'companies'} on the register, ${live} of those shown here still active`,
+        `Searched the UK company register for names containing "${ctx.name}": ${hits} ${hits === 1 ? 'company' : 'companies'} on the register, ${live} of those shown here still active`,
       ),
       makeEvidence(
         'companies_house',

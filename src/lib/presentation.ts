@@ -71,55 +71,60 @@ export const SCORE_EXPLAINER =
 
 export const STATUS_PRESENTATION: Record<SourceStatus, Presentation> = {
   no_conflict: {
-    label: 'No conflict found',
+    label: 'Clear',
     tone: 'ok',
     detail: 'Search completed successfully and found nothing meaningful.',
   },
   similar_found: {
-    label: 'Similar results found',
+    label: 'Review',
     tone: 'warn',
-    detail: 'Worth investigating — see the evidence below.',
+    detail: 'Worth investigating. See the evidence below.',
   },
   confirmed_conflict: {
-    label: 'Conflict confirmed',
+    label: 'Conflict',
     tone: 'danger',
     detail: 'An exact or very strong conflict was identified.',
   },
   unable_to_verify: {
-    label: 'Unable to verify',
+    label: 'Unverifiable',
     tone: 'unknown',
     detail: 'This source could not be checked. It is not evidence that the name is free.',
   },
   manual_check_recommended: {
-    label: 'Manual check recommended',
+    label: 'Manual check',
     tone: 'unknown',
     detail: 'Automatic evidence is not reliable enough here. Check it yourself before deciding.',
   },
 }
 
+/**
+ * Every label here is built from the same three words the per-source status
+ * system uses (Clear / Review / Conflict), so the overall verdict and an
+ * individual source's status never read as two different vocabularies.
+ */
 export const VERDICT_PRESENTATION: Record<Verdict, Presentation> = {
   strong: {
-    label: 'Strong Candidate',
+    label: 'Clear',
     tone: 'ok',
     detail: 'No significant digital conflicts surfaced in the checks that completed.',
   },
   promising: {
-    label: 'Promising',
+    label: 'Mostly Clear',
     tone: 'ok',
     detail: 'Broadly clear digitally, with a few things worth a look.',
   },
   mixed: {
-    label: 'Mixed Signals',
+    label: 'Review',
     tone: 'warn',
     detail: 'Real digital conflicts exist. Read the evidence before committing.',
   },
   risky: {
-    label: 'Risky',
+    label: 'Conflict',
     tone: 'danger',
     detail: 'Significant digital conflicts found, including at least one that caps the score.',
   },
   avoid: {
-    label: 'Serious Conflicts',
+    label: 'Serious Conflict',
     tone: 'danger',
     detail: 'Strong, direct digital conflicts were identified.',
   },
@@ -203,9 +208,19 @@ export function coverageTone(coverage: number): Tone {
   return 'danger'
 }
 
+/**
+ * Coverage is weighted by how much each source matters to this category, not
+ * a plain count of checks completed — the caveat says so, since a raw
+ * fraction (12 of 14 sources) can otherwise look like it disagrees with the
+ * number shown.
+ */
 export function coverageCaveat(coverage: number): string {
-  if (coverage >= 90) return 'Nearly all intended checks completed.'
-  if (coverage >= 70) return 'Some checks did not complete — the score below is partial.'
+  if (coverage >= 90) {
+    return 'Nearly all intended research completed, weighted by relevance to this category.'
+  }
+  if (coverage >= 70) {
+    return 'Some checks did not complete. Weighted by category, so this is not a simple source count.'
+  }
   return 'Many checks did not complete. Treat this score as provisional.'
 }
 

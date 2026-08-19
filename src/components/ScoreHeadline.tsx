@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/Badge'
+import type { SourceResult } from '@/lib/core/types'
 import {
   coverageCaveat,
   coverageTone,
@@ -8,6 +9,23 @@ import {
   VERDICT_PRESENTATION,
 } from '@/lib/presentation'
 import { verdictFor, type ViabilityResult } from '@/lib/scoring/viability'
+import { GROUP_LABELS } from '@/lib/scoring/weights'
+
+/** A subscore reads as "how clear this group is", so the tone thresholds run
+ * the same direction as a grade: high is good. */
+function signalTone(subscore: number): 'ok' | 'warn' | 'danger' {
+  if (subscore >= 75) return 'ok'
+  if (subscore >= 45) return 'warn'
+  return 'danger'
+}
+
+/** The same three words used everywhere else, so a signal row never
+ * introduces a fourth vocabulary for "how clear is this". */
+const SIGNAL_WORD: Record<'ok' | 'warn' | 'danger', string> = {
+  ok: 'Clear',
+  warn: 'Review',
+  danger: 'Conflict',
+}
 
 /** Circular gauge for the headline score. */
 function ScoreRing({ score, size = 104 }: { score: number; size?: number }) {
@@ -42,7 +60,7 @@ function ScoreRing({ score, size = 104 }: { score: number; size?: number }) {
         <span className="font-display text-3xl font-semibold tabular-nums text-charcoal">
           {score}
         </span>
-        <span className="text-[10px] text-faint">/ 100</span>
+        <span className="text-[11px] text-faint">/ 100</span>
       </span>
     </div>
   )
@@ -53,6 +71,7 @@ interface ScoreHeadlineProps {
   description: string | undefined
   viability: ViabilityResult
   coverage: number
+  results: readonly SourceResult[]
 }
 
 /**
@@ -63,10 +82,19 @@ interface ScoreHeadlineProps {
  * stacked so neither can be read as a qualifier on the other, and the coverage
  * caveat renders always, not only when coverage is poor.
  */
-export function ScoreHeadline({ name, description, viability, coverage }: ScoreHeadlineProps) {
+export function ScoreHeadline({
+  name,
+  description,
+  viability,
+  coverage,
+  results,
+}: ScoreHeadlineProps) {
   const verdict = verdictFor(viability.score)
   const presentation = VERDICT_PRESENTATION[verdict]
   const covTone = coverageTone(coverage)
+  const signals = viability.groups.filter((g) => g.weight > 0).sort((a, b) => b.weight - a.weight)
+  const hasUncappedConflict =
+    viability.caps.length === 0 && results.some((r) => r.status === 'confirmed_conflict')
 
   return (
     <section className="rounded-xl border border-line bg-surface p-6 sm:p-8">
@@ -81,18 +109,25 @@ export function ScoreHeadline({ name, description, viability, coverage }: ScoreH
         <div className="flex items-start gap-5">
           <ScoreRing score={viability.score} />
           <div className="min-w-0">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-faint">
+            <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
               {SCORE_NAME_SHORT}
             </p>
             <div className="mt-2">
               <Badge tone={presentation.tone}>{presentation.label}</Badge>
             </div>
             <p className="mt-2 text-sm text-charcoal-2">{presentation.detail}</p>
+            {hasUncappedConflict ? (
+              <p className="mt-2 text-sm text-warn">
+                A source below shows a confirmed conflict. It wasn&rsquo;t weighted heavily enough
+                for this category to change the verdict on its own — read the evidence before
+                deciding.
+              </p>
+            ) : null}
           </div>
         </div>
 
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-faint">
+          <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
             Research coverage
           </p>
           <p className="mt-1 flex items-baseline gap-1">
@@ -115,6 +150,32 @@ export function ScoreHeadline({ name, description, viability, coverage }: ScoreH
         </div>
       </div>
 
+      <div className="mt-8 border-t border-line pt-6">
+        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
+          Signal breakdown
+        </p>
+        <div className="mt-3 grid gap-x-8 gap-y-3 sm:grid-cols-2">
+          {signals.map((g) => (
+            <div key={g.group}>
+              <div className="flex items-baseline justify-between gap-2 text-sm">
+                <span className="text-charcoal-2">{GROUP_LABELS[g.group]}</span>
+                <span className="font-mono text-xs text-faint">
+                  {g.subscore === null ? 'Not checked' : `${SIGNAL_WORD[signalTone(g.subscore)]} · ${g.subscore}`}
+                </span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted-bg">
+                {g.subscore !== null ? (
+                  <div
+                    className={`h-full rounded-full ${TONE_FILL[signalTone(g.subscore)]}`}
+                    style={{ width: `${g.subscore}%` }}
+                  />
+                ) : null}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <p className="mt-6 border-t border-line pt-4 text-xs leading-relaxed text-faint">
         {SCORE_EXPLAINER}
       </p>
@@ -122,12 +183,12 @@ export function ScoreHeadline({ name, description, viability, coverage }: ScoreH
       {viability.caps.length > 0 ? (
         <div className="mt-4 rounded-lg border border-danger/20 bg-danger-soft p-4">
           <p className="text-sm font-medium text-danger">
-            Score capped at {viability.score} — it would otherwise be {viability.rawScore}
+            Score capped at {viability.score} (it would otherwise be {viability.rawScore})
           </p>
           <ul className="mt-2 space-y-1 text-sm text-danger/90">
             {viability.caps.map((cap) => (
               <li key={cap.reason}>
-                {cap.reason} — maximum {cap.maximum}
+                {cap.reason}, maximum {cap.maximum}
               </li>
             ))}
           </ul>

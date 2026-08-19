@@ -17,6 +17,13 @@ interface DisqualifiedName {
   reason: string
 }
 
+const STEPS = [
+  { label: 'Generate', detail: 'An AI model proposes around 30 candidate names.' },
+  { label: 'Research', detail: 'Every candidate gets its own Quick Check.' },
+  { label: 'Discard conflicts', detail: 'Names with a confirmed conflict are dropped.' },
+  { label: 'Return top 5', detail: 'The strongest survivors are ranked and shown.' },
+] as const
+
 type Phase =
   | { kind: 'setup' }
   | { kind: 'generating' }
@@ -174,9 +181,7 @@ export function GenerateRunner() {
   if (phase.kind === 'error') {
     return (
       <div className="rounded-xl border border-danger/20 bg-danger-soft p-6 text-center">
-        <h2 className="font-display text-xl font-semibold text-danger">
-          Name generation could not complete
-        </h2>
+        <h2 className="text-xl font-semibold text-danger">Name generation could not complete</h2>
         <p className="mt-2 text-sm text-danger/90">{phase.message}</p>
         <button
           type="button"
@@ -196,7 +201,7 @@ export function GenerateRunner() {
           aria-hidden="true"
           className="mx-auto block h-6 w-6 animate-spin rounded-full border-2 border-line-strong border-t-accent"
         />
-        <h2 className="mt-4 font-display text-xl font-semibold">Coming up with ideas…</h2>
+        <h2 className="mt-4 text-xl font-semibold">Coming up with ideas…</h2>
         <p className="mt-1 text-sm text-charcoal-2">
           An AI model is proposing candidate names from your description.
         </p>
@@ -208,7 +213,7 @@ export function GenerateRunner() {
     const done = phase.done.length
     return (
       <div aria-live="polite" aria-busy="true" className="rounded-xl border border-line bg-surface p-6">
-        <h2 className="font-display text-xl font-semibold">
+        <h2 className="text-xl font-semibold">
           Researching {done} of {phase.total} candidates
         </h2>
         <p className="mt-1 text-sm text-charcoal-2">
@@ -261,23 +266,26 @@ export function GenerateRunner() {
           </p>
         </div>
 
-        <div className="mt-4">
-          <label htmlFor="gen-category" className="mb-1.5 block text-sm font-medium">
-            Category
-          </label>
-          <select
-            id="gen-category"
-            value={category}
-            onChange={(e) => setCategory(e.target.value as Category)}
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm outline-none focus:border-accent-border focus:ring-2 focus:ring-accent/20"
-          >
+        <fieldset className="mt-4">
+          <legend className="mb-1.5 block text-sm font-medium">Category</legend>
+          <div className="flex flex-wrap gap-2">
             {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCategory(c)}
+                aria-pressed={category === c}
+                className={`rounded-full border px-3 py-1.5 text-sm transition ${
+                  category === c
+                    ? 'border-accent bg-accent-soft font-medium text-accent'
+                    : 'border-line text-charcoal-2 hover:border-line-strong'
+                }`}
+              >
                 {CATEGORY_LABELS[c]}
-              </option>
+              </button>
             ))}
-          </select>
-        </div>
+          </div>
+        </fieldset>
 
         <div className="mt-4">
           <label htmlFor="gen-seed" className="mb-1.5 block text-sm font-medium">
@@ -294,12 +302,6 @@ export function GenerateRunner() {
         </div>
       </div>
 
-      <p className="mt-4 text-xs text-faint">
-        Generates roughly 30 candidates, researches every one with a Quick Check, discards names
-        that are already taken, and shows the strongest 5. This uses one generation run from your
-        daily allowance and can take about a minute.
-      </p>
-
       {error !== null ? (
         <p role="alert" className="mt-4 text-sm text-danger">
           {error}
@@ -312,6 +314,20 @@ export function GenerateRunner() {
       >
         Generate names →
       </button>
+
+      <div className="mt-8 grid grid-cols-2 gap-x-4 gap-y-5 border-t border-line pt-6 sm:grid-cols-4">
+        {STEPS.map((step, i) => (
+          <div key={step.label}>
+            <span className="font-mono text-xs text-faint">0{i + 1}</span>
+            <h3 className="mt-1 text-sm font-semibold">{step.label}</h3>
+            <p className="mt-1 text-xs leading-relaxed text-charcoal-2">{step.detail}</p>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-5 text-xs text-faint">
+        Uses one generation run from your daily allowance and can take about a minute.
+      </p>
     </form>
   )
 }

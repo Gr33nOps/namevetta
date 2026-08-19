@@ -166,12 +166,14 @@ export function ScanRunner({ context }: { context: ScanContext }) {
   return (
     <section aria-live="polite" aria-busy="true" className="mx-auto w-full max-w-[640px] px-6 py-14">
       <div className="rounded-xl border border-line bg-surface p-6">
-        <h1 className="font-display text-2xl font-semibold">
-          Researching <span className="font-mono">{context.name}</span>
-        </h1>
-        <p className="mt-1 text-sm text-charcoal-2">
-          {done} of {order.length} sources complete
-        </p>
+        <div className="text-center">
+          <h1 className="font-display text-2xl font-semibold">
+            Researching <span className="font-mono">{context.name}</span>
+          </h1>
+          <p className="mt-1 text-sm text-charcoal-2">
+            {done} of {order.length} sources complete
+          </p>
+        </div>
 
         <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted-bg">
           <div
