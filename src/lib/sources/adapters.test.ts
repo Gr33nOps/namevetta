@@ -279,6 +279,39 @@ describe('domain adapter', () => {
     expect(result.status).toBe('unable_to_verify')
     expect(result.confidence).toBe(0)
   })
+
+  it('flags a registered lookalike .com on Deep Check without changing status', async () => {
+    const deepCtx: ScanContext = { name: 'Monzo', category: 'finance', scanType: 'deep' }
+    vi.stubGlobal(
+      'fetch',
+      mockFetch([
+        BOOTSTRAP,
+        // "rn" for "m" is the squat variant of "monzo" this exercises.
+        { match: 'rdap.example/domain/rnonzo.com', status: 200, body: { ldhName: 'rnonzo.com' } },
+      ]),
+    )
+    const result = await domainAdapter.run(deepCtx, deps())
+    // The candidate's own domains are all unregistered in this fixture, so
+    // status must still read clear — the squat flag is additional evidence,
+    // never a conflict signal of its own.
+    expect(result.status).toBe('no_conflict')
+    expect(result.evidence.some((e) => e.label.includes('rnonzo.com') && e.label.includes('lookalike'))).toBe(
+      true,
+    )
+  })
+
+  it('does not run the squat check on a Quick Check', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch([
+        BOOTSTRAP,
+        { match: 'rdap.example/domain/rnonzo.com', status: 200, body: { ldhName: 'rnonzo.com' } },
+      ]),
+    )
+    const quickCtx: ScanContext = { name: 'Monzo', category: 'finance', scanType: 'quick' }
+    const result = await domainAdapter.run(quickCtx, deps())
+    expect(result.evidence.some((e) => e.label.includes('lookalike'))).toBe(false)
+  })
 })
 
 /* -------------------------------------------------------------------------- */

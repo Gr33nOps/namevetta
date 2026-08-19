@@ -33,7 +33,12 @@ export const SOURCE_IDS = [
   'wikidata',
   'edgar',
   'companies_house',
+  'fr_entreprises',
+  'gleif',
+  'osm',
   'socials',
+  'social_check',
+  'bluesky',
 ] as const
 
 export const SourceIdSchema = z.enum(SOURCE_IDS)

@@ -53,12 +53,15 @@ function Row({
 }) {
   return (
     <div
+      role="row"
       className="grid border-b border-line last:border-b-0"
       style={{ gridTemplateColumns: `minmax(140px, 180px) repeat(${candidates.length}, 1fr)` }}
     >
-      <div className={`p-3 text-sm ${muted ? 'text-faint' : 'text-charcoal-2'}`}>{label}</div>
+      <div role="rowheader" className={`p-3 text-sm ${muted ? 'text-faint' : 'text-charcoal-2'}`}>
+        {label}
+      </div>
       {candidates.map((c) => (
-        <div key={c.name} className="border-l border-line p-3 text-sm">
+        <div role="cell" key={c.name} className="border-l border-line p-3 text-sm">
           {render(c)}
         </div>
       ))}
@@ -120,18 +123,36 @@ export function ComparisonTable({
         Compared as <strong className="font-medium">{CATEGORY_LABELS[category]}</strong>
       </p>
 
-      {/* Wide tables must scroll inside their own container, not the page. */}
-      <section className="overflow-x-auto rounded-2xl border border-line bg-surface">
-        <div className="min-w-[620px]">
+      {/*
+        Wide tables must scroll inside their own container, not the page.
+
+        The grid is built from divs rather than a `<table>` because the column
+        count is dynamic and drives `gridTemplateColumns` directly. The ARIA
+        table roles restore what the markup would otherwise throw away: without
+        them a screen reader gets a flat run of cells with no idea which name
+        or which metric any number belongs to, on the densest view in the
+        product. `tabIndex={0}` is on the scroll container so a keyboard user
+        can actually reach the overflow.
+      */}
+      <section
+        tabIndex={0}
+        aria-label="Comparison of every candidate, metric by metric"
+        className="overflow-x-auto rounded-2xl border border-line bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+      >
+        <div role="table" className="min-w-[620px]">
           <div
+            role="row"
             className="grid border-b border-line bg-muted-bg"
             style={{ gridTemplateColumns: `minmax(140px, 180px) repeat(${candidates.length}, 1fr)` }}
           >
-            <div className="p-3 font-mono text-[11px] uppercase tracking-widest text-faint">
+            <div
+              role="columnheader"
+              className="p-3 font-mono text-[11px] uppercase tracking-widest text-faint"
+            >
               Metric
             </div>
             {candidates.map((c) => (
-              <div key={c.name} className="border-l border-line p-3">
+              <div role="columnheader" key={c.name} className="border-l border-line p-3">
                 <span className="font-medium">{c.name}</span>
                 {c.name === winner ? (
                   <span className="ml-1.5 rounded-full bg-accent/10 px-1.5 py-0.5 font-mono text-[11px] text-accent">
@@ -189,7 +210,8 @@ export function ComparisonTable({
                 // not checked, and showing 0 would read as a failure.
                 return cell?.subscore === null || cell === undefined ? (
                   <span className="text-faint" title="Not checked">
-                    –
+                    <span aria-hidden="true">–</span>
+                    <span className="sr-only">Not checked</span>
                   </span>
                 ) : (
                   <span className="font-mono">{cell.subscore}</span>

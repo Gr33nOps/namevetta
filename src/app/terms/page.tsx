@@ -5,6 +5,12 @@ import { SCOPE_NOTICE, TRADEMARK_DISCLAIMER } from '@/lib/presentation'
 export const metadata = {
   title: 'Terms of Service | NameVetta',
   description: 'The terms that govern using NameVetta.',
+  alternates: { canonical: '/terms' },
+  openGraph: {
+    title: 'Terms of Service | NameVetta',
+    description: 'The terms that govern using NameVetta.',
+    url: '/terms',
+  },
 }
 
 const UPDATED = '2026-08-18'
@@ -42,8 +48,7 @@ export default function Page() {
   return (
     <div className="mx-auto w-full max-w-[720px] px-6 py-14">
       <div className="text-center">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">Legal</p>
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-charcoal">
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-charcoal">
           Terms of Service
         </h1>
         <p className="mt-2 text-sm text-faint">Last updated {UPDATED}</p>

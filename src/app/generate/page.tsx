@@ -3,6 +3,12 @@ import { GenerateRunner } from '@/components/GenerateRunner'
 export const metadata = {
   title: 'Generate names | NameVetta',
   description: 'Generate candidate names, research every one, and see the strongest 5.',
+  alternates: { canonical: '/generate' },
+  openGraph: {
+    title: 'Generate names | NameVetta',
+    description: 'Generate candidate names, research every one, and see the strongest 5.',
+    url: '/generate',
+  },
 }
 
 /**
@@ -17,11 +23,7 @@ export default function Page() {
   return (
     <div className="mx-auto w-full max-w-[860px] px-6 py-14">
       <div className="text-center">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
-          Generate names
-        </p>
-
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-charcoal sm:text-4xl">
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-charcoal sm:text-4xl">
           Don&rsquo;t have a name yet?
         </h1>
 

@@ -149,6 +149,63 @@ async function checkViaDns(domain: string, signal: AbortSignal): Promise<DomainC
   }
 }
 
+/**
+ * Single-substitution lookalike labels for the `.com` squatting check.
+ *
+ * Deliberately narrow: ASCII character swaps only, not a full Unicode
+ * homoglyph/IDN sweep — that needs punycode-encoded lookups and a much larger
+ * surface. This catches the common, cheap version of the same attack: `rn`
+ * for `m`, `0` for `o`, `1`/`l`/`i` for each other. At most three variants,
+ * generated deterministically so the same name always checks the same
+ * candidates.
+ */
+function squatVariants(label: string): string[] {
+  const swaps: [RegExp, string][] = [
+    [/m/g, 'rn'],
+    [/o/g, '0'],
+    [/l/g, '1'],
+  ]
+  const variants = new Set<string>()
+  for (const [pattern, replacement] of swaps) {
+    const variant = label.replace(pattern, replacement)
+    if (variant !== label) variants.add(variant)
+  }
+  return [...variants].slice(0, 3)
+}
+
+/**
+ * Whether a registered domain shows any sign of actually being used.
+ *
+ * A registration record only says a name was claimed, not that anyone is
+ * doing anything with it — a parked domain is a much weaker obstacle than a
+ * live site or mailbox. Checked only for domains that came back registered,
+ * over the same DoH endpoint the RDAP fallback already uses, so this adds no
+ * new dependency. Best-effort and additive only: a failure or an inconclusive
+ * answer here never changes the registration status itself, only whether a
+ * note about liveness gets added to the evidence.
+ */
+async function parkedNote(domain: string, signal: AbortSignal): Promise<string | undefined> {
+  try {
+    const [a, mx] = await Promise.all([
+      requestJson<{ Answer?: unknown[] }>(
+        `${DOH_ENDPOINT}?name=${encodeURIComponent(domain)}&type=A`,
+        { signal, headers: { accept: 'application/dns-json' }, expectedStatuses: [], retries: 0 },
+      ),
+      requestJson<{ Answer?: unknown[] }>(
+        `${DOH_ENDPOINT}?name=${encodeURIComponent(domain)}&type=MX`,
+        { signal, headers: { accept: 'application/dns-json' }, expectedStatuses: [], retries: 0 },
+      ),
+    ])
+    const live =
+      (Array.isArray(a.data?.Answer) && a.data.Answer.length > 0) ||
+      (Array.isArray(mx.data?.Answer) && mx.data.Answer.length > 0)
+    if (live) return undefined
+    return `${domain}: no A record and no mail server found. Likely parked or unused — a weaker obstacle than an active site.`
+  } catch {
+    return undefined
+  }
+}
+
 export const domainAdapter: SourceAdapter = {
   id: 'domain',
 
@@ -196,6 +253,43 @@ export const domainAdapter: SourceAdapter = {
 
     const registered = checks.filter((c) => c.state === 'registered')
     const unknown = checks.filter((c) => c.state === 'unknown')
+
+    // Only worth asking for domains that are actually registered, and capped
+    // to the handful that ever apply — most scans have zero or one.
+    const parkedNotes = (
+      await Promise.all(registered.map((c) => parkedNote(c.domain, deps.signal)))
+    ).filter((n): n is string => n !== undefined)
+    for (const note of parkedNotes) evidence.push(makeEvidence('domain', note))
+
+    // Lookalike `.com` squatting check — Deep Check only, since it multiplies
+    // request count for a signal that is secondary to the main registration
+    // answer. A registered lookalike is worth flagging regardless of whether
+    // the candidate's own `.com` is taken.
+    if (ctx.scanType === 'deep') {
+      const comBase = bootstrap.get('com')
+      const variants = squatVariants(label).map((v) => `${v}.com`)
+      const squatChecks = await Promise.all(
+        variants.map(async (domain): Promise<DomainCheck | undefined> => {
+          try {
+            return comBase === undefined
+              ? await checkViaDns(domain, deps.signal)
+              : await checkViaRdap(domain, comBase, deps.signal)
+          } catch {
+            return undefined
+          }
+        }),
+      )
+      for (const check of squatChecks) {
+        if (check?.state !== 'registered') continue
+        evidence.push(
+          makeEvidence(
+            'domain',
+            `${check.domain} is registered — a lookalike of this name using a common character swap (rn/m, 0/o, 1/l). Worth checking who holds it.`,
+            check.url,
+          ),
+        )
+      }
+    }
 
     // Every single TLD failing means we learned nothing at all.
     if (unknown.length === checks.length) {

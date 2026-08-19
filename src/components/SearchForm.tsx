@@ -70,9 +70,37 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
 
   const canSearch = name.trim().length > 0
 
+  /**
+   * Roving focus across the depth options.
+   *
+   * They are mutually exclusive, which makes them radios, and a radio group
+   * is one tab stop with arrow keys moving between options. `aria-pressed`
+   * toggle buttons announced each one as independently on or off, which is
+   * not what choosing a depth means.
+   */
+  const depthRefs = useRef<(HTMLButtonElement | null)[]>([])
+
+  const onDepthKeyDown = (e: React.KeyboardEvent<HTMLButtonElement>, index: number): void => {
+    const forward = e.key === 'ArrowRight' || e.key === 'ArrowDown'
+    const back = e.key === 'ArrowLeft' || e.key === 'ArrowUp'
+    if (!forward && !back) return
+    e.preventDefault()
+    const next = (index + (forward ? 1 : -1) + DEPTHS.length) % DEPTHS.length
+    const option = DEPTHS[next]
+    if (option === undefined) return
+    setScanType(option.value)
+    depthRefs.current[next]?.focus()
+  }
+
   // A quick way in for anyone who reaches for it out of habit — Ctrl/Cmd+K
   // focuses the search box from anywhere on the page.
   useEffect(() => {
+    // Deliberately deferred to an effect rather than a lazy `useState`
+    // initializer: `navigator` does not exist during server rendering, so
+    // computing this at render time would either throw on the server or
+    // guess wrong and mismatch the client's first render. Correcting it once,
+    // right after mount, is the standard fix for a client-only value.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsMac(/Mac|iPhone|iPad|iPod/.test(navigator.userAgent))
 
     const onKeyDown = (e: KeyboardEvent): void => {
@@ -207,18 +235,28 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
               </div>
             </div>
 
-            <fieldset className="min-w-0">
-              <legend className="mb-2 block text-xs font-medium text-charcoal-2">
+            <div className="min-w-0">
+              <span id="depth-label" className="mb-2 block text-xs font-medium text-charcoal-2">
                 Research depth
-              </legend>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                {DEPTHS.map((depth) => (
+              </span>
+              <div
+                role="radiogroup"
+                aria-labelledby="depth-label"
+                className="grid grid-cols-1 gap-2 sm:grid-cols-2"
+              >
+                {DEPTHS.map((depth, i) => (
                   <button
                     key={depth.value}
                     type="button"
+                    ref={(node) => {
+                      depthRefs.current[i] = node
+                    }}
+                    role="radio"
+                    aria-checked={scanType === depth.value}
+                    tabIndex={scanType === depth.value ? 0 : -1}
                     onClick={() => setScanType(depth.value)}
-                    aria-pressed={scanType === depth.value}
-                    className={`rounded-xl border p-3 text-left transition-all ${
+                    onKeyDown={(e) => onDepthKeyDown(e, i)}
+                    className={`rounded-xl border p-3 text-left transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
                       scanType === depth.value
                         ? 'border-accent bg-accent-soft ring-1 ring-accent/30'
                         : 'border-line bg-surface hover:border-accent-border'
@@ -240,7 +278,7 @@ export function SearchForm({ autoFocus = false }: { autoFocus?: boolean }) {
                   </button>
                 ))}
               </div>
-            </fieldset>
+            </div>
           </div>
         ) : null}
 

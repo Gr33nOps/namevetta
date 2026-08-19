@@ -74,7 +74,11 @@ checked part of it", and the report says exactly that.
 | YouTube | Free tier | Quota units per call |
 | Google Play | Free tier | Web-index discovery only; no official API |
 | Web presence (Tavily) | 1,000 credits/mo | **No credit card required**; 1 request per Deep Check, cached 30 days |
-| Social handles (12 platforms) | — | **Manual only** |
+| Local business (OpenStreetMap) | Free | ~1 req/sec usage policy; identifying User-Agent required |
+| French company register | Free | Courtesy ceiling; declared NAF industry code, like Companies House's SIC |
+| Global LEI register (GLEIF) | Free | Courtesy ceiling; live/lapsed registration status, no industry code |
+| Bluesky | Free | Courtesy ceiling; the one social platform besides YouTube with a real handle lookup |
+| Social handles (11 other platforms) | — | **Manual only** |
 
 Nothing in this project scrapes. Where a source cannot be automated legitimately and
 for free, the product uses a transparent manual workflow instead of guessing.
@@ -133,10 +137,19 @@ sources that need a key report `unable_to_verify` and coverage drops accordingly
 See [.env.example](.env.example) for what each key unlocks.
 
 ```bash
-npm test          # unit and integration tests
+npm test          # unit and integration tests, plus the golden benchmark
+npm run test:e2e  # Playwright, against a real browser
 npm run typecheck # tsc --noEmit
+npm run lint      # eslint
 npm run build     # production build
 ```
+
+`npm test` covers the engine: sources, similarity, scoring, orchestration.
+`npm run test:e2e` covers what it structurally cannot, that a page renders and
+hydrates in a browser: keyboard access, the mobile menu, theme persistence
+across a reload, the metadata a crawler reads, and the ARIA semantics of the
+comparison grid. It never calls a real source; `/api/scan` and `/api/compare`
+are stubbed so the suite can't spend quota or hammer an upstream.
 
 ## Documentation
 
@@ -145,17 +158,47 @@ npm run build     # production build
 - [docs/SCHEMA.md](docs/SCHEMA.md) — database schema and RLS posture
 - [docs/COPY_STYLE.md](docs/COPY_STYLE.md) — the standard every piece of user-facing text is held to
 
+## Trust and transparency
+
+- **[/methodology](https://namevetta.vercel.app/methodology)** — the status table, score
+  weights and per-source confidence ceilings, generated straight from the manifest that
+  runs at request time, so this page cannot describe a rule the product doesn't enforce.
+- **[/status](https://namevetta.vercel.app/status)** — real per-source success rate over
+  the last 24 hours, published rather than only used internally.
+- **Per-source retry.** A source that came back `unable_to_verify` for a transient reason
+  (a timeout, a momentary rate limit) can be retried on its own, without spending a new
+  Quick Check or Deep Check — capped per report so it can't become a quota bypass.
+- **npm and GitHub liveness.** An exact match on either is checked against real activity
+  (downloads, publish date, repos, followers) before being treated as a live conflict, so
+  a package abandoned in 2016 doesn't score the same as one with 600M downloads.
+- **Domain squat check.** On a Deep Check, the candidate's `.com` is checked alongside a
+  handful of common character-swap lookalikes (`rn`/`m`, `0`/`o`, `1`/`l`), flagged as
+  evidence if registered.
+- **Cache and health persist across cold starts**, backed by Postgres rather than living
+  only in one serverless instance's memory — a repeat scan doesn't re-spend rate limit or
+  Tavily credits a warm instance would have avoided, and a source's confidence reflects
+  what every instance has seen, not just this one.
+- **Keyboard and screen reader.** Skip link on every page, both nav landmarks named,
+  research depth as a real radio group, and the comparison grid carries table semantics
+  so a score is announced with the name and metric it belongs to. Each of these is
+  asserted in the Playwright suite rather than checked once by hand.
+- **`npm run check-sources`** hits every new live endpoint once and checks its response
+  shape, on its own daily GitHub Actions schedule (`source-health-check.yml`) — separate
+  from the PR-blocking suite, since a live check is inherently flakier than the mocked one.
+
 ## Status
 
-Live and working: the research engine (18 sources, including five package
-registries beyond npm/PyPI and Flathub for Linux desktop apps), similarity engine, industry
-relevance, scoring with conflict caps, Trademark Assist, Compare Names, the name
-generator (Groq proposes ~30 candidates, every one gets a real Quick Check, exact
-conflicts are discarded, the top 5 survivors are ranked), accounts with
-history/saved names/share links, per-day quotas, AI explanations on Deep Check (Groq,
-grounded against the report's own evidence), a 116-case quality benchmark gating CI,
-security headers, Terms/Privacy, optional Turnstile on signup, optional Sentry error
-tracking, and account data export/deletion.
+Live and working: the research engine (22 sources, including five package
+registries beyond npm/PyPI, Flathub for Linux desktop apps, a second and third company
+register beyond Companies House, OpenStreetMap for local businesses, and Bluesky),
+similarity engine, industry relevance, scoring with conflict caps, Trademark Assist,
+Compare Names, the name generator (Groq proposes ~30 candidates, every one gets a real
+Quick Check, exact conflicts are discarded, the top 5 survivors are ranked), accounts
+with history/saved names/share links, per-day quotas, AI explanations on Deep Check
+(Groq, grounded against the report's own evidence), a 116-case quality benchmark gating
+CI, security headers, Terms/Privacy, optional Turnstile on signup, optional Sentry error
+tracking, account data export/deletion, per-source retry, cross-instance cache and
+health persistence, share-link Open Graph images, and a printable report.
 
 Not yet built: scoring refinement beyond the caps already in place, and Realtime
 transport for scans that survive navigating away.

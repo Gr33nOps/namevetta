@@ -1,8 +1,9 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import Link from 'next/link'
 import { Inter, JetBrains_Mono, Outfit } from 'next/font/google'
 import { SiteNav } from '@/components/SiteNav'
 import { SCOPE_NOTICE } from '@/lib/presentation'
+import { SITE_URL } from '@/lib/site'
 import './globals.css'
 
 const jetbrains = JetBrains_Mono({ variable: '--font-jetbrains', subsets: ['latin'] })
@@ -23,11 +24,92 @@ const inter = Inter({
   weight: ['400', '500', '600', '700'],
 })
 
+const TITLE = 'NameVetta: research a name before you build on it'
+const DESCRIPTION =
+  'Check how crowded a name is across GitHub, app stores, domains and more. Evidence-backed results, not just a row of green checkmarks.'
+
 export const metadata: Metadata = {
-  title: 'NameVetta: research a name before you build on it',
-  description:
-    'Check how crowded a name is across GitHub, app stores, domains and more. Evidence-backed results, not just a row of green checkmarks.',
+  /**
+   * Every URL-based metadata field below is relative, and Next resolves those
+   * against `metadataBase`. Without it the fallback is `VERCEL_URL` — the
+   * per-deployment hostname, which changes on every push — so a shared report's
+   * OG image would point at a preview URL rather than the canonical site.
+   */
+  metadataBase: new URL(SITE_URL),
+  title: TITLE,
+  description: DESCRIPTION,
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    siteName: 'NameVetta',
+    title: TITLE,
+    description: DESCRIPTION,
+    url: '/',
+  },
+  // `summary_large_image` rather than `summary`: the card is a 1200x630
+  // render of the actual score and coverage figures, which is only legible
+  // at the large size.
+  twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
 }
+
+/**
+ * `themeColor` tints mobile browser chrome to match the page behind it. Both
+ * values are the `--nv-canvas` literals from `globals.css`, per mode, so the
+ * address bar tracks the theme the user actually chose.
+ */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#fafafc' },
+    { media: '(prefers-color-scheme: dark)', color: '#0c0b13' },
+  ],
+}
+
+/**
+ * Structured data. Static, and deliberately modest: this describes what the
+ * product is and that it costs nothing, and claims nothing about accuracy or
+ * scope that the report itself doesn't already state.
+ */
+const STRUCTURED_DATA = {
+  '@context': 'https://schema.org',
+  '@type': 'WebApplication',
+  name: 'NameVetta',
+  url: SITE_URL,
+  applicationCategory: 'BusinessApplication',
+  operatingSystem: 'Any',
+  description: DESCRIPTION,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+}
+
+const FOOTER_COLUMNS = [
+  {
+    id: 'footer-product',
+    heading: 'Product',
+    links: [
+      { href: '/', label: 'New Check' },
+      { href: '/generate', label: 'Generate' },
+      { href: '/compare', label: 'Compare' },
+      { href: '/history', label: 'History' },
+    ],
+  },
+  {
+    // Methodology and source status are not legal pages, and filing them
+    // under "Legal" hid the two pages that explain how the score works.
+    id: 'footer-how',
+    heading: 'How it works',
+    links: [
+      { href: '/methodology', label: 'Methodology' },
+      { href: '/status', label: 'Source status' },
+    ],
+  },
+  {
+    id: 'footer-legal',
+    heading: 'Legal',
+    links: [
+      { href: '/terms', label: 'Terms' },
+      { href: '/privacy', label: 'Privacy' },
+    ],
+  },
+] as const
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
@@ -43,75 +125,56 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
             __html: `(function(){try{var t=localStorage.getItem('nv-theme');if(t==='light'||t==='dark'){document.documentElement.setAttribute('data-theme',t)}}catch(e){}})();`,
           }}
         />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
+        />
       </head>
       <body className="flex min-h-full flex-col font-sans">
+        {/*
+          First focusable element on every page. The header is sticky and a
+          report runs long, so without this a keyboard user re-tabs the whole
+          nav on every navigation.
+        */}
+        <a
+          href="#content"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-accent focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+        >
+          Skip to content
+        </a>
         <SiteNav />
-        <main className="flex-1">{children}</main>
+        <main id="content" className="flex-1">
+          {children}
+        </main>
 
-        <footer className="border-t border-line bg-surface">
+        <footer className="border-t border-line bg-surface print:hidden">
           <div className="mx-auto w-full max-w-[1200px] px-6 py-10">
-            <div className="flex flex-wrap gap-x-16 gap-y-8">
-              <div>
-                <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
-                  Product
-                </p>
-                <ul className="mt-3 space-y-2 text-sm">
-                  <li>
-                    <Link href="/" className="text-charcoal-2 transition-colors hover:text-charcoal">
-                      New Check
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/generate"
-                      className="text-charcoal-2 transition-colors hover:text-charcoal"
-                    >
-                      Generate
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/compare"
-                      className="text-charcoal-2 transition-colors hover:text-charcoal"
-                    >
-                      Compare
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/history"
-                      className="text-charcoal-2 transition-colors hover:text-charcoal"
-                    >
-                      History
-                    </Link>
-                  </li>
-                </ul>
-              </div>
-
-              <div>
-                <p className="font-mono text-[11px] uppercase tracking-widest text-faint">Legal</p>
-                <ul className="mt-3 space-y-2 text-sm">
-                  <li>
-                    <Link
-                      href="/terms"
-                      className="text-charcoal-2 transition-colors hover:text-charcoal"
-                    >
-                      Terms
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/privacy"
-                      className="text-charcoal-2 transition-colors hover:text-charcoal"
-                    >
-                      Privacy
-                    </Link>
-                  </li>
-                </ul>
-              </div>
+            <div className="flex flex-wrap justify-center gap-x-16 gap-y-8 text-center">
+              {FOOTER_COLUMNS.map((column) => (
+                <div key={column.id}>
+                  <h2
+                    id={column.id}
+                    className="font-mono text-[11px] font-normal uppercase tracking-widest text-faint"
+                  >
+                    {column.heading}
+                  </h2>
+                  <ul aria-labelledby={column.id} className="mt-3 space-y-2 text-sm">
+                    {column.links.map((link) => (
+                      <li key={link.href}>
+                        <Link
+                          href={link.href}
+                          className="rounded text-charcoal-2 transition-colors hover:text-charcoal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                        >
+                          {link.label}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
 
-            <p className="mt-8 border-t border-line pt-6 text-xs leading-relaxed text-faint">
+            <p className="mt-8 border-t border-line pt-6 text-center text-xs leading-relaxed text-faint">
               {SCOPE_NOTICE} Nothing here is legal advice.
             </p>
           </div>

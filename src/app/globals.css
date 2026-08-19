@@ -193,3 +193,68 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/*
+  Printing a report (Report.tsx's "Print or save as PDF"). Interactive-only
+  chrome is hidden with Tailwind's `print:hidden` at each call site; what's
+  here is what CSS alone has to do:
+
+  - Force the light palette regardless of the viewer's theme choice — a dark
+    canvas is a waste of ink and unreadable on plain paper.
+  - Expand every `<details>` (evidence lists, the signal breakdown). The UA
+    stylesheet hides a closed `<details>`'s content via `display: none`; this
+    is the standard override to make a printed page show everything rather
+    than a page of empty toggles.
+  - Keep a source card from being split across a page break where possible.
+*/
+@media print {
+  /*
+    Redefines the same custom properties the light `:root` block and the two
+    dark-mode overrides set, so this wins regardless of which one the viewer
+    was on — same selectors, same specificity, later in the file, which is
+    what makes the cascade prefer this block during print without `!important`.
+  */
+  :root,
+  :root[data-theme='dark'] {
+    color-scheme: light;
+    --nv-canvas: #fafafc;
+    --nv-surface: #ffffff;
+    --nv-surface-2: #f6f5fa;
+    --nv-surface-hover: #f6f5fa;
+    --nv-muted-bg: #f2f1f8;
+    --nv-charcoal: #16151f;
+    --nv-charcoal-2: #4a4959;
+    --nv-faint: #69667b;
+    --nv-faint-2: #a6a4b6;
+    --nv-accent: #635bff;
+    --nv-accent-hover: #4f47e8;
+    --nv-accent-soft: #efedff;
+    --nv-accent-border: #d6d2ff;
+    --nv-line: #e7e6f0;
+    --nv-line-strong: #d2d0e2;
+    --nv-ok: #059669;
+    --nv-ok-soft: #ecfdf5;
+    --nv-warn: #d97706;
+    --nv-warn-soft: #fffbeb;
+    --nv-danger: #dc2626;
+    --nv-danger-soft: #fef2f2;
+    --nv-unknown: #64748b;
+    --nv-unknown-soft: #f1f5f9;
+  }
+
+  details:not([open]) > *:not(summary) {
+    display: block !important;
+  }
+
+  details > summary {
+    list-style: none;
+  }
+  details > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  article,
+  section {
+    break-inside: avoid;
+  }
+}

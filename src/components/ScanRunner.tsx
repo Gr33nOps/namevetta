@@ -18,14 +18,21 @@ interface State {
   summary: ScanSummary | undefined
   aiSummary: AiSummaryEvent | undefined
   error: string | undefined
+  scanId: string | undefined
+  retrying: Set<SourceId>
+  retryError: string | undefined
 }
 
 type Action =
   | { type: 'reset'; sources: SourceId[] }
+  | { type: 'scanId'; scanId: string }
   | { type: 'source'; result: SourceResult }
   | { type: 'complete'; summary: ScanSummary }
   | { type: 'ai_summary'; summary: AiSummaryEvent }
   | { type: 'error'; message: string }
+  | { type: 'retry_start'; source: SourceId }
+  | { type: 'retry_done'; source: SourceId; summary: ScanSummary }
+  | { type: 'retry_failed'; source: SourceId; message: string }
 
 function reducer(state: State, action: Action): State {
   switch (action.type) {
@@ -35,7 +42,12 @@ function reducer(state: State, action: Action): State {
         summary: undefined,
         aiSummary: undefined,
         error: undefined,
+        scanId: undefined,
+        retrying: new Set(),
+        retryError: undefined,
       }
+    case 'scanId':
+      return { ...state, scanId: action.scanId }
     case 'source':
       return {
         ...state,
@@ -47,6 +59,21 @@ function reducer(state: State, action: Action): State {
       return { ...state, aiSummary: action.summary }
     case 'error':
       return { ...state, error: action.message }
+    case 'retry_start': {
+      const retrying = new Set(state.retrying)
+      retrying.add(action.source)
+      return { ...state, retrying, retryError: undefined }
+    }
+    case 'retry_done': {
+      const retrying = new Set(state.retrying)
+      retrying.delete(action.source)
+      return { ...state, retrying, summary: action.summary }
+    }
+    case 'retry_failed': {
+      const retrying = new Set(state.retrying)
+      retrying.delete(action.source)
+      return { ...state, retrying, retryError: action.message }
+    }
   }
 }
 
@@ -66,6 +93,9 @@ export function ScanRunner({ context }: { context: ScanContext }) {
     summary: undefined,
     aiSummary: undefined,
     error: undefined,
+    scanId: undefined,
+    retrying: new Set<SourceId>(),
+    retryError: undefined,
   }))
 
   useEffect(() => {
@@ -112,14 +142,19 @@ export function ScanRunner({ context }: { context: ScanContext }) {
 
           for (const line of lines) {
             if (line.trim() === '') continue
-            let event: ScanEvent | { type: 'error'; message: string }
+            // `scanId` rides along on the `started` event only when
+            // persistence produced one — see the special case in the scan
+            // route. Nothing else needs it, so it isn't part of `ScanEvent`.
+            let event: (ScanEvent | { type: 'error'; message: string }) & { scanId?: string }
             try {
-              event = JSON.parse(line) as ScanEvent | { type: 'error'; message: string }
+              event = JSON.parse(line) as typeof event
             } catch {
               continue // A partial or corrupt line must not abort the scan.
             }
 
-            if (event.type === 'source') dispatch({ type: 'source', result: event.result })
+            if (event.type === 'started' && event.scanId !== undefined) {
+              dispatch({ type: 'scanId', scanId: event.scanId })
+            } else if (event.type === 'source') dispatch({ type: 'source', result: event.result })
             else if (event.type === 'complete') dispatch({ type: 'complete', summary: event.summary })
             else if (event.type === 'ai_summary') dispatch({ type: 'ai_summary', summary: event.summary })
             else if (event.type === 'error') dispatch({ type: 'error', message: event.message })
@@ -135,6 +170,45 @@ export function ScanRunner({ context }: { context: ScanContext }) {
     void run()
     return () => controller.abort()
   }, [context, order])
+
+  /**
+   * Retry one source that came back `unable_to_verify`, without spending a
+   * new quota unit. Sends the results already on screen so the server can
+   * recompute the score and coverage around the one updated source; the
+   * response replaces `summary` wholesale, same as the initial scan.
+   */
+  const retrySource = async (source: SourceId): Promise<void> => {
+    if (state.summary === undefined || state.retrying.has(source)) return
+    dispatch({ type: 'retry_start', source })
+
+    try {
+      const response = await fetch('/api/scan/retry', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          context,
+          results: state.summary.results,
+          source,
+          ...(state.scanId === undefined ? {} : { scanId: state.scanId }),
+        }),
+      })
+
+      const body: { summary?: ScanSummary; error?: string } = await response.json().catch(() => ({}))
+
+      if (!response.ok || body.summary === undefined) {
+        dispatch({
+          type: 'retry_failed',
+          source,
+          message: body.error ?? 'The retry did not complete. Try again in a moment.',
+        })
+        return
+      }
+
+      dispatch({ type: 'retry_done', source, summary: body.summary })
+    } catch {
+      dispatch({ type: 'retry_failed', source, message: 'Could not reach the server to retry.' })
+    }
+  }
 
   if (state.error !== undefined) {
     return (
@@ -154,10 +228,22 @@ export function ScanRunner({ context }: { context: ScanContext }) {
 
   if (state.summary !== undefined) {
     return (
-      <Report
-        scan={{ context, ...state.summary } satisfies ReportData}
-        aiSummary={state.aiSummary}
-      />
+      <>
+        {state.retryError !== undefined ? (
+          <p
+            role="alert"
+            className="mx-auto mt-6 w-full max-w-[900px] px-6 text-sm text-danger"
+          >
+            {state.retryError}
+          </p>
+        ) : null}
+        <Report
+          scan={{ context, ...state.summary } satisfies ReportData}
+          aiSummary={state.aiSummary}
+          onRetrySource={(source) => void retrySource(source)}
+          retryingSources={state.retrying}
+        />
+      </>
     )
   }
 

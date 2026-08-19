@@ -12,9 +12,9 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -37,3 +37,40 @@ jobs:
           # a key report `unable_to_verify` and coverage drops — the product is
           # designed to degrade, not to break.
           NEXT_TELEMETRY_DISABLED: '1'
+
+  # Separate from `verify`, and deliberately not a dependency of it. These run a
+  # real browser against a real dev server, so they can fail for reasons a unit
+  # test cannot (a slow cold start, a flaky click). Keeping them parallel means
+  # a browser hiccup never hides a genuine unit-test result, and the reverse.
+  #
+  # No credentials are set here either, so the app under test runs in its
+  # database-less mode, which is exactly the configuration `verify` builds.
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Chromium only. Cross-browser rendering is not where this app's risk
+      # lives, and one engine keeps the minutes (and the cost) down.
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

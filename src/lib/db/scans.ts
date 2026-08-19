@@ -222,3 +222,27 @@ export async function failScan(scanId: string): Promise<void> {
     .update({ status: 'failed', completed_at: new Date().toISOString() })
     .eq('id', scanId)
 }
+
+/** Retries allowed per scan before the "retry" button stops working (§4). */
+export const MAX_SOURCE_RETRIES = 3
+
+/**
+ * Check ownership and count one retry against a scan's cap, atomically.
+ *
+ * A momentary network blip should not cost a user a full quota unit to see
+ * fixed — but an uncapped retry would let the same free scan be re-run
+ * indefinitely, so this is bounded and checked server-side rather than
+ * trusted from the client.
+ */
+export async function canRetrySource(subject: Subject, scanId: string): Promise<boolean> {
+  if (!isDatabaseConfigured()) return true
+
+  const { data, error } = await serviceClient().rpc('increment_scan_retry', {
+    p_scan_id: scanId,
+    p_subject_type: subject.type,
+    p_subject_id: subject.id,
+    p_max_retries: MAX_SOURCE_RETRIES,
+  })
+  if (error !== null) return false
+  return data === true
+}

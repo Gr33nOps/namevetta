@@ -7,6 +7,7 @@ import { savedNames } from '@/lib/db/history'
 export const metadata = {
   title: 'Saved names | NameVetta',
   description: 'Names you are still considering.',
+  robots: { index: false, follow: false },
 }
 
 export const dynamic = 'force-dynamic'
@@ -17,8 +18,7 @@ export default async function Page() {
   if (user === undefined) {
     return (
       <div className="mx-auto w-full max-w-[600px] px-6 py-14 text-center">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">Saved</p>
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-3xl font-semibold tracking-tight">
           Sign in to save names
         </h1>
         <p className="mt-3 text-charcoal-2">
@@ -48,8 +48,7 @@ export default async function Page() {
   return (
     <div className="mx-auto w-full max-w-[720px] px-6 py-14">
       <div className="text-center">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">Saved</p>
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-3xl font-semibold tracking-tight">
           Names you are considering
         </h1>
         <p className="mt-2 text-charcoal-2">Saving and viewing never uses your daily allowance.</p>

@@ -5,6 +5,7 @@ import { currentUser } from '@/lib/db/auth'
 export const metadata = {
   title: 'Sign in | NameVetta',
   description: 'Sign in to keep your research history and raise your daily allowance.',
+  robots: { index: false, follow: false },
 }
 
 const BENEFITS = [
@@ -34,8 +35,7 @@ export default async function Page() {
     <div className="mx-auto w-full max-w-[900px] px-6 py-14">
       <div className="md:grid md:grid-cols-[1fr_400px] md:items-start md:gap-16">
         <div className="max-w-md">
-          <p className="font-mono text-[11px] uppercase tracking-widest text-faint">Account</p>
-          <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-charcoal sm:text-4xl">
+          <h1 className="font-display text-3xl font-semibold tracking-tight text-charcoal sm:text-4xl">
             Keep your research
           </h1>
           <p className="mt-3 text-lg leading-relaxed text-charcoal-2">

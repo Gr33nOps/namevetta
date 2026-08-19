@@ -67,6 +67,24 @@ const DIVISION: Record<string, string> = {
 }
 
 /**
+ * The division table by two-digit prefix, for any declared industry code built
+ * on the same EU standard.
+ *
+ * UK SIC 2007 and French NAF (APE) 2008 are both derived from NACE Rev. 2, and
+ * share the same two-digit division numbering — only the finer subdivisions and
+ * the letter suffix France appends differ. Rather than maintaining a second,
+ * independently-tuned division table for the French company register, this is
+ * the same one: a NAF code like `62.01Z` and a SIC code like `62012` both mean
+ * "computer programming" at the division level, and disagreeing about that
+ * would be a bug, not a feature.
+ */
+export function industryForNaceDivision(rawCode: string): string | undefined {
+  const digits = rawCode.replace(/[^0-9]/g, '')
+  if (digits.length < 2) return undefined
+  return DIVISION[digits.slice(0, 2)]
+}
+
+/**
  * Taxonomy node for a company's declared SIC codes.
  *
  * Companies routinely declare several. The first is conventionally the primary

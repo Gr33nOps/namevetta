@@ -63,6 +63,9 @@ export const SOURCE_GROUP: Record<SourceId, ScoreGroup> = {
   wikidata: 'web',
   edgar: 'web',
   companies_house: 'web',
+  fr_entreprises: 'web',
+  gleif: 'web',
+  osm: 'web',
   github: 'github',
   npm: 'packages',
   pypi: 'packages',
@@ -83,6 +86,8 @@ export const SOURCE_GROUP: Record<SourceId, ScoreGroup> = {
   play_store: 'play_store',
   youtube: 'youtube',
   socials: 'social',
+  social_check: 'social',
+  bluesky: 'social',
 }
 
 /* -------------------------------------------------------------------------- */

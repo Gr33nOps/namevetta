@@ -34,15 +34,10 @@ const PLATFORMS: Platform[] = [
   { name: 'Instagram', url: (h) => `https://instagram.com/${h}`, weight: 'high' },
   { name: 'X', url: (h) => `https://x.com/${h}`, weight: 'high' },
   { name: 'TikTok', url: (h) => `https://tiktok.com/@${h}`, weight: 'high' },
-  { name: 'LinkedIn', url: (h) => `https://linkedin.com/company/${h}`, weight: 'medium' },
   { name: 'Reddit', url: (h) => `https://reddit.com/r/${h}`, weight: 'low' },
   { name: 'Twitch', url: (h) => `https://twitch.tv/${h}`, weight: 'low' },
   { name: 'Threads', url: (h) => `https://threads.net/@${h}`, weight: 'medium' },
   { name: 'Bluesky', url: (h) => `https://bsky.app/profile/${h}.bsky.social`, weight: 'medium' },
-  { name: 'Mastodon', url: (h) => `https://mastodon.social/@${h}`, weight: 'medium' },
-  { name: 'Substack', url: (h) => `https://${h}.substack.com`, weight: 'low' },
-  { name: 'dev.to', url: (h) => `https://dev.to/${h}`, weight: 'low' },
-  { name: 'GitLab', url: (h) => `https://gitlab.com/${h}`, weight: 'low' },
 ]
 
 export const socialsAdapter: SourceAdapter = {
@@ -69,7 +64,7 @@ export const socialsAdapter: SourceAdapter = {
       ),
       makeEvidence(
         'socials',
-        'YouTube is checked properly and reported separately, because it does provide an official handle lookup.',
+        'YouTube, Bluesky, LinkedIn, Substack, Mastodon, dev.to and GitLab are checked properly and reported separately, because each gives a server a clear answer. The platforms left here do not: they return the same response whether or not the handle exists.',
       ),
     )
 

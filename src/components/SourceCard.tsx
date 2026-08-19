@@ -1,7 +1,33 @@
 import { Badge } from '@/components/ui/Badge'
 import { SOURCE_MANIFEST } from '@/lib/core/adapter'
-import type { Match, SourceResult } from '@/lib/core/types'
+import type { Match, SourceId, SourceResult } from '@/lib/core/types'
 import { SEVERITY_PRESENTATION, STATUS_PRESENTATION } from '@/lib/presentation'
+import { relativeTime } from '@/lib/relativeTime'
+
+/** Shared retry affordance for a source stuck at `unable_to_verify`. */
+export function RetryButton({
+  onClick,
+  retrying,
+}: {
+  onClick: () => void
+  retrying: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={retrying}
+      className="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-charcoal-2 transition hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60 print:hidden"
+    >
+      {retrying ? 'Retrying…' : 'Retry'}
+    </button>
+  )
+}
+
+/** Whether a result is worth offering a retry button for. */
+export function isRetryable(result: SourceResult): boolean {
+  return result.status === 'unable_to_verify' && (result.error?.retryable ?? false)
+}
 
 function MatchRow({ match }: { match: Match }) {
   const severity = SEVERITY_PRESENTATION[match.severity]
@@ -63,7 +89,16 @@ function MatchRow({ match }: { match: Match }) {
  * A single-line row for a source with nothing to read: clear or unreachable.
  * The full `SourceCard` treatment is reserved for sources that need it.
  */
-export function CompactSourceRow({ result }: { result: SourceResult }) {
+export function CompactSourceRow({
+  result,
+  onRetry,
+  retrying = false,
+}: {
+  result: SourceResult
+  /** Omitted where retry isn't wired up (there is only one call site today). */
+  onRetry?: (source: SourceId) => void
+  retrying?: boolean
+}) {
   const manifest = SOURCE_MANIFEST[result.source]
   const status = STATUS_PRESENTATION[result.status]
 
@@ -75,8 +110,12 @@ export function CompactSourceRow({ result }: { result: SourceResult }) {
           {status.label}
         </Badge>
         <span className="text-xs text-faint">
-          {result.confidence > 0 ? `${result.confidence} confidence` : 'No confidence'}
+          {result.confidence > 0 ? `${result.confidence} confidence` : 'No confidence'} ·{' '}
+          {relativeTime(result.checkedAt)}
         </span>
+        {onRetry !== undefined && isRetryable(result) ? (
+          <RetryButton onClick={() => onRetry(result.source)} retrying={retrying} />
+        ) : null}
       </div>
     </div>
   )
@@ -105,7 +144,7 @@ export function SourceCard({ result }: { result: SourceResult }) {
           <Badge tone={status.tone}>{status.label}</Badge>
           <span className="text-xs text-faint">
             {result.confidence > 0 ? `${result.confidence} confidence` : 'No confidence'}
-            {result.fromCache ? ' · cached' : ''}
+            {result.fromCache ? ' · cached' : ''} · {relativeTime(result.checkedAt)}
           </span>
         </div>
       </header>

@@ -22,6 +22,10 @@ export function ThemeToggle() {
   useLayoutEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
     const resolved = stored === 'light' || stored === 'dark' ? stored : systemTheme()
+    // `localStorage` and `matchMedia` are both client-only, so the real value
+    // can only be known after mount — the same constraint as the isMac
+    // detection in SearchForm, and the same fix.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setTheme(resolved)
     // Re-apply the inline script's attribute: React Strict Mode clears it on
     // the dev-only remount, so the DOM would otherwise drift from storage.

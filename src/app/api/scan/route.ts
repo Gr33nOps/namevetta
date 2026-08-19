@@ -102,7 +102,11 @@ export async function POST(req: Request): Promise<Response> {
               completedReportId = await completeScan(scanId, event.summary).catch(() => undefined)
             }
           }
-          send(event)
+          // The `started` event carries the scan id when persistence produced
+          // one, so the client can later ask to retry a single source without
+          // spending a new quota unit — the id is otherwise never sent to the
+          // browser, since nothing else needs it.
+          send(event.type === 'started' && scanId !== undefined ? { ...event, scanId } : event)
         }
 
         // A separate step after `complete`, deliberately. The report the user

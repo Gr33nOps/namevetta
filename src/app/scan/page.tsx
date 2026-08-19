@@ -2,6 +2,14 @@ import Link from 'next/link'
 import { ScanRunner } from '@/components/ScanRunner'
 import { ScanContextSchema } from '@/lib/core/scan'
 
+// A results page for one query string. Nothing here is a destination a search
+// engine should hold on to, and the name being researched is the user's, not
+// ours to publish.
+export const metadata = {
+  title: 'Researching | NameVetta',
+  robots: { index: false, follow: false },
+}
+
 /**
  * The scan route.
  *

@@ -10,6 +10,7 @@ import { limitsFor, remainingQuota } from '@/lib/db/quota'
 export const metadata = {
   title: 'History | NameVetta',
   description: 'Every name you have researched, with its evidence.',
+  robots: { index: false, follow: false },
 }
 
 export const dynamic = 'force-dynamic'
@@ -44,8 +45,7 @@ export default async function Page() {
   return (
     <div className="mx-auto w-full max-w-[860px] px-6 py-14">
       <div className="text-center">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">History</p>
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-3xl font-semibold tracking-tight">
           {user === undefined ? 'Your research' : `Welcome back, ${user.displayName}`}
         </h1>
         <p className="mt-2 text-charcoal-2">

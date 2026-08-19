@@ -10,7 +10,14 @@
  * The invariant that matters most: **when the limiter refuses a call, the
  * adapter reports `unable_to_verify`, never a clean result.** A throttled source
  * has told us nothing, and nothing is not the same as nothing-found.
+ *
+ * Caching is two layers: the in-process `Map` below costs nothing and is
+ * checked first, and a miss there falls through to the Postgres-backed cache
+ * in `@/lib/db/cache` before ever calling upstream. The second layer is what
+ * makes a repeat scan on a cold serverless instance not re-spend the rate
+ * limit (or a Tavily credit) a warm instance would have avoided.
  */
+import { getCachedResult, putCachedResult } from '@/lib/db/cache'
 
 /** Thrown when a call is refused locally rather than attempted upstream. */
 export class RateLimitedError extends Error {
@@ -118,6 +125,11 @@ export function resetCache(): void {
  * Order matters: a cache hit must not consume a rate-limit token, because a
  * cached answer involves no upstream call at all. Checking the cache first is
  * what lets a burst of identical scans stay well inside a 20/minute ceiling.
+ *
+ * Three tiers, in order: in-process map, then the persisted cache (best
+ * effort — a miss there is silent, never an error), then upstream. A fresh
+ * fetch is written back to both, so the next request on *this* instance and
+ * the next cold start elsewhere both benefit.
  */
 export async function throttledFetch<T>(options: {
   source: string
@@ -126,12 +138,19 @@ export async function throttledFetch<T>(options: {
   requestsPerMinute: number
   fetcher: () => Promise<T>
 }): Promise<{ value: T; fromCache: boolean }> {
-  const cached = cacheGet<T>(options.cacheKey)
-  if (cached !== undefined) return { value: cached, fromCache: true }
+  const local = cacheGet<T>(options.cacheKey)
+  if (local !== undefined) return { value: local, fromCache: true }
+
+  const persisted = await getCachedResult<T>(options.source, options.cacheKey)
+  if (persisted !== undefined) {
+    cacheSet(options.cacheKey, persisted, options.ttlSeconds)
+    return { value: persisted, fromCache: true }
+  }
 
   acquire(options.source, options.requestsPerMinute)
 
   const value = await options.fetcher()
   cacheSet(options.cacheKey, value, options.ttlSeconds)
+  void putCachedResult(options.source, options.cacheKey, value, options.ttlSeconds)
   return { value, fromCache: false }
 }

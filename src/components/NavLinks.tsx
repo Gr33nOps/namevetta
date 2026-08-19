@@ -2,13 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const BASE = [
   { href: '/', label: 'New Check' },
   { href: '/generate', label: 'Generate' },
   { href: '/compare', label: 'Compare' },
 ] as const
+
+const MENU_ID = 'mobile-menu'
 
 function MenuIcon({ open }: { open: boolean }) {
   return (
@@ -35,10 +37,53 @@ export function NavLinks({
 }) {
   const pathname = usePathname()
   const [open, setOpen] = useState(false)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
+  // Adjusted during render rather than in an effect, per React's guidance for
+  // resetting state when a prop changes — it avoids the extra render an effect
+  // would cost, and closing the menu on navigation has no external system to
+  // synchronize with.
+  const [menuPathname, setMenuPathname] = useState(pathname)
+  if (pathname !== menuPathname) {
+    setMenuPathname(pathname)
     setOpen(false)
-  }, [pathname])
+  }
+
+  /**
+   * The two dismissals every open overlay owes the user: Escape, and a click
+   * anywhere outside it. Without them the menu could only be closed by hitting
+   * the same small toggle again, which is a trap on a touch screen and a
+   * keyboard dead end.
+   *
+   * Escape returns focus to the toggle rather than leaving it on a node that
+   * is about to be removed from the document.
+   */
+  useEffect(() => {
+    if (!open) return
+
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key !== 'Escape') return
+      setOpen(false)
+      buttonRef.current?.focus()
+    }
+
+    // `pointerdown`, not `click`: closing on the press means the menu is gone
+    // before the underlying element resolves its own click.
+    const onPointerDown = (e: PointerEvent): void => {
+      const target = e.target as Node
+      if (panelRef.current?.contains(target) === true) return
+      if (buttonRef.current?.contains(target) === true) return
+      setOpen(false)
+    }
+
+    document.addEventListener('keydown', onKeyDown)
+    document.addEventListener('pointerdown', onPointerDown)
+    return () => {
+      document.removeEventListener('keydown', onKeyDown)
+      document.removeEventListener('pointerdown', onPointerDown)
+    }
+  }, [open])
 
   const links = [
     ...BASE,
@@ -52,14 +97,23 @@ export function NavLinks({
   const isActive = (href: string): boolean =>
     href === '/' ? pathname === '/' || pathname.startsWith('/scan') : pathname.startsWith(href)
 
+  const focusRing =
+    'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent'
+
   return (
     <>
-      <nav className="hidden items-center gap-0.5 lg:flex">
+      {/*
+        Two nav landmarks render on the same page (one per breakpoint), so both
+        need a name. Unlabelled, a screen reader's landmark list reads
+        "navigation, navigation" with no way to tell them apart.
+      */}
+      <nav aria-label="Main" className="hidden items-center gap-0.5 lg:flex">
         {links.map((link) => (
           <Link
             key={link.href}
             href={link.href}
-            className={`rounded-md px-3 py-1.5 text-sm transition-colors ${
+            aria-current={isActive(link.href) ? 'page' : undefined}
+            className={`rounded-md px-3 py-1.5 text-sm transition-colors ${focusRing} ${
               isActive(link.href)
                 ? 'bg-accent-soft font-medium text-accent'
                 : 'text-charcoal-2 hover:bg-muted-bg hover:text-charcoal'
@@ -71,23 +125,30 @@ export function NavLinks({
       </nav>
 
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Close menu' : 'Open menu'}
         aria-expanded={open}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal lg:hidden"
+        aria-controls={MENU_ID}
+        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal lg:hidden ${focusRing}`}
       >
         <MenuIcon open={open} />
       </button>
 
       {open ? (
-        <div className="absolute inset-x-0 top-full border-b border-line bg-surface px-6 py-3 shadow-none lg:hidden">
-          <nav className="flex flex-col gap-0.5">
+        <div
+          ref={panelRef}
+          id={MENU_ID}
+          className="absolute inset-x-0 top-full border-b border-line bg-surface px-6 py-3 shadow-none lg:hidden"
+        >
+          <nav aria-label="Mobile" className="flex flex-col gap-0.5">
             {links.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`rounded-md px-3 py-2 text-sm transition-colors ${
+                aria-current={isActive(link.href) ? 'page' : undefined}
+                className={`rounded-md px-3 py-2 text-sm transition-colors ${focusRing} ${
                   isActive(link.href)
                     ? 'bg-muted-bg font-medium text-charcoal'
                     : 'text-charcoal-2 hover:bg-muted-bg hover:text-charcoal'
@@ -100,7 +161,7 @@ export function NavLinks({
               <>
                 <Link
                   href="/account"
-                  className="rounded-md px-3 py-2 text-sm text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal"
+                  className={`rounded-md px-3 py-2 text-sm text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal ${focusRing}`}
                 >
                   {displayName ?? 'Account'}
                 </Link>
@@ -108,7 +169,7 @@ export function NavLinks({
                   <form action={onSignOut}>
                     <button
                       type="submit"
-                      className="w-full rounded-md px-3 py-2 text-left text-sm text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal"
+                      className={`w-full rounded-md px-3 py-2 text-left text-sm text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal ${focusRing}`}
                     >
                       Sign out
                     </button>
@@ -119,13 +180,13 @@ export function NavLinks({
               <>
                 <Link
                   href="/auth"
-                  className="rounded-md px-3 py-2 text-sm text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal"
+                  className={`rounded-md px-3 py-2 text-sm text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal ${focusRing}`}
                 >
                   Sign in
                 </Link>
                 <Link
                   href="/auth"
-                  className="mt-1 rounded-md bg-accent px-3 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-accent-hover"
+                  className={`mt-1 rounded-md bg-accent px-3 py-2 text-center text-sm font-semibold text-white transition-colors hover:bg-accent-hover ${focusRing}`}
                 >
                   Create account
                 </Link>

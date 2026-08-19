@@ -26,8 +26,24 @@ export const dynamic = 'force-dynamic'
  * It shows the headline figures and nothing else — not the evidence, not the
  * per-source detail, and never the identity of whoever ran the search.
  */
-export const metadata = {
-  robots: { index: false, follow: false },
+export async function generateMetadata({
+  params,
+}: PageProps<'/r/[token]'>): Promise<import('next').Metadata> {
+  const { token } = await params
+  const report = await sharedReport(token)
+
+  return {
+    title:
+      report === undefined
+        ? 'Report not found | NameVetta'
+        : `${report.name} — ${report.score}/100 | NameVetta`,
+    description:
+      report === undefined
+        ? 'This shared report is no longer available.'
+        : `Digital Viability ${report.score}/100, Research Coverage ${report.coverage}%. ${SCOPE_NOTICE}`,
+    // Deliberately never indexed — see the note above.
+    robots: { index: false, follow: false },
+  }
 }
 
 export default async function Page({ params }: PageProps<'/r/[token]'>) {
@@ -44,11 +60,7 @@ export default async function Page({ params }: PageProps<'/r/[token]'>) {
 
   return (
     <div className="mx-auto w-full max-w-[720px] px-6 py-14">
-      <p className="text-center font-mono text-[11px] uppercase tracking-widest text-faint">
-        Shared report
-      </p>
-
-      <section className="mt-4 rounded-xl border border-line bg-surface p-6 sm:p-8">
+      <section className="rounded-xl border border-line bg-surface p-6 sm:p-8">
         <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
           {report.name}
         </h1>

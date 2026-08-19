@@ -4,6 +4,12 @@ import { MAX_COMPARE_NAMES, MIN_COMPARE_NAMES } from '@/lib/core/scan'
 export const metadata = {
   title: 'Compare names | NameVetta',
   description: 'Research 2–5 candidate names against the same category and see why one stands out.',
+  alternates: { canonical: '/compare' },
+  openGraph: {
+    title: 'Compare names | NameVetta',
+    description: 'Research 2–5 candidate names against the same category and see why one stands out.',
+    url: '/compare',
+  },
 }
 
 /**
@@ -17,9 +23,7 @@ export default function Page() {
   return (
     <div className="mx-auto w-full max-w-[860px] px-6 py-14">
       <div className="text-center">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">Compare names</p>
-
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-charcoal sm:text-4xl">
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-charcoal sm:text-4xl">
           Compare {MIN_COMPARE_NAMES}–{MAX_COMPARE_NAMES} name candidates
         </h1>
 

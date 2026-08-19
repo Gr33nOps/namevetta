@@ -7,6 +7,7 @@ import { isDatabaseConfigured } from '@/lib/db/client'
 export const metadata = {
   title: 'Account | NameVetta',
   description: 'Export your data or delete your account.',
+  robots: { index: false, follow: false },
 }
 
 export const dynamic = 'force-dynamic'
@@ -20,8 +21,7 @@ export default async function Page() {
   return (
     <div className="mx-auto w-full max-w-[560px] px-6 py-14">
       <div className="text-center">
-        <p className="font-mono text-[11px] uppercase tracking-widest text-faint">Account</p>
-        <h1 className="mt-3 font-display text-3xl font-semibold tracking-tight text-charcoal">
+        <h1 className="font-display text-3xl font-semibold tracking-tight text-charcoal">
           Account settings
         </h1>
         <p className="mt-2 text-charcoal-2">

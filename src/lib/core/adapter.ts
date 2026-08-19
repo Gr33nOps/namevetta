@@ -372,19 +372,107 @@ export const SOURCE_MANIFEST: Record<SourceId, SourceManifestEntry> = {
       note: 'Companies House documents 600 requests per five minutes per API key.',
     },
   },
+  fr_entreprises: {
+    id: 'fr_entreprises',
+    label: 'French company register',
+    runsOn: ['deep'],
+    timeoutMs: 10_000,
+    cacheTtlSeconds: 14 * DAY,
+    // A genuine registry with a declared NAF industry code, the same tier as
+    // Companies House — just for a different country.
+    baseConfidenceCeiling: 95,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 60,
+      documented: false,
+      note: 'The api.gouv.fr recherche-entreprises API publishes no hard limit; this is a courtesy ceiling.',
+    },
+  },
+  gleif: {
+    id: 'gleif',
+    label: 'Global LEI register',
+    runsOn: ['deep'],
+    timeoutMs: 10_000,
+    cacheTtlSeconds: 14 * DAY,
+    // Genuinely authoritative on registration status, but carries no declared
+    // industry code the way Companies House and the French register do, so it
+    // sits a step below them.
+    baseConfidenceCeiling: 90,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 60,
+      documented: false,
+      note: 'GLEIF publishes no hard limit for this endpoint; this is a courtesy ceiling.',
+    },
+  },
+  osm: {
+    id: 'osm',
+    label: 'Local business (OpenStreetMap)',
+    runsOn: ['deep'],
+    timeoutMs: 10_000,
+    // Long TTL: a mapped business's name is stable, and this is a tightly
+    // rate-limited source worth protecting from repeat scans of the same name.
+    cacheTtlSeconds: 14 * DAY,
+    // Crowd-mapped, not an official register — real and structured, but not a
+    // verified legal identity, the same epistemic tier as the App Store.
+    baseConfidenceCeiling: 75,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 55,
+      documented: true,
+      note: "Nominatim's usage policy caps automated use at roughly one request per second; we hold below it.",
+    },
+  },
   socials: {
     id: 'socials',
     label: 'Social identity',
     runsOn: ['quick', 'deep'],
     timeoutMs: 10_000,
     cacheTtlSeconds: 7 * DAY,
-    // Only YouTube handles have a free official verification path. Everything
-    // else is discovery plus a manual link, so this can never read as verified
-    // availability (§14). A false green check here is the exact failure mode
-    // the whole product exists to avoid.
+    // Only YouTube and Bluesky handles have a free official verification path.
+    // Everything else here is discovery plus a manual link, so this can never
+    // read as verified availability (§14). A false green check here is the
+    // exact failure mode the whole product exists to avoid.
     baseConfidenceCeiling: 30,
     tosPosture: 'manual_only',
     metered: false,
+  },
+  social_check: {
+    id: 'social_check',
+    label: 'Social handles (checked)',
+    runsOn: ['quick', 'deep'],
+    timeoutMs: 12_000,
+    cacheTtlSeconds: 24 * HOUR,
+    // Lower than a first-party API like Bluesky's: these are public endpoints
+    // answering definitively, but they are profile pages and search endpoints
+    // rather than an availability API, and a platform may change its shape
+    // without telling anyone. Any ambiguous answer is reported unverified.
+    baseConfidenceCeiling: 75,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 30,
+      documented: false,
+      note: 'Five sequential public endpoint checks; a courtesy ceiling, not a published one.',
+    },
+  },
+  bluesky: {
+    id: 'bluesky',
+    label: 'Bluesky',
+    runsOn: ['quick', 'deep'],
+    timeoutMs: 8_000,
+    cacheTtlSeconds: 24 * HOUR,
+    baseConfidenceCeiling: 90,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 60,
+      documented: false,
+      note: 'The AT Protocol public API publishes no hard limit for this endpoint; this is a courtesy ceiling.',
+    },
   },
 }
 

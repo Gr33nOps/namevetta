@@ -4,14 +4,30 @@ import { ResultsSummary } from '@/components/ResultsSummary'
 import { SaveNameButton } from '@/components/SaveNameButton'
 import { ScoreHeadline } from '@/components/ScoreHeadline'
 import { TrademarkAssist } from '@/components/TrademarkAssist'
-import { CompactSourceRow, SourceCard } from '@/components/SourceCard'
+import { CompactSourceRow, isRetryable, SourceCard } from '@/components/SourceCard'
 import { Badge } from '@/components/ui/Badge'
 import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import { CATEGORY_LABELS, type ScanContext } from '@/lib/core/scan'
-import { isVerified } from '@/lib/core/types'
+import { isVerified, type SourceId } from '@/lib/core/types'
 import type { AiSummaryEvent, ScanSummary } from '@/lib/orchestrator/run'
 import { SCOPE_NOTICE } from '@/lib/presentation'
+import { oldest, relativeTime } from '@/lib/relativeTime'
 import { GROUP_LABELS, SOURCE_GROUP, type ScoreGroup } from '@/lib/scoring/weights'
+
+/**
+ * Where a wrong report goes.
+ *
+ * The issue tracker rather than an address, because `CONTACT_EMAIL` is a
+ * server-only value and this renders on the client, and because a public
+ * thread is where a scoring complaint is actually useful to the next person.
+ *
+ * Deliberately carries no searched name, category or description in the
+ * prefill. A user clicking this out of curiosity must not land on a public
+ * form already filled in with the name they're considering; the report itself
+ * is noindex for the same reason. The scoring version is the one thing worth
+ * prefilling, and it says nothing about who asked.
+ */
+const FEEDBACK_URL = 'https://github.com/Gr33nOps/NameVetta/issues/new'
 
 /** Statuses compact enough to collapse into a single-line row by default. */
 const COMPACT_STATUSES = new Set(['no_conflict', 'unable_to_verify'])
@@ -35,6 +51,8 @@ export interface ReportData extends ScanSummary {
 export function Report({
   scan,
   aiSummary,
+  onRetrySource,
+  retryingSources,
 }: {
   scan: ReportData
   /**
@@ -45,10 +63,15 @@ export function Report({
    * could imply the score itself is still pending.
    */
   aiSummary?: AiSummaryEvent
+  /** Omitted where retry isn't wired up — there is only one call site today. */
+  onRetrySource?: (source: SourceId) => void
+  retryingSources?: ReadonlySet<SourceId>
 }) {
   const { context, results, viability, coverage } = scan
 
   const unverified = results.filter((r) => !isVerified(r.status))
+  const retryableUnverified = unverified.filter(isRetryable)
+  const oldestChecked = oldest(results.filter((r) => isVerified(r.status)).map((r) => r.checkedAt))
   const byGroup = new Map<ScoreGroup, typeof results>()
   for (const r of results) {
     const group = SOURCE_GROUP[r.source]
@@ -72,6 +95,7 @@ export function Report({
           Researched as{' '}
           <strong className="font-medium">{CATEGORY_LABELS[context.category]}</strong> ·{' '}
           {context.scanType === 'deep' ? 'Deep Research' : 'Quick Check'}
+          {oldestChecked !== undefined ? ` · oldest finding ${relativeTime(oldestChecked)}` : null}
         </p>
         <ResultsSummary results={results} />
       </div>
@@ -102,12 +126,26 @@ export function Report({
 
       {unverified.length > 0 ? (
         <section className="rounded-xl border border-unknown/30 bg-unknown-soft p-5">
-          <h2 className="font-semibold text-unknown">
-            {unverified.length} {unverified.length === 1 ? 'check' : 'checks'} did not complete
-          </h2>
-          <p className="mt-1 text-sm text-unknown/90">
-            These are not evidence that the name is free. Nothing below accounts for them.
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-unknown">
+                {unverified.length} {unverified.length === 1 ? 'check' : 'checks'} did not complete
+              </h2>
+              <p className="mt-1 text-sm text-unknown/90">
+                These are not evidence that the name is free. Nothing below accounts for them.
+              </p>
+            </div>
+            {onRetrySource !== undefined && retryableUnverified.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => retryableUnverified.forEach((r) => onRetrySource(r.source))}
+                disabled={retryableUnverified.every((r) => retryingSources?.has(r.source) ?? false)}
+                className="flex-shrink-0 rounded-lg border border-unknown/40 px-3 py-1.5 text-sm font-medium text-unknown transition hover:bg-unknown/10 disabled:cursor-wait disabled:opacity-60 print:hidden"
+              >
+                Retry {retryableUnverified.length === 1 ? 'this check' : `all ${retryableUnverified.length}`}
+              </button>
+            ) : null}
+          </div>
           <ul className="mt-3 flex flex-wrap gap-2">
             {/* Source labels, not group labels: five sources share the "web"
                 group, and repeating the group name five times reads like a bug
@@ -155,7 +193,12 @@ export function Report({
               {compact.length > 0 ? (
                 <div className="divide-y divide-line rounded-xl border border-line bg-surface px-4">
                   {compact.map((r) => (
-                    <CompactSourceRow key={r.source} result={r} />
+                    <CompactSourceRow
+                      key={r.source}
+                      result={r}
+                      {...(onRetrySource === undefined ? {} : { onRetry: onRetrySource })}
+                      retrying={retryingSources?.has(r.source) ?? false}
+                    />
                   ))}
                 </div>
               ) : null}
@@ -164,7 +207,7 @@ export function Report({
         })}
       </section>
 
-      <section className="rounded-xl border border-line bg-surface p-5">
+      <section className="rounded-xl border border-line bg-surface p-5 print:hidden">
         <h2 className="font-semibold">Next steps</h2>
         <div className="mt-3 flex flex-wrap gap-2">
           <SaveNameButton
@@ -190,10 +233,34 @@ export function Report({
           >
             Check another name
           </Link>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="rounded-lg border border-line-strong px-3 py-2 text-sm transition hover:border-accent hover:text-accent"
+          >
+            Print or save as PDF
+          </button>
         </div>
         <p className="mt-4 text-xs text-faint">
           {SCOPE_NOTICE} Scoring version {viability.scoringVersion}. Every figure above is derived
-          from the evidence shown. Nothing is inferred beyond it.
+          from the evidence shown. Nothing is inferred beyond it. See the full{' '}
+          <Link href="/methodology" className="text-accent underline underline-offset-2">
+            methodology
+          </Link>
+          .
+        </p>
+        <p className="mt-3 text-xs text-faint">
+          Something here look wrong?{' '}
+          <a
+            href={`${FEEDBACK_URL}?title=${encodeURIComponent(`Report feedback (scoring ${viability.scoringVersion})`)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          >
+            Tell us what it got wrong
+          </a>
+          . Nothing about your search is attached, so include whatever detail you&rsquo;re happy to
+          share.
         </p>
       </section>
     </div>

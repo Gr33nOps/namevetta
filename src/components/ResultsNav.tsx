@@ -12,7 +12,7 @@ export function ResultsNav({
   return (
     <nav
       aria-label="Jump to signal group"
-      className="sticky top-14 z-30 overflow-x-auto rounded-xl border border-line bg-canvas/95 px-2 py-1.5 backdrop-blur-sm"
+      className="sticky top-14 z-30 overflow-x-auto rounded-xl border border-line bg-canvas/95 px-2 py-1.5 backdrop-blur-sm print:hidden"
     >
       <ul className="flex items-center gap-1 whitespace-nowrap">
         {items.map((item) => (

@@ -361,7 +361,7 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
         onChange={(e) => onQueryChange(e.target.value)}
         placeholder="Search by name…"
         aria-label="Search history by name"
-        className="w-full max-w-xs rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-charcoal outline-none transition-colors placeholder:text-faint focus:border-accent-border"
+        className="w-full max-w-xs rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-charcoal outline-none transition-colors placeholder:text-faint focus:border-accent-border focus-visible:ring-2 focus-visible:ring-accent/40"
       />
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
@@ -383,7 +383,7 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
             <select
               value={sort}
               onChange={(e) => onSortChange(e.target.value as SortKey)}
-              className="rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-charcoal outline-none transition-colors focus:border-accent-border"
+              className="rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-charcoal outline-none transition-colors focus:border-accent-border focus-visible:ring-2 focus-visible:ring-accent/40"
             >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -398,7 +398,7 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
             <select
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-charcoal outline-none transition-colors focus:border-accent-border"
+              className="rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-charcoal outline-none transition-colors focus:border-accent-border focus-visible:ring-2 focus-visible:ring-accent/40"
             >
               {PAGE_SIZES.map((size) => (
                 <option key={size} value={size}>

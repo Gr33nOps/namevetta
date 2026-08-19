@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/Badge'
+import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import type { SourceResult } from '@/lib/core/types'
 import {
   coverageCaveat,
@@ -8,7 +9,7 @@ import {
   TONE_FILL,
   VERDICT_PRESENTATION,
 } from '@/lib/presentation'
-import { verdictFor, type ViabilityResult } from '@/lib/scoring/viability'
+import { sourceSubscore, verdictFor, type ViabilityResult } from '@/lib/scoring/viability'
 import { GROUP_LABELS } from '@/lib/scoring/weights'
 
 /** A subscore reads as "how clear this group is", so the tone thresholds run
@@ -154,25 +155,60 @@ export function ScoreHeadline({
         <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
           Signal breakdown
         </p>
-        <div className="mt-3 grid gap-x-8 gap-y-3 sm:grid-cols-2">
-          {signals.map((g) => (
-            <div key={g.group}>
-              <div className="flex items-baseline justify-between gap-2 text-sm">
-                <span className="text-charcoal-2">{GROUP_LABELS[g.group]}</span>
-                <span className="font-mono text-xs text-faint">
-                  {g.subscore === null ? 'Not checked' : `${SIGNAL_WORD[signalTone(g.subscore)]} · ${g.subscore}`}
-                </span>
-              </div>
-              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted-bg">
-                {g.subscore !== null ? (
-                  <div
-                    className={`h-full rounded-full ${TONE_FILL[signalTone(g.subscore)]}`}
-                    style={{ width: `${g.subscore}%` }}
-                  />
-                ) : null}
-              </div>
-            </div>
-          ))}
+        <p className="mt-1 text-xs text-faint">
+          {signals.length} {signals.length === 1 ? 'group' : 'groups'} weighted for this category.
+          Open one to see exactly which sources set its number.
+        </p>
+        <div className="mt-3 grid gap-x-8 gap-y-1 sm:grid-cols-2">
+          {signals.map((g) => {
+            const contributors = results
+              .filter((r) => g.contributors.includes(r.source))
+              .map((r) => ({ result: r, subscore: sourceSubscore(r) }))
+              .sort((a, b) => (a.subscore ?? 100) - (b.subscore ?? 100))
+
+            return (
+              <details key={g.group} className="group/signal py-1.5">
+                <summary className="flex cursor-pointer list-none items-baseline justify-between gap-2 text-sm marker:content-none">
+                  <span className="text-charcoal-2">
+                    {GROUP_LABELS[g.group]}
+                    <span className="ml-1 text-faint">({Math.round(g.weight)}%)</span>
+                  </span>
+                  <span className="font-mono text-xs text-faint">
+                    {g.subscore === null
+                      ? 'Not checked'
+                      : `${SIGNAL_WORD[signalTone(g.subscore)]} · ${g.subscore}`}
+                  </span>
+                </summary>
+                <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted-bg">
+                  {g.subscore !== null ? (
+                    <div
+                      className={`h-full rounded-full ${TONE_FILL[signalTone(g.subscore)]}`}
+                      style={{ width: `${g.subscore}%` }}
+                    />
+                  ) : null}
+                </div>
+                {contributors.length > 0 ? (
+                  <ul className="mt-2 space-y-1 border-l border-line pl-3">
+                    {contributors.map(({ result, subscore }) => (
+                      <li
+                        key={result.source}
+                        className="flex items-baseline justify-between gap-2 text-xs text-charcoal-2"
+                      >
+                        <span>{SOURCE_MANIFEST[result.source].label}</span>
+                        <span className="font-mono tabular-nums text-faint">
+                          {subscore === null ? '—' : subscore}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 pl-3 text-xs text-faint">
+                    No source in this group produced a usable answer.
+                  </p>
+                )}
+              </details>
+            )
+          })}
         </div>
       </div>
 

@@ -15,12 +15,38 @@ import { normalize } from '@/lib/similarity/normalize'
 import { compareNames } from '@/lib/similarity/score'
 
 const REGISTRY = 'https://registry.npmjs.org'
+const DOWNLOADS_API = 'https://api.npmjs.org'
+
+/** A registration this old, with zero downloads last month, reads as abandoned. */
+const DORMANT_AGE_MS = 2 * 365 * 24 * 60 * 60 * 1000
 
 interface NpmDoc {
   name: string
   description?: string
   time?: Record<string, string>
   'dist-tags'?: Record<string, string>
+}
+
+interface NpmDownloads {
+  downloads: number
+}
+
+/**
+ * Whether the exact match reads as abandoned rather than live.
+ *
+ * Deliberately conservative: a package is only downgraded when *both* signals
+ * agree — no downloads last month *and* no publish in two years. A brand-new
+ * package with zero downloads yet is not dormant, and a low-traffic package
+ * that is still actively maintained is not either. Absence of a signal (the
+ * downloads call failed, or the registry never returned a `time` field) never
+ * counts as evidence of dormancy on its own.
+ */
+function isDormant(downloads: number | undefined, lastModified: string | undefined): boolean {
+  if (downloads === undefined || downloads > 0) return false
+  if (lastModified === undefined) return false
+  const modifiedAt = Date.parse(lastModified)
+  if (Number.isNaN(modifiedAt)) return false
+  return Date.now() - modifiedAt > DORMANT_AGE_MS
 }
 
 interface NpmSearch {
@@ -63,15 +89,45 @@ export const npmAdapter: SourceAdapter = {
         evidence.push(makeEvidence('npm', `Package name "${pkg}" is unpublished`))
       } else if (data !== undefined) {
         const url = `https://www.npmjs.com/package/${data.name}`
+        const lastModified = data.time?.modified
+
+        // Best-effort: a failed downloads lookup must not fail the whole npm
+        // check, and must not be read as evidence of dormancy either.
+        let downloads: number | undefined
+        try {
+          const dl = await requestJson<NpmDownloads>(
+            `${DOWNLOADS_API}/downloads/point/last-month/${encodeURIComponent(data.name)}`,
+            { signal: deps.signal, expectedStatuses: [404] },
+          )
+          downloads = dl.data?.downloads
+        } catch {
+          downloads = undefined
+        }
+
+        const dormant = isDormant(downloads, lastModified)
+        const matchEvidence: Evidence[] = [makeEvidence('npm', `Package "${data.name}" is published`, url)]
+        if (dormant) {
+          matchEvidence.push(
+            makeEvidence(
+              'npm',
+              `No downloads in the last month and no publish in over two years (last: ${lastModified}). Reads as abandoned, not actively maintained.`,
+            ),
+          )
+        } else if (downloads !== undefined) {
+          matchEvidence.push(
+            makeEvidence('npm', `${downloads.toLocaleString()} downloads in the last month`),
+          )
+        }
+
         exactMatches.push({
           externalId: data.name,
           name: data.name,
           categories: ['npm'],
-          active: true,
+          active: !dormant,
           url,
           similarity: compareNames(ctx.name, data.name),
-          severity: 'high',
-          evidence: [makeEvidence('npm', `Package "${data.name}" is published`, url)],
+          severity: dormant ? 'medium' : 'high',
+          evidence: matchEvidence,
           ...(data.description === undefined ? {} : { description: data.description }),
         })
       }

@@ -25,6 +25,31 @@ interface GhAccount {
   name?: string | null
   bio?: string | null
   description?: string | null
+  public_repos?: number
+  followers?: number
+  updated_at?: string
+}
+
+/** A registration this old, with no repos and no followers, reads as a placeholder. */
+const DORMANT_AGE_MS = 2 * 365 * 24 * 60 * 60 * 1000
+
+/**
+ * Whether an account looks like an abandoned placeholder rather than someone
+ * actually operating under the name.
+ *
+ * Both fields already ride along in the same `/users/:login` response this
+ * adapter already fetches, so this costs nothing extra. Conservative by
+ * design: an account with any repos or any followers is never downgraded,
+ * and one with neither is only downgraded once its profile has also gone two
+ * years without an update — a brand-new empty account is not dormant, it's
+ * just new.
+ */
+function isDormant(account: GhAccount): boolean {
+  if ((account.public_repos ?? 0) > 0 || (account.followers ?? 0) > 0) return false
+  if (account.updated_at === undefined) return false
+  const updatedAt = Date.parse(account.updated_at)
+  if (Number.isNaN(updatedAt)) return false
+  return Date.now() - updatedAt > DORMANT_AGE_MS
 }
 
 interface GhRepo {
@@ -76,17 +101,25 @@ export const githubAdapter: SourceAdapter = {
         evidence.push(makeEvidence('github', `No GitHub user or organization named ${handle}`))
       } else if (data !== undefined) {
         const description = data.bio ?? data.description ?? data.name ?? undefined
+        const dormant = isDormant(data)
+        const accountEvidence = [makeEvidence('github', `${data.type} @${data.login} exists`, data.html_url)]
+        if (dormant) {
+          accountEvidence.push(
+            makeEvidence(
+              'github',
+              `No public repositories, no followers, and no profile update since ${data.updated_at}. Reads as an unused placeholder, not active use.`,
+            ),
+          )
+        }
         exactMatches.push({
           externalId: data.login,
           name: data.login,
           categories: [data.type],
-          active: true,
+          active: !dormant,
           url: data.html_url,
           similarity: compareNames(ctx.name, data.login),
-          severity: 'high',
-          evidence: [
-            makeEvidence('github', `${data.type} @${data.login} exists`, data.html_url),
-          ],
+          severity: dormant ? 'medium' : 'high',
+          evidence: accountEvidence,
           ...(description === undefined || description === null ? {} : { description }),
         })
       }

@@ -1,16 +1,25 @@
 'use client'
 
+import * as Sentry from '@sentry/nextjs'
+import { useEffect } from 'react'
 import './globals.css'
 
 // global-error replaces the root layout entirely when it fires, so it
 // defines its own html/body and can't assume next/font or SiteNav ran —
 // this only fires for errors the root layout itself throws.
 export default function GlobalError({
+  error,
   retry,
 }: {
   error: Error & { digest?: string }
   retry: () => void
 }) {
+  useEffect(() => {
+    // The root layout failing is the most serious thing that can happen in the
+    // browser and was, until now, the one error nothing reported.
+    Sentry.captureException(error)
+  }, [error])
+
   return (
     <html lang="en">
       <body
@@ -26,10 +35,13 @@ export default function GlobalError({
           <button
             type="button"
             onClick={retry}
-            className="mt-8 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white"
+            className="mt-8 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Try again
           </button>
+          {error.digest === undefined ? null : (
+            <p className="mt-8 font-mono text-xs text-faint">Reference: {error.digest}</p>
+          )}
         </div>
       </body>
     </html>

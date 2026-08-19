@@ -17,7 +17,7 @@ import { adapterFor } from '@/lib/orchestrator/registry'
 import { computeCoverage } from '@/lib/scoring/confidence'
 import { weightsFor } from '@/lib/scoring/weights'
 import { computeViability, type ViabilityResult } from '@/lib/scoring/viability'
-import { recordOutcome } from '@/lib/sources/health'
+import { loadHealthSnapshot, persistOutcome, recordOutcome } from '@/lib/sources/health'
 import { unverifiable } from '@/lib/sources/result'
 
 export interface ScanSummary {
@@ -61,12 +61,12 @@ const DEFAULT_OVERALL_TIMEOUT_MS = 60_000
  * that produces, say, matches on an `unable_to_verify` result is caught here
  * rather than reaching the report and being rendered as fact.
  */
-async function runSource(
+export async function runSource(
   id: SourceId,
   ctx: ScanContext,
   scanClassification: Classification,
   parentSignal: AbortSignal,
-  log: NonNullable<RunOptions['log']>,
+  log: NonNullable<RunOptions['log']> = () => {},
 ): Promise<SourceResult> {
   const manifest = SOURCE_MANIFEST[id]
   const adapter = adapterFor(id)
@@ -80,6 +80,14 @@ async function runSource(
   parentSignal.addEventListener('abort', onParentAbort, { once: true })
   const timer = setTimeout(() => controller.abort(), manifest.timeoutMs)
 
+  // Records locally (synchronous, immediate) and persists cross-instance
+  // (best-effort, fire-and-forget) in the same call, so every call site only
+  // has to make one decision about what happened.
+  const record = (outcome: Parameters<typeof recordOutcome>[1]): void => {
+    recordOutcome(id, outcome)
+    void persistOutcome(id, outcome).catch(() => {})
+  }
+
   const started = Date.now()
   try {
     const deps: AdapterDeps = {
@@ -90,7 +98,7 @@ async function runSource(
 
     const parsed = SourceResultSchema.safeParse(raw)
     if (!parsed.success) {
-      recordOutcome(id, 'failure')
+      record('failure')
       log('adapter.invalid_output', { source: id, issues: parsed.error.issues.length })
       return unverifiable(
         id,
@@ -102,8 +110,7 @@ async function runSource(
     // Health follows what we actually learned, not whether the call returned.
     // A source that answered `unable_to_verify` told us nothing and is counted
     // as a failure, so repeated throttling visibly erodes its confidence.
-    recordOutcome(
-      id,
+    record(
       parsed.data.status === 'unable_to_verify'
         ? parsed.data.error?.code === 'RATE_LIMITED'
           ? 'rate_limited'
@@ -117,7 +124,7 @@ async function runSource(
     return enrichResult(ctx, scanClassification, parsed.data)
   } catch (cause) {
     const timedOut = controller.signal.aborted
-    recordOutcome(id, timedOut ? 'timeout' : 'failure')
+    record(timedOut ? 'timeout' : 'failure')
     log('source.failed', { source: id, ms: Date.now() - started, timedOut })
     return unverifiable(
       id,
@@ -153,6 +160,15 @@ export async function* runScan(
 
   // Classified once per scan rather than once per match.
   const scanClassification = classifyScanContext(ctx)
+
+  // Best-effort and strictly time-boxed: a slow or unreachable database must
+  // never delay the scan itself, only cost it the cross-instance health signal
+  // for this one run — sources still fall back to "assume healthy," same as
+  // before this existed.
+  await Promise.race([
+    loadHealthSnapshot(),
+    new Promise((resolve) => setTimeout(resolve, 800)),
+  ])
 
   const overall = new AbortController()
   const overallTimer = setTimeout(() => overall.abort(), overallTimeoutMs)

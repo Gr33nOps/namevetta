@@ -6,11 +6,21 @@ import { withSentryConfig } from '@sentry/nextjs'
  *
  * Set here rather than via nonce-based CSP in `proxy.ts` deliberately: a nonce
  * requires every page to render dynamically, which trades away the static
- * optimization this app otherwise gets for free on Vercel Hobby. This app has
- * no `dangerouslySetInnerHTML` anywhere and loads no third-party scripts of its
- * own, so the residual risk `'unsafe-inline'` on `script-src` accepts — needed
- * because Next inlines the RSC hydration payload — is small, and it is the
- * pattern Next's own docs recommend for apps that don't need nonces.
+ * optimization this app otherwise gets for free on Vercel Hobby.
+ *
+ * `'unsafe-inline'` on `script-src` is therefore accepted. Next inlines the RSC
+ * hydration payload, so it is required regardless; what makes the residual risk
+ * small is that no third-party script loads and every inline script this app
+ * writes itself is a compile-time constant with no user-derived input:
+ *
+ *   - `app/layout.tsx` — the pre-paint theme script, a fixed string that reads
+ *     `localStorage` and sets one attribute.
+ *   - `app/layout.tsx` and `app/methodology/page.tsx` — two JSON-LD blocks,
+ *     `JSON.stringify` of module-level literals.
+ *
+ * If an inline script ever needs to interpolate a value that came from a
+ * request, this trade stops being safe and the nonce is the answer, not a
+ * bigger allowlist.
  *
  * `connect-src`/`img-src`/`font-src` stay at `'self'` because nothing in this
  * app talks to a third party from the browser: Supabase, Tavily, Groq,
