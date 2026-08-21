@@ -17,12 +17,12 @@ import 'server-only'
  */
 import { z } from 'zod'
 import { CandidateNameSchema, MAX_NAME_LENGTH } from '@/lib/core/scan'
+import { CANDIDATE_COUNT } from '@/lib/generator/candidates'
 import { normalize } from '@/lib/similarity/normalize'
 import { groqProvider } from '@/lib/providers/groq'
 import { LLMUnavailableError } from '@/lib/providers/llm'
 
-/** How many candidates a generation run asks for. */
-export const CANDIDATE_COUNT = 30
+export { CANDIDATE_COUNT }
 
 export type GenerateNamesOutcome =
   | { status: 'ready'; names: string[] }
@@ -98,7 +98,7 @@ export async function generateNames(
     const result = await groqProvider.complete({
       system: SYSTEM_PROMPT,
       user: buildUserPrompt(categoryLabel, description, seed),
-      // ~30 short names in JSON is a few hundred tokens; this leaves headroom
+      // A short-name batch in JSON is a few hundred tokens; this leaves headroom
       // without inviting the model to pad with commentary.
       maxOutputTokens: 900,
       temperature: 0.9,

@@ -53,7 +53,16 @@ async function stubScan(page: import('@playwright/test').Page) {
         type: 'complete',
         summary: {
           results: RESULTS,
-          viability: { score: 61, rawScore: 61, caps: [], groups: [], scoringVersion: 2 },
+          viability: {
+            score: 61,
+            rawScore: 61,
+            caps: [],
+            // Empty on purpose: the domain conflict below carries evidence
+            // rather than an exact match, so it is not a decisive collision.
+            conflicts: [],
+            groups: [],
+            scoringVersion: 3,
+          },
           coverage: 70,
         },
       },
@@ -67,13 +76,13 @@ async function stubScan(page: import('@playwright/test').Page) {
 }
 
 test.describe('search', () => {
-  test('asks nothing before giving an answer', async ({ page }) => {
+  test('lets a visitor choose category and research depth before a check starts', async ({ page }) => {
     await page.goto('/')
 
-    // The whole homepage: one field, one button. No category, no description,
-    // no depth picker. If any of those come back, this fails.
     await expect(page.getByLabel('Name to check')).toBeVisible()
-    await expect(page.getByRole('combobox')).toHaveCount(0)
+    await expect(page.getByLabel('Use for')).toHaveCount(1)
+    await expect(page.getByRole('button', { name: 'Quick Check' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Deep Research' })).toBeVisible()
     await expect(page.getByRole('textbox')).toHaveCount(1)
   })
 
@@ -82,9 +91,21 @@ test.describe('search', () => {
     await page.goto('/')
 
     await page.getByLabel('Name to check').fill('northbeam')
-    await page.getByRole('button', { name: 'Check' }).click()
+    await page.getByRole('button', { name: 'Search a name' }).click()
 
-    await expect(page).toHaveURL(/\/n\/northbeam$/)
+    await expect(page).toHaveURL(/\/n\/northbeam\?as=other$/)
+  })
+
+  test('carries the selected category and depth into the check URL', async ({ page }) => {
+    await stubScan(page)
+    await page.goto('/')
+    await page.getByLabel('Use for').click()
+    await page.getByRole('option', { name: 'Mobile app' }).click()
+    await page.getByRole('button', { name: 'Deep Research' }).click()
+    await page.getByLabel('Name to check').fill('northbeam')
+    await page.getByRole('button', { name: 'Search a name' }).click()
+
+    await expect(page).toHaveURL(/\/n\/northbeam\?as=mobile_app&deep=1$/)
   })
 
   test('shows the full report once the check finishes', async ({ page }) => {
@@ -92,28 +113,30 @@ test.describe('search', () => {
     await page.goto('/n/northbeam')
 
     await expect(page.getByRole('heading', { name: 'northbeam' })).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'Needs your attention' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible()
     // The score is still on the page, still a number, just no longer the first
-    // thing shouting at you.
-    await expect(page.getByText('/ 100')).toBeVisible()
+    // thing shouting at you. It reads as a ring labelled "Score" now,
+    // with the count of what actually came back clear beside it.
+    await expect(page.getByText('Score', { exact: true })).toBeVisible()
+    await expect(page.getByText(/\d+ of \d+ clear/)).toBeVisible()
   })
 
   test('leads with the findings that need a decision', async ({ page }) => {
     await stubScan(page)
     await page.goto('/n/northbeam')
-    await expect(page.getByRole('heading', { name: 'Needs your attention' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible()
 
     const body = await page.locator('main').innerText()
     // The whole point of the restructure: the two things worth reading come
     // before the pile of things that were fine.
-    expect(body.indexOf('Needs your attention')).toBeLessThan(body.indexOf('are clear'))
-    expect(body.indexOf('Needs your attention')).toBeLessThan(body.indexOf('Trademark search'))
+    expect(body.indexOf('Review')).toBeLessThan(body.indexOf('clear checks'))
+    expect(body.indexOf('Review')).toBeLessThan(body.indexOf('Trademark search'))
   })
 
   test('the verdict word does not outrank the findings under it', async ({ page }) => {
     await stubScan(page)
     await page.goto('/n/northbeam')
-    await expect(page.getByRole('heading', { name: 'Needs your attention' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible()
 
     // The stub scores 61 with a confirmed conflict below it. Whatever word sits
     // above the score, a report carrying an unresolved finding must never top
@@ -133,9 +156,9 @@ test.describe('search', () => {
   test('the clear sources are folded away, not deleted', async ({ page }) => {
     await stubScan(page)
     await page.goto('/n/northbeam')
-    await expect(page.getByRole('heading', { name: 'Needs your attention' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible()
 
-    const fold = page.locator('details', { hasText: 'are clear' }).first()
+    const fold = page.locator('details', { hasText: 'clear checks' }).first()
     await expect(fold).toBeVisible()
     // Closed on arrival, and everything still inside it.
     expect(await fold.evaluate((el: HTMLDetailsElement) => el.open)).toBe(false)
@@ -160,20 +183,128 @@ test.describe('search', () => {
     })
 
     await page.goto('/n/northbeam')
-    await expect(page.getByText(/Researching/)).toBeVisible()
-    await expect(page.getByText(/of \d+ sources complete/)).toBeVisible()
+    // The name is up immediately, and the panel says what it is waiting on
+    // rather than showing an empty box.
+    await expect(page.getByRole('heading', { name: 'northbeam' })).toBeVisible()
+    /*
+      The progress line names the run set *and* the catalog, because they are
+      different numbers: a Quick Check asks 53 of 60, and the page used to
+      claim the catalog size was checked on every search.
+    */
+    await expect(
+      page.getByText(/(Quick Check uses|Deep Research considers) \d+ sources/),
+    ).toBeVisible()
+    await expect(page.getByText(/of \d+ sources answered/)).toBeVisible()
     release()
   })
 
   test('an unverified source is never dressed up as a clean one', async ({ page }) => {
     await stubScan(page)
     await page.goto('/n/northbeam')
-    await expect(page.getByRole('heading', { name: 'Needs your attention' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review' })).toBeVisible()
 
     // The rule the whole product rests on: a check that did not complete must
     // not read anywhere as a pass.
-    await expect(page.getByRole('heading', { name: /Couldn.t be checked/ })).toBeVisible()
-    await expect(page.getByText(/not evidence that the name is free/)).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Couldn.t verify/ })).toBeVisible()
+    await expect(page.getByText(/doesn.t mean the name is free/)).toBeVisible()
+  })
+
+  test('manual platforms are grouped and a category-skipped store is shown once', async ({ page }) => {
+    const intentionalResults = [
+      {
+        ...base,
+        source: 'socials',
+        status: 'manual_check_recommended',
+        confidence: 0,
+        meta: {
+          platforms: [
+            {
+              name: 'Instagram',
+              url: 'https://instagram.com/northbeam',
+              status: 'manual_check_recommended',
+              detail: 'Verify the account handle directly',
+            },
+            {
+              name: 'Twitch',
+              url: 'https://twitch.tv/northbeam',
+              status: 'manual_check_recommended',
+              detail: 'Verify the channel name directly',
+            },
+          ],
+        },
+      },
+      {
+        ...base,
+        source: 'slack',
+        status: 'manual_check_recommended',
+        confidence: 0,
+        meta: {
+          platforms: [
+            {
+              name: 'Slack',
+              url: 'https://northbeam.slack.com',
+              status: 'manual_check_recommended',
+              detail: 'Verify the workspace directly',
+            },
+          ],
+        },
+      },
+      {
+        ...base,
+        source: 'play_store',
+        status: 'unable_to_verify',
+        confidence: 0,
+        error: {
+          code: 'NOT_SEARCHED',
+          message: 'Google Play was not searched for this category.',
+          retryable: false,
+        },
+      },
+    ]
+
+    await page.route('**/api/scan', async (route) => {
+      const events = [
+        { type: 'started' },
+        ...intentionalResults.map((result) => ({ type: 'source', result })),
+        {
+          type: 'complete',
+          summary: {
+            results: intentionalResults,
+            viability: {
+              score: 0,
+              rawScore: 0,
+              caps: [],
+              conflicts: [],
+              groups: [],
+              scoringVersion: 3,
+            },
+            coverage: 0,
+          },
+        },
+      ]
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/x-ndjson',
+        body: events.map((event) => JSON.stringify(event)).join('\n') + '\n',
+      })
+    })
+
+    await page.goto('/n/northbeam')
+
+    await expect(page.getByText('Manual check', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Manual checks' })).toBeVisible()
+    await expect(page.getByText('3 manual checks')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Open ↗' })).toHaveCount(3)
+
+    await expect(page.getByRole('heading', { name: "Couldn't be checked" })).toHaveCount(0)
+    const otherUses = page.locator('details', { hasText: 'Relevant for other uses' })
+    await expect(otherUses).toBeVisible()
+    await otherUses.locator('summary').click()
+    await expect(page.getByText('Google Play', { exact: true })).toHaveCount(1)
+    await expect(page.getByRole('link', { name: 'Search Google Play ↗' })).toHaveAttribute(
+      'href',
+      /q=northbeam/,
+    )
   })
 
   test('the old scan URL still works', async ({ page }) => {

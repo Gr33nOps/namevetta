@@ -31,6 +31,22 @@ import type { SourceResult } from '@/lib/core/types'
 
 export const maxDuration = 30
 export const dynamic = 'force-dynamic'
+const API_NO_STORE = 'no-store, no-transform'
+
+function apiError(error: string, status: number): Response {
+  return Response.json({ error }, { status, headers: { 'cache-control': API_NO_STORE } })
+}
+
+export function GET(): Response {
+  return Response.json(
+    { error: 'Use POST to retry a source.' },
+    { status: 405, headers: { allow: 'POST, OPTIONS', 'cache-control': API_NO_STORE } },
+  )
+}
+
+export function OPTIONS(): Response {
+  return new Response(null, { status: 204, headers: { allow: 'POST, OPTIONS', 'cache-control': API_NO_STORE } })
+}
 
 const RetryRequestSchema = z.object({
   context: ScanContextSchema,
@@ -44,45 +60,33 @@ export async function POST(req: Request): Promise<Response> {
   try {
     body = await req.json()
   } catch {
-    return Response.json({ error: 'Request body must be JSON' }, { status: 400 })
+    return apiError('Request body must be JSON', 400)
   }
 
   const parsed = RetryRequestSchema.safeParse(body)
   if (!parsed.success) {
-    return Response.json(
-      { error: parsed.error.issues[0]?.message ?? 'Invalid request' },
-      { status: 400 },
-    )
+    return apiError(parsed.error.issues[0]?.message ?? 'Invalid request', 400)
   }
   const { context, results, source, scanId } = parsed.data
 
   if (!sourcesFor(context.scanType).some((s) => s.id === source)) {
-    return Response.json({ error: 'That source is not part of this scan.' }, { status: 400 })
+    return apiError('That source is not part of this scan.', 400)
   }
 
   const existing = results.find((r) => r.source === source)
   if (existing === undefined || isVerified(existing.status)) {
-    return Response.json(
-      { error: 'Only a source that could not be verified can be retried.' },
-      { status: 400 },
-    )
+    return apiError('Only a source that could not be verified can be retried.', 400)
   }
 
   if (scanId !== undefined && isDatabaseConfigured()) {
     const user = await currentUser()
     const subject = identifySubject(req.headers, user?.id)
     if (subject === undefined) {
-      return Response.json(
-        { error: 'Could not identify the request for retry limiting.' },
-        { status: 400 },
-      )
+      return apiError('Could not identify the request for retry limiting.', 400)
     }
     const allowed = await canRetrySource(subject, scanId)
     if (!allowed) {
-      return Response.json(
-        { error: 'This report has already used its retries, or is not yours to retry.' },
-        { status: 429 },
-      )
+      return apiError('This report has already used its retries, or is not yours to retry.', 429)
     }
   }
 
@@ -111,5 +115,8 @@ export async function POST(req: Request): Promise<Response> {
     void completeScan(scanId, { results: newResults, viability, coverage }).catch(() => {})
   }
 
-  return Response.json({ result, summary: { results: newResults, viability, coverage } })
+  return Response.json(
+    { result, summary: { results: newResults, viability, coverage } },
+    { headers: { 'cache-control': API_NO_STORE } },
+  )
 }

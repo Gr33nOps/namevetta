@@ -6,11 +6,14 @@ import type { TrademarkScreening } from '@/lib/trademark/provider'
 import { computeConfidence, computeCoverage, healthMultiplier } from './confidence'
 import {
   computeViability,
+  decisiveConflicts,
   detectCaps,
+  dominantVerdict,
   sourceSubscore,
   trademarkAdvisory,
   verdictFor,
 } from './viability'
+import { conflictBanner, VERDICT_PRESENTATION } from '@/lib/presentation'
 import { CATEGORY_WEIGHTS, SCORE_GROUPS, SOURCE_GROUP } from './weights'
 
 const now = new Date().toISOString()
@@ -104,8 +107,39 @@ describe('healthMultiplier', () => {
     expect(m).toBeLessThan(1)
   })
 
-  it('discards a source failing more than one call in five', () => {
-    expect(healthMultiplier({ successRate: 0.7, samples: 100 })).toBe(0)
+  it('heavily discounts a source failing more than one call in five', () => {
+    const m = healthMultiplier({ successRate: 0.7, samples: 100 })
+    expect(m).toBeLessThan(0.5)
+    expect(m).toBeGreaterThan(0)
+  })
+
+  it('keeps degrading below the floor rather than flattening', () => {
+    const bad = healthMultiplier({ successRate: 0.7, samples: 100 })
+    const worse = healthMultiplier({ successRate: 0.2, samples: 100 })
+    expect(worse).toBeLessThan(bad)
+  })
+
+  it('never returns zero, however badly a source is doing', () => {
+    /*
+      Zero here multiplies confidence to zero, and a verified result with zero
+      confidence fails `SourceResultSchema` — so the orchestrator discarded the
+      *successful* answers of any source below 80%, recorded that as another
+      failure, and locked it there. The floor is what breaks that loop.
+    */
+    for (const successRate of [0, 0.05, 0.3, 0.5, 0.79]) {
+      expect(healthMultiplier({ successRate, samples: 100 })).toBeGreaterThan(0)
+    }
+  })
+
+  it('leaves a degraded source able to produce a schema-valid result', () => {
+    // The invariant the loop violated, asserted end to end.
+    const confidence = computeConfidence({
+      source: 'maven_central',
+      status: 'no_conflict',
+      fromCache: true,
+      health: { successRate: 0.38, samples: 200 },
+    })
+    expect(confidence).toBeGreaterThan(0)
   })
 })
 
@@ -232,7 +266,7 @@ describe('detectCaps', () => {
     expect(caps).toContainEqual({ reason: 'Exact major same-industry business', maximum: 40 })
   })
 
-  it('does not cap an exact match in an unrelated industry', () => {
+  it('does not apply the same-industry cap to an exact match in an unrelated industry', () => {
     const caps = detectCaps([
       res('web', {
         status: 'confirmed_conflict',
@@ -244,7 +278,11 @@ describe('detectCaps', () => {
         ],
       }),
     ])
-    expect(caps).toHaveLength(0)
+    // Industry relevance still decides whether the hard 40 cap fires.
+    expect(caps.map((c) => c.maximum)).not.toContain(40)
+    // It does not decide whether the reader hears about the collision at all:
+    // an exact confirmed conflict always ceilings below "Mostly Clear".
+    expect(caps.map((c) => c.maximum)).toContain(69)
   })
 
   it('never emits a trademark cap, because V1 gathers no trademark evidence', () => {
@@ -271,6 +309,130 @@ describe('detectCaps', () => {
 })
 
 /* -------------------------------------------------------------------------- */
+
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The audit finding, in one place.
+ *
+ * A real production report showed **Vetta Score 100** and "48 of 53 checks
+ * clear" on the same screen as a confirmed exact CPAN conflict. Nothing was
+ * broken: CPAN sits in the `packages` group, `packages` carries zero weight
+ * for a restaurant, and a weighted average over the groups that answered
+ * cannot see a group it is not averaging. The arithmetic was right and the
+ * report was untrustworthy, which is the worse of the two failures.
+ */
+describe('a confirmed conflict beside a perfect score', () => {
+  /** A restaurant scan: `packages` weight is 0, so CPAN cannot move the average. */
+  const restaurantWithCpanConflict = () => [
+    res('domain', { status: 'no_conflict' }),
+    res('web', { status: 'no_conflict' }),
+    res('socials', { status: 'manual_check_recommended', confidence: 0 }),
+    res('cpan', {
+      status: 'confirmed_conflict',
+      exactMatches: [
+        match({
+          externalId: 'cpan:northbeam',
+          name: 'Northbeam',
+          severity: 'high',
+          similarity: { text: 100, phonetic: 100, visual: 100, overall: 100 },
+        }),
+      ],
+    }),
+  ]
+
+  it('is exactly the shape that used to score 100', () => {
+    // The weighting is untouched: the group genuinely carries nothing here.
+    expect(CATEGORY_WEIGHTS.restaurant.packages).toBe(0)
+    const groups = computeViability({
+      category: 'restaurant',
+      results: restaurantWithCpanConflict(),
+    }).groups
+    expect(groups.find((g) => g.group === 'packages')?.weight).toBe(0)
+  })
+
+  it('no longer lets the score contradict the finding', () => {
+    const viability = computeViability({
+      category: 'restaurant',
+      results: restaurantWithCpanConflict(),
+    })
+
+    // The average is still 100 — the weighting was not vandalised to fix this.
+    expect(viability.rawScore).toBe(100)
+    // But the number a person reads cannot say "clear" over a confirmed
+    // collision, so it is ceilinged below the "Mostly Clear" band.
+    expect(viability.score).toBeLessThan(70)
+    expect(viability.caps.map((c) => c.maximum)).toContain(69)
+  })
+
+  it('never labels such a report Clear or Mostly Clear', () => {
+    const { score } = computeViability({
+      category: 'restaurant',
+      results: restaurantWithCpanConflict(),
+    })
+    const label = VERDICT_PRESENTATION[verdictFor(score)].label
+    expect(label).not.toBe('Clear')
+    expect(label).not.toBe('Mostly Clear')
+    // And the tone can never be the green one.
+    expect(VERDICT_PRESENTATION[verdictFor(score)].tone).not.toBe('ok')
+  })
+
+  it('names the collision above the score, not only under it', () => {
+    const { conflicts } = computeViability({
+      category: 'restaurant',
+      results: restaurantWithCpanConflict(),
+    })
+    expect(conflicts).toHaveLength(1)
+    expect(conflictBanner(conflicts)).toContain('Northbeam')
+  })
+
+  it('applies the ceiling whatever the category, since an exact match is exact', () => {
+    for (const category of CATEGORIES) {
+      const { score } = computeViability({
+        category,
+        results: restaurantWithCpanConflict(),
+      })
+      expect(score, `${category} must not read as clear over an exact conflict`).toBeLessThan(70)
+    }
+  })
+
+  it('leaves a clean report alone', () => {
+    // The cap must not fire on anything short of a confirmed exact collision,
+    // or every report becomes a warning and the warning stops meaning anything.
+    const clean = computeViability({
+      category: 'restaurant',
+      results: [res('domain'), res('web'), res('cpan')],
+    })
+    expect(clean.score).toBe(100)
+    expect(clean.caps).toEqual([])
+    expect(conflictBanner(clean.conflicts)).toBe('')
+  })
+
+  it('does not fire on a near miss, only on an exact one', () => {
+    const nearMiss = computeViability({
+      category: 'restaurant',
+      results: [
+        res('domain'),
+        res('web', { status: 'similar_found', similarMatches: [match({ severity: 'medium' })] }),
+      ],
+    })
+    expect(nearMiss.caps.map((c) => c.maximum)).not.toContain(69)
+  })
+
+  it('ignores a conflict claimed by a source that could not be verified', () => {
+    // The schema forbids matches on an unverified result; this pins the
+    // reader's half of that rule too.
+    expect(
+      decisiveConflicts([
+        res('cpan', {
+          status: 'unable_to_verify',
+          confidence: 0,
+          error: { code: 'LOOKUP_FAILED', message: 'unreachable', retryable: true },
+        }),
+      ]),
+    ).toEqual([])
+  })
+})
 
 describe('computeViability', () => {
   it('scores a completely clean name at the top', () => {
@@ -436,5 +598,13 @@ describe('verdictFor', () => {
     expect(verdictFor(50)).toBe('mixed')
     expect(verdictFor(30)).toBe('risky')
     expect(verdictFor(0)).toBe('avoid')
+  })
+
+  it('makes a confirmed exact conflict the dominant conclusion even beside a high score', () => {
+    const conflict = res('npm', {
+      status: 'confirmed_conflict',
+      exactMatches: [match({ name: 'Northbeam', severity: 'high' })],
+    })
+    expect(dominantVerdict(100, [conflict])).toBe('risky')
   })
 })

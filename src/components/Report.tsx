@@ -1,16 +1,26 @@
+'use client'
+
 import Link from 'next/link'
 import { SaveNameButton } from '@/components/SaveNameButton'
 import { ScoreBreakdown } from '@/components/ScoreBreakdown'
-import { ScoreHeadline } from '@/components/ScoreHeadline'
 import { TrademarkAssist } from '@/components/TrademarkAssist'
 import { CompactSourceRow, isRetryable, SourceCard } from '@/components/SourceCard'
 import { Badge } from '@/components/ui/Badge'
 import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import { CATEGORY_LABELS, type ScanContext } from '@/lib/core/scan'
-import { isVerified, type SourceId, type SourceResult } from '@/lib/core/types'
+import {
+  DiscoveryMatchSchema,
+  PlatformVerdictSchema,
+  isVerified,
+  type PlatformVerdict,
+  type SourceId,
+  type SourceResult,
+} from '@/lib/core/types'
+import { z } from 'zod'
 import type { AiSummaryEvent, ScanSummary } from '@/lib/orchestrator/run'
-import { SCOPE_NOTICE } from '@/lib/presentation'
-import { oldest, relativeTime } from '@/lib/relativeTime'
+import { deliberatelySkipped, resultPresentation, SCOPE_NOTICE } from '@/lib/presentation'
+import { Freshness } from '@/components/ui/TimeAgo'
+import { oldest } from '@/lib/relativeTime'
 
 /**
  * Where a wrong report goes.
@@ -45,7 +55,7 @@ function Fold({
   children: React.ReactNode
 }) {
   return (
-    <details open={open} className="rounded-2xl border border-line bg-surface">
+    <details open={open} className="card overflow-hidden rounded-2xl">
       <summary className="flex cursor-pointer list-none items-center gap-2.5 px-5 py-3.5 text-[14.5px] font-semibold text-charcoal marker:content-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
         <span aria-hidden="true" className="text-[11px] text-faint">
           ▸
@@ -63,9 +73,113 @@ function Fold({
 function SectionHead({ title, count }: { title: string; count?: number }) {
   return (
     <div className="mb-3 flex items-baseline gap-2.5">
-      <h2 className="font-display text-[17px] font-bold tracking-tight text-charcoal">{title}</h2>
+      <h2 className="font-display text-[17px] font-semibold tracking-tight text-charcoal">{title}</h2>
       {count === undefined ? null : <span className="text-[12.5px] text-faint">{count}</span>}
     </div>
+  )
+}
+
+const DiscoveryByPlatformSchema = z.record(z.string(), z.array(DiscoveryMatchSchema))
+
+function manualPlatforms(results: readonly SourceResult[]): PlatformVerdict[] {
+  const web = results.find((result) => result.source === 'web')
+  const parsedDiscovery = DiscoveryByPlatformSchema.safeParse(web?.meta?.['manualDiscovery'])
+  const discovery = parsedDiscovery.success ? parsedDiscovery.data : {}
+  const platforms: PlatformVerdict[] = []
+
+  for (const result of results.filter((item) => item.status === 'manual_check_recommended')) {
+    const parsed = z.array(PlatformVerdictSchema).safeParse(result.meta?.['platforms'])
+    const sourcePlatforms: PlatformVerdict[] = parsed.success
+      ? parsed.data
+      : [
+          {
+            name: SOURCE_MANIFEST[result.source].label,
+            ...(result.evidence.find((item) => item.url !== undefined)?.url === undefined
+              ? {}
+              : { url: result.evidence.find((item) => item.url !== undefined)?.url }),
+            status: 'manual_check_recommended',
+            detail: 'Check this name on the platform.',
+          },
+        ]
+
+    platforms.push(
+      ...sourcePlatforms.map((platform) => ({
+        ...platform,
+        discovery: discovery[platform.name] ?? [],
+      })),
+    )
+  }
+  return platforms
+}
+
+function ManualVerification({
+  platforms,
+  discoverySearched,
+}: {
+  platforms: readonly PlatformVerdict[]
+  discoverySearched: boolean
+}) {
+  return (
+    <section>
+      <SectionHead title="Manual checks" count={platforms.length} />
+      <p className="mb-3 text-[14px] leading-relaxed text-charcoal-2">Check these directly.</p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {platforms.map((platform) => {
+          const matches = platform.discovery ?? []
+          return (
+            <article
+              key={platform.name}
+              className="inset grid gap-3 rounded-xl px-4 py-3.5"
+            >
+              <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0">
+                <h3 className="font-semibold text-charcoal">{platform.name}</h3>
+                {platform.name === 'Reddit Community' ? (
+                  <p className="mt-1 text-xs leading-relaxed text-faint">
+                    Checks the subreddit name, not a Reddit user account.
+                  </p>
+                ) : null}
+                {matches.length > 0 ? (
+                  <div className="mt-2 text-xs">
+                    <p className="font-medium text-charcoal-2">Public matches · {matches.length}</p>
+                    <ul className="mt-1 space-y-1">
+                      {matches.map((match) => (
+                        <li key={match.url}>
+                          <a
+                            href={match.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="break-all font-mono text-xs text-accent-ink underline underline-offset-2"
+                          >
+                            {match.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : discoverySearched ? (
+                  <p className="mt-1 text-xs text-faint">No indexed match found.</p>
+                ) : null}
+                </div>
+                {platform.url === undefined ? null : (
+                  <a
+                    href={platform.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn-secondary inline-flex min-h-9 shrink-0 items-center rounded-lg px-3 text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                  >
+                    Open ↗
+                  </a>
+                )}
+              </div>
+            </article>
+          )
+        })}
+      </div>
+      <p className="mt-3 text-xs leading-relaxed text-faint">
+        Public matches are clues, not availability checks. They don&rsquo;t affect the score.
+      </p>
+    </section>
   )
 }
 
@@ -103,53 +217,92 @@ export function Report({
   const flagged = results.filter(
     (r) => r.status === 'similar_found' || r.status === 'confirmed_conflict',
   )
-  const unverified = results.filter((r) => !isVerified(r.status))
+  /*
+    Two lists, not one.
+
+    "Couldn't be checked" used to hold both a source that timed out and a
+    source the product deliberately did not call — Google Play on a SaaS scan,
+    where a shared search credit buys 2% of the score. Filing those together
+    made a working product look broken and made a real outage look routine.
+    Neither list scores and neither counts toward coverage; they read
+    differently because they happened differently.
+  */
+  const skipped = results.filter(deliberatelySkipped)
+  const manual = manualPlatforms(results)
+  const unverified = results.filter(
+    (r) => r.status === 'unable_to_verify' && !deliberatelySkipped(r),
+  )
+  const discoverySearched = results.some((r) => r.source === 'web' && isVerified(r.status))
   const cleared = results.filter((r) => r.status === 'no_conflict')
   const retryableUnverified = unverified.filter(isRetryable)
   const oldestChecked = oldest(results.filter((r) => isVerified(r.status)).map((r) => r.checkedAt))
 
   const label = (r: SourceResult): string => SOURCE_MANIFEST[r.source].label
+  const attention = [
+    flagged.length > 0 ? `${flagged.length} ${flagged.length === 1 ? 'match' : 'matches'} to review` : undefined,
+    manual.length > 0 ? `${manual.length} manual checks` : undefined,
+    unverified.length > 0 ? `${unverified.length} incomplete` : undefined,
+  ].filter((item): item is string => item !== undefined)
 
+  /*
+    No headline here any more. The score, the verdict and the list of every
+    place checked are the panel above this, which is the same object the
+    homepage search box turns into. What follows is the part a panel cannot
+    hold: the evidence, and the arithmetic behind the number.
+
+    The width and padding come from the caller for the same reason.
+  */
   return (
-    <div className="mx-auto w-full max-w-[880px] space-y-4 px-5 py-10">
-      <ScoreHeadline
-        name={context.name}
-        description={context.description}
-        viability={viability}
-        coverage={coverage}
-        results={results}
-      />
-
+    <div className="mt-4 w-full space-y-4">
+      <section className="inset rounded-2xl px-5 py-4">
+        <h2 className="font-display text-[17px] font-semibold tracking-tight text-charcoal">Next steps</h2>
+        <p className="mt-1.5 text-sm leading-relaxed text-charcoal-2">
+          {attention.length === 0
+            ? 'No conflicts or incomplete checks need attention.'
+            : attention.join(' · ')}
+        </p>
+      </section>
       <p className="px-1 text-[13px] text-faint">
-        Researched as <span className="text-charcoal-2">{CATEGORY_LABELS[context.category]}</span> ·{' '}
+        {CATEGORY_LABELS[context.category]} ·{' '}
         {context.scanType === 'deep' ? 'Deep Research' : 'Quick Check'}
-        {oldestChecked === undefined ? null : ` · oldest finding ${relativeTime(oldestChecked)}`}
+        {' · '}
+        <Link
+          href={`/n/${encodeURIComponent(context.name)}?as=${context.category}${context.scanType === 'deep' ? '&deep=1' : ''}&pick=1`}
+          className="text-accent-ink underline underline-offset-2"
+        >
+          Change category
+        </Link>
+        {oldestChecked === undefined ? null : (
+          <>
+            {' · oldest finding '}
+            <Freshness iso={oldestChecked} />
+          </>
+        )}
       </p>
 
       {aiSummary?.status === 'ready' ? (
-        <section className="rounded-2xl border border-accent-border bg-accent-soft p-5">
+        <section className="card rounded-2xl border-accent-border bg-accent-soft p-5">
           <p className="text-[15px] leading-relaxed text-charcoal">{aiSummary.text}</p>
           <p className="mt-3 text-xs text-faint">
-            Written by an AI model from the findings on this page only. Not legal advice, and not a
-            substitute for reading the evidence yourself.
+            Based only on findings in this report. Not legal advice.
           </p>
         </section>
       ) : context.scanType === 'deep' && aiSummary === undefined ? (
-        <section className="flex items-center gap-2 rounded-2xl border border-line bg-surface px-5 py-4 text-sm text-charcoal-2">
+        <section className="card flex items-center gap-2 rounded-2xl px-5 py-4 text-sm text-charcoal-2">
           <span
             aria-hidden="true"
             className="h-3 w-3 animate-spin rounded-full border-2 border-line-strong border-t-accent"
           />
-          Writing a summary of these findings…
+          Summarising findings…
         </section>
       ) : null}
 
       {/* ── 1. what needs a decision ─────────────────────────────────────── */}
-      <section>
-        <SectionHead title="Needs your attention" count={flagged.length} />
+      <section id="findings">
+        <SectionHead title="Review" count={flagged.length} />
         {flagged.length === 0 ? (
-          <p className="rounded-2xl border border-line bg-surface px-5 py-4 text-[14px] text-charcoal-2">
-            Nothing came back as a conflict or a close match.
+          <p className="card rounded-2xl px-5 py-4 text-[14px] text-charcoal-2">
+            No conflicts or close matches found.
           </p>
         ) : (
           <div className="grid gap-3">
@@ -161,20 +314,24 @@ export function Report({
       </section>
 
       {/* ── 2. what could not be established ─────────────────────────────── */}
+      {manual.length > 0 ? (
+        <ManualVerification platforms={manual} discoverySearched={discoverySearched} />
+      ) : null}
+
       {unverified.length > 0 ? (
         <section>
-          <SectionHead title="Couldn't be checked" count={unverified.length} />
-          <div className="rounded-2xl border border-unknown/30 bg-unknown-soft p-5">
+          <SectionHead title="Couldn&rsquo;t verify" count={unverified.length} />
+          <div className="card rounded-2xl border-unknown/30 bg-unknown-soft p-5">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <p className="max-w-[52ch] text-[14px] text-unknown">
-                These are not evidence that the name is free. Nothing above accounts for them.
+                No reliable result. This doesn&rsquo;t mean the name is free.
               </p>
               {onRetrySource !== undefined && retryableUnverified.length > 0 ? (
                 <button
                   type="button"
                   onClick={() => retryableUnverified.forEach((r) => onRetrySource(r.source))}
                   disabled={retryableUnverified.every((r) => retryingSources?.has(r.source) ?? false)}
-                  className="flex-shrink-0 rounded-lg border border-unknown/40 px-3 py-1.5 text-sm font-medium text-unknown transition hover:bg-unknown/10 disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent print:hidden"
+                  className="flex-shrink-0 rounded-full border border-unknown/40 px-3.5 py-1.5 text-sm font-medium text-unknown transition-colors hover:border-charcoal-2 hover:text-charcoal disabled:cursor-wait disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent print:hidden"
                 >
                   Try {retryableUnverified.length === 1 ? 'it' : 'them'} again
                 </button>
@@ -183,7 +340,7 @@ export function Report({
             <ul className="mt-3 flex flex-wrap gap-2">
               {unverified.map((r) => (
                 <li key={r.source}>
-                  <Badge tone="unknown">{label(r)}</Badge>
+                  <Badge tone={resultPresentation(r).tone}>{label(r)}</Badge>
                 </li>
               ))}
             </ul>
@@ -191,15 +348,55 @@ export function Report({
         </section>
       ) : null}
 
+      {/* ── 2b. useful elsewhere, but outside this category ───────────────── */}
+      {skipped.length > 0 ? (
+        <Fold title="Relevant for other uses" meta={`${skipped.length} not run`}>
+          <div className="divide-y divide-line">
+            {skipped.map((r) => {
+              const isGooglePlay = r.source === 'play_store'
+              const searchUrl = isGooglePlay
+                ? `https://play.google.com/store/search?q=${encodeURIComponent(context.name)}&c=apps`
+                : undefined
+              return (
+                <article
+                  key={r.source}
+                  className="grid gap-3 py-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                >
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-semibold text-charcoal">{label(r)}</h3>
+                      {isGooglePlay ? (
+                        <Badge tone="neutral" glyph={false}>Apps and games</Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-1 max-w-[58ch] text-sm leading-relaxed text-charcoal-2">
+                      {isGooglePlay
+                        ? `Used for mobile apps and games, not this ${CATEGORY_LABELS[context.category]} check.`
+                        : `Not used for this ${CATEGORY_LABELS[context.category]} check.`}
+                    </p>
+                  </div>
+                  {searchUrl === undefined ? null : (
+                    <a
+                      href={searchUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn-secondary inline-flex w-fit shrink-0 rounded-xl px-3.5 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+                    >
+                      Search Google Play ↗
+                    </a>
+                  )}
+                </article>
+              )
+            })}
+          </div>
+        </Fold>
+      ) : null}
+
       {/* ── 3. everything that was fine ──────────────────────────────────── */}
       {cleared.length > 0 ? (
         <Fold
-          title={`${cleared.length} ${cleared.length === 1 ? 'place is' : 'places are'} clear`}
-          meta={cleared
-            .slice(0, 4)
-            .map(label)
-            .join(', ')
-            .concat(cleared.length > 4 ? ` and ${cleared.length - 4} more` : '')}
+          title={`${cleared.length} ${cleared.length === 1 ? 'clear check' : 'clear checks'}`}
+          meta="Open the completed checks"
         >
           <div className="divide-y divide-line">
             {cleared.map((r) => (
@@ -211,7 +408,7 @@ export function Report({
 
       {/* ── 4. the arithmetic ────────────────────────────────────────────── */}
       <Fold
-        title="How the score was worked out"
+        title="How the score works"
         meta={`${viability.groups.filter((g) => g.weight > 0).length} groups, weighted for this category`}
       >
         <ScoreBreakdown viability={viability} coverage={coverage} results={results} />
@@ -223,11 +420,11 @@ export function Report({
       </Fold>
 
       {/* ── 6. what next ─────────────────────────────────────────────────── */}
-      <section className="rounded-2xl border border-line bg-surface p-5 print:hidden">
+      <section className="card rounded-2xl p-5 print:hidden">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
           <Link
             href="/"
-            className="rounded-xl bg-accent px-5 py-2.5 text-[14.5px] font-semibold text-white transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="btn-primary rounded-xl px-5 py-2.5 text-[14.5px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Check another name
           </Link>
@@ -236,12 +433,6 @@ export function Report({
             category={context.category}
             {...(context.description === undefined ? {} : { note: context.description })}
           />
-          <Link
-            href="/compare"
-            className="text-[13.5px] text-charcoal-2 underline decoration-line-strong underline-offset-4 hover:text-charcoal"
-          >
-            Compare with another name
-          </Link>
           <Link
             href="/history"
             className="text-[13.5px] text-charcoal-2 underline decoration-line-strong underline-offset-4 hover:text-charcoal"
@@ -258,21 +449,20 @@ export function Report({
         </div>
 
         <p className="mt-5 border-t border-line pt-4 text-xs leading-relaxed text-faint">
-          {SCOPE_NOTICE} Scoring version {viability.scoringVersion}. Every figure above is derived
-          from the evidence shown. Nothing is inferred beyond it. See the full{' '}
-          <Link href="/methodology" className="text-accent underline underline-offset-2">
-            methodology
+          {SCOPE_NOTICE} Score version {viability.scoringVersion}. See{' '}
+          <Link href="/how-it-works" className="text-accent-ink underline underline-offset-2">
+            scoring details
           </Link>
-          . Something here look wrong?{' '}
+          . See something wrong?{' '}
           <a
             href={`${FEEDBACK_URL}?title=${encodeURIComponent(`Report feedback (scoring ${viability.scoringVersion})`)}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-accent underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="text-accent-ink underline underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
-            Tell us what it got wrong
+            Report it
           </a>
-          . Nothing about your search is attached.
+          . Your search details aren&rsquo;t attached.
         </p>
       </section>
     </div>

@@ -76,10 +76,10 @@ checked part of it", and the report says exactly that.
 | Maven Central, pub.dev, CocoaPods, Anaconda | Free | Exact lookup |
 | Hackage, Deno, CPAN, Terraform, Snap Store | Free | Exact lookup |
 | WordPress Plugins, F-Droid | Free | Exact lookup |
-| Product Hunt, Dribbble, Behance, Vimeo | Free | Profile probe, HEAD where supported |
+| Dribbble, Behance, Vimeo | Free | Public profile endpoints where reliable |
 | SoundCloud, Gravatar, Codeberg, Hacker News | Free | Profile probe |
 | X / Twitter, Bitbucket, Linktree, About.me | Free | Profile probe |
-| Flickr, DailyMotion, Slack, Patreon, last.fm | Free | Profile probe |
+| Flickr, DailyMotion, Patreon | Free | Public profile endpoints where reliable |
 | Chocolatey, Go Modules | Free | Package page / registry search |
 | App Store (iTunes Search) | Free | ~20 req/min, documented |
 | Flathub | Free | No search API — the ~90 KB app-id list is fetched once/day and searched locally |
@@ -98,13 +98,17 @@ checked part of it", and the report says exactly that.
 Nothing in this project scrapes. Where a source cannot be automated legitimately and
 for free, the product uses a transparent manual workflow instead of guessing.
 
-**F-Droid was evaluated and left out.** Its only structured endpoint is the full
-repository index — about 56 MB, three times larger than the Homebrew index this
-product already judged too big to fetch per scan. There is no lighter-weight search
-API, so it stays out rather than being forced in.
-
 A rate-limited or blocked source can never be reported as clear. It returns
 `unable_to_verify`, scores zero confidence, and drops coverage.
+
+**A source is only kept automatic while it can answer the question it claims to.**
+Slack was checked by probing `{name}.slack.com` until measurement showed that every
+workspace which exists answers 403 with a browser-not-supported page: that is a block,
+not a verdict, so Slack is manual now. CPAN was probed against `metacpan.org/pod/{name}`,
+which answers 200 for a module nobody has ever published — it reported a confirmed
+conflict on every name it ever saw, and now asks the MetaCPAN API instead. Both
+directions are covered by regression tests in `src/lib/sources/reliability.test.ts`:
+a probe verified only against a name that is taken is not verified.
 
 ## Trademark Assist
 
@@ -210,11 +214,12 @@ are stubbed so the suite can't spend quota or hammer an upstream.
 
 ## Status
 
-Live and working: the research engine (60 sources, including twenty package
+Live and working: the research engine (catalog and Quick/Deep counts derive from
+the active source manifest, including package
 registries beyond npm/PyPI, Flathub for Linux desktop apps, a second and third company
 register beyond Companies House, OpenStreetMap for local businesses, and Bluesky),
 similarity engine, industry relevance, scoring with conflict caps, Trademark Assist,
-Compare Names, the name generator (Groq proposes ~30 candidates, every one gets a real
+Compare Names, the name generator (Groq proposes 10 candidates, every one gets a real
 Quick Check, exact conflicts are discarded, the top 5 survivors are ranked), accounts
 with history/saved names/share links, per-day quotas, AI explanations on Deep Check
 (Groq, grounded against the report's own evidence), a 116-case quality benchmark gating

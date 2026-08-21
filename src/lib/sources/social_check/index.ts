@@ -21,7 +21,7 @@
  */
 import type { AdapterDeps, SourceAdapter } from '@/lib/core/adapter'
 import type { ScanContext } from '@/lib/core/scan'
-import type { Evidence, Match, SourceResult } from '@/lib/core/types'
+import type { Evidence, Match, SourceResult, PlatformVerdict } from '@/lib/core/types'
 import { request } from '@/lib/sources/http'
 import { buildResult, makeEvidence, statusFromMatches, unverifiable } from '@/lib/sources/result'
 import { severityFor } from '@/lib/sources/severity'
@@ -91,6 +91,9 @@ const PLATFORMS: Platform[] = [
   },
 ]
 
+/** The platforms this adapter checks, by name. See `MANUAL_PLATFORM_NAMES`. */
+export const CHECKED_PLATFORM_NAMES: readonly string[] = PLATFORMS.map((p) => p.name)
+
 export const socialCheckAdapter: SourceAdapter = {
   id: 'social_check',
 
@@ -107,8 +110,12 @@ export const socialCheckAdapter: SourceAdapter = {
     // Sequential, not parallel: five platforms at once from one address is the
     // burst the per-source rate limiters exist to avoid, and this is not a slow
     // path to begin with.
+    const platforms: PlatformVerdict[] = []
+
     for (const platform of PLATFORMS) {
       let verdict: boolean | undefined
+      // Kept alongside the evidence so the results list can render this
+      // platform as its own row under its own name.
       try {
         const response = await request(platform.probe(handle), {
           ...(deps.signal === undefined ? {} : { signal: deps.signal }),
@@ -128,6 +135,12 @@ export const socialCheckAdapter: SourceAdapter = {
             platform.profile(handle),
           ),
         )
+        platforms.push({
+          name: platform.name,
+          url: platform.profile(handle),
+          status: 'unable_to_verify',
+          detail: 'No clear answer this time',
+        })
         continue
       }
 
@@ -146,6 +159,12 @@ export const socialCheckAdapter: SourceAdapter = {
             makeEvidence('social_check', `${platform.name}: this handle is claimed`, platform.profile(handle)),
           ],
         })
+        platforms.push({
+          name: platform.name,
+          url: platform.profile(handle),
+          status: 'confirmed_conflict',
+          detail: 'This handle is claimed',
+        })
       } else {
         evidence.push(
           makeEvidence(
@@ -154,6 +173,12 @@ export const socialCheckAdapter: SourceAdapter = {
             platform.profile(handle),
           ),
         )
+        platforms.push({
+          name: platform.name,
+          url: platform.profile(handle),
+          status: 'no_conflict',
+          detail: 'No account under this handle',
+        })
       }
     }
 
@@ -174,7 +199,7 @@ export const socialCheckAdapter: SourceAdapter = {
       status: statusFromMatches(exactMatches, []),
       exactMatches,
       evidence,
-      meta: { handle, checked: answered, of: PLATFORMS.length },
+      meta: { handle, checked: answered, of: PLATFORMS.length, platforms },
     })
   },
 }

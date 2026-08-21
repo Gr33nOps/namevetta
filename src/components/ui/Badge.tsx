@@ -1,5 +1,5 @@
 import type { Tone } from '@/lib/presentation'
-import { TONE_CLASSES, TONE_GLYPH } from '@/lib/presentation'
+import { TONE_FILL, TONE_TEXT } from '@/lib/presentation'
 
 interface BadgeProps {
   tone: Tone
@@ -15,12 +15,10 @@ interface BadgeProps {
 export function Badge({ tone, children, glyph = true, className = '' }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${TONE_CLASSES[tone]} ${className}`}
+      className={`inline-flex items-center gap-1.5 text-[11px] font-semibold tracking-[0.04em] whitespace-nowrap ${TONE_TEXT[tone]} ${className}`}
     >
       {glyph ? (
-        <span aria-hidden="true" className="font-semibold">
-          {TONE_GLYPH[tone]}
-        </span>
+        <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${TONE_FILL[tone]}`} />
       ) : null}
       {children}
     </span>

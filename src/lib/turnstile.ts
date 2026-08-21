@@ -50,9 +50,9 @@ export async function verifyTurnstile(
     const data = (await response.json()) as SiteverifyResponse
     return data.success === true
   } catch {
-    // Unreachable Cloudflare must not lock out real signups — that would turn
-    // an availability blip in a third party into an outage of our own signup
-    // flow, which is a worse failure than occasionally admitting a bot.
-    return true
+    // Once a deployment explicitly enables Turnstile, an indeterminate
+    // verification must not become a successful signup. The user can retry;
+    // accepting it would turn a provider/network failure into a bot bypass.
+    return false
   }
 }

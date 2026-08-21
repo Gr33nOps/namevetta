@@ -9,7 +9,7 @@ import { limitsFor, remainingQuota } from '@/lib/db/quota'
 
 export const metadata = {
   title: 'History | NameVetta',
-  description: 'Every name you have researched, with its evidence.',
+  description: 'Your past name research and its findings.',
   robots: { index: false, follow: false },
 }
 
@@ -29,8 +29,7 @@ export default async function Page() {
       <div className="mx-auto w-full max-w-[860px] px-6 py-14 text-center">
         <h1 className="font-display text-3xl font-semibold">History unavailable</h1>
         <p className="mt-3 text-charcoal-2">
-          This deployment has no database configured, so research is not stored. Everything else
-          works.
+          This deployment cannot save research yet.
         </p>
       </div>
     )
@@ -46,39 +45,46 @@ export default async function Page() {
     <div className="mx-auto w-full max-w-[860px] px-6 py-14">
       <div className="text-center">
         <h1 className="font-display text-3xl font-semibold tracking-tight">
-          {user === undefined ? 'Your research' : `Welcome back, ${user.displayName}`}
+          Research history
         </h1>
         <p className="mt-2 text-charcoal-2">
           {user === undefined
-            ? 'Kept on this device. Create an account to keep it anywhere and raise your allowance.'
-            : 'Everything you have researched.'}
+            ? 'Saved on this device.'
+            : 'Your saved research.'}
         </p>
 
         {remaining !== undefined && limits !== undefined ? (
-          <div className="mx-auto mt-5 inline-flex items-center gap-4 rounded-xl border border-line bg-surface px-4 py-3">
-            <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
+          <div className="mx-auto mt-5 grid w-full max-w-md grid-cols-[auto_repeat(3,minmax(0,1fr))] items-center gap-x-3 rounded-xl border border-line bg-surface px-4 py-3">
+            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-faint">
               Left today
             </p>
-            <p className="text-sm">
+            <p className="whitespace-nowrap text-xs sm:text-sm">
               <span className="font-mono font-semibold">{remaining.quick}</span>
               <span className="text-faint">/{limits.quick} Quick</span>
             </p>
-            <p className="text-sm">
+            <p className="whitespace-nowrap text-xs sm:text-sm">
               <span className="font-mono font-semibold">{remaining.deep}</span>
               <span className="text-faint">/{limits.deep} Deep</span>
+            </p>
+            {/*
+              Generation is metered too, and leaving it off this row meant the
+              only place a user could discover the limit was the 429 that
+              refused them.
+            */}
+            <p className="whitespace-nowrap text-xs sm:text-sm">
+              <span className="font-mono font-semibold">{remaining.generate}</span>
+              <span className="text-faint">/{limits.generate} Generate</span>
             </p>
           </div>
         ) : null}
       </div>
 
       {user === undefined ? (
-        <div className="mt-6 rounded-xl border border-accent-border bg-accent-soft p-4">
-          <p className="text-sm text-accent">
+        <div className="card mt-6 rounded-xl p-3 text-center">
+          <p className="text-sm text-accent-ink">
             <Link href="/auth" className="font-medium underline underline-offset-2">
-              Create a free account
-            </Link>{' '}
-            for 25 Quick Checks and 5 Deep Research runs a day, and history that follows you
-            across devices.
+              Keep history across devices
+            </Link>
           </p>
         </div>
       ) : null}

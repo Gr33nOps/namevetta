@@ -15,11 +15,17 @@
  * GitLab's user API) cannot be checked this way and must not be listed: the
  * failure mode is reporting every name as free, which is the one outcome this
  * product exists to prevent.
+ *
+ * **A probe must be verified against a name that is *known free*, not only a
+ * name that is known taken.** metacpan answers 200 with an application shell
+ * for a module nobody has ever published, so this adapter reported a confirmed
+ * conflict for every name it was ever given, on every scan, for months. The
+ * regression test for each probe covers both directions for that reason.
  */
 import type { AdapterDeps, SourceAdapter } from '@/lib/core/adapter'
 import type { ScanContext } from '@/lib/core/scan'
 import type { Evidence, Match, SourceId, SourceResult } from '@/lib/core/types'
-import { request } from '@/lib/sources/http'
+import { request, SourceRequestError } from '@/lib/sources/http'
 import { buildResult, makeEvidence, statusFromMatches, unverifiable } from '@/lib/sources/result'
 import { normalize } from '@/lib/similarity/normalize'
 import { compareNames } from '@/lib/similarity/score'
@@ -42,7 +48,7 @@ export interface ExactProbeSpec {
   /**
    * Status codes meaning "free", where the registry does not use 404.
    *
-   * last.fm answers 600 for a username nobody holds. Listing it explicitly
+   * Some providers use nonstandard outage responses. Listing them explicitly
    * keeps the safety rule intact: anything *not* named here is still treated
    * as no answer rather than as good news.
    */
@@ -60,6 +66,12 @@ export interface ExactProbeSpec {
   /** Extra request headers, where the API insists on one. */
   headers?: Record<string, string>
   /**
+   * Per-source timeout override for the probe's own retry budget.
+   *
+   * Distinct from the manifest timeout, which bounds the whole adapter.
+   */
+  retries?: number
+  /**
    * Decide from the body instead of the status.
    *
    * For endpoints that answer 200 either way and put the answer inside:
@@ -68,6 +80,47 @@ export interface ExactProbeSpec {
    * unverified rather than to a free name.
    */
   claimedFromBody?: (body: string) => boolean | undefined
+  /**
+   * Decide from the status *and* the body together.
+   *
+   * The general form of `claimedFromBody`, for endpoints whose status alone is
+   * ambiguous. Bitbucket answers 403 both for a workspace that exists but has
+   * been deactivated and, in principle, for a client it has decided to refuse;
+   * only the body separates them, and getting that wrong in either direction
+   * is a lie about whether a name is free.
+   *
+   * Takes precedence over `claimedFromBody` and over the status lists.
+   */
+  decide?: (status: number, body: string) => boolean | undefined
+}
+
+/**
+ * Why a probe produced nothing, in terms the report can distinguish.
+ *
+ * `LOOKUP_FAILED` used to absorb all of these, which made a bot-blocked
+ * endpoint, an overloaded one and a genuinely broken one indistinguishable in
+ * the logs and identical on the status page. None of them mean the name is
+ * free; they mean different things about what to do next.
+ */
+function failureFor(cause: unknown, label: string): { code: string; message: string } {
+  if (cause instanceof SourceRequestError) {
+    if (cause.code === 'RATE_LIMITED') {
+      return { code: 'RATE_LIMITED', message: `${label} rate-limited this lookup.` }
+    }
+    if (cause.code === 'TIMEOUT') {
+      return { code: 'TIMEOUT', message: `${label} did not answer in time.` }
+    }
+    if (cause.status === 403 || cause.status === 401 || cause.status === 451) {
+      return { code: 'BLOCKED', message: `${label} refused the request (${cause.status}).` }
+    }
+    if (cause.status !== undefined && cause.status >= 500) {
+      return { code: 'UPSTREAM_ERROR', message: `${label} responded ${cause.status}.` }
+    }
+    if (cause.code === 'BAD_JSON') {
+      return { code: 'MALFORMED_RESPONSE', message: `${label} returned a response we could not read.` }
+    }
+  }
+  return { code: 'LOOKUP_FAILED', message: `${label} could not be reached.` }
 }
 
 export function exactProbeAdapter(spec: ExactProbeSpec): SourceAdapter {
@@ -88,15 +141,38 @@ export function exactProbeAdapter(spec: ExactProbeSpec): SourceAdapter {
       try {
         const response = await request(spec.probe(name), {
           signal: deps.signal,
-          expectedStatuses: [...new Set([404, 301, 302, ...free])],
-          retries: 1,
+          /*
+            Every status this spec knows how to read is "expected", so it comes
+            back as a value rather than as a throw. Without the claimed list in
+            here, a registry that signals "taken" with a 403 — Bitbucket does,
+            for a deactivated workspace — threw before the decision function
+            ever saw it, and 29% of Bitbucket lookups were recorded as
+            failures when they were actually answers.
+          */
+          expectedStatuses: [...new Set([404, 301, 302, ...claimed, ...free])],
+          retries: spec.retries ?? 1,
           ...(spec.method === undefined ? {} : { method: spec.method }),
           ...(spec.headers === undefined ? {} : { headers: spec.headers }),
         })
         status = response.status
         body = response.text
-      } catch {
-        return unverifiable(spec.id, 'LOOKUP_FAILED', `${spec.label} could not be reached.`, true)
+      } catch (cause) {
+        const failure = failureFor(cause, spec.label)
+        return unverifiable(spec.id, failure.code, failure.message, true)
+      }
+
+      const decide = spec.decide
+      if (decide !== undefined) {
+        const verdict = decide(status, body)
+        if (verdict === undefined) {
+          return unverifiable(
+            spec.id,
+            'UNCLEAR',
+            `${spec.label} answered ${status}, which does not say whether the name is taken.`,
+            true,
+          )
+        }
+        return finish(spec, ctx, name, verdict, deps)
       }
 
       if (spec.claimedFromBody !== undefined) {

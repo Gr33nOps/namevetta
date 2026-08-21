@@ -11,6 +11,7 @@
  * guard rail (§36).
  */
 import { z } from 'zod'
+import { DEFAULT_QUOTA_LIMITS } from '@/lib/core/quota'
 
 /**
  * An optional secret.
@@ -77,29 +78,18 @@ const EnvSchema = z.object({
   /**
    * Daily allowances, configurable without redeploying logic (§33).
    *
-   * Quick Checks are generous because they genuinely cost nothing to run.
-   * Every source on the `quick` set is a free public API: the metered ones are
-   * all `deep`-only (Tavily web search, the Groq summary), and even YouTube
-   * uses a 1-unit `forHandle` lookup on quick, reserving the 100-unit search
-   * for deep. Against a 10,000 unit/day YouTube budget, that is the only real
-   * ceiling and it is nowhere near binding.
-   *
-   * Deep stays scarce for the opposite reason: one Tavily credit against a
-   * 1,000/month free tier, which `WEB_SEARCH_MONTHLY_BUDGET` already caps at
-   * roughly 30 per day across everyone. Exceeding it degrades the web source
-   * to `unable_to_verify`; it can never produce a bill.
+   * The fallbacks are not written out here: they come from
+   * `DEFAULT_QUOTA_LIMITS`, which is also what every piece of user-facing copy
+   * reads. Two copies of "75" — one the server enforces and one the homepage
+   * prints — is how the site ended up telling three different stories about
+   * the same allowance.
    */
-  GUEST_QUICK_LIMIT: optionalNumber(50),
-  GUEST_DEEP_LIMIT: optionalNumber(2),
-  USER_QUICK_LIMIT: optionalNumber(200),
-  USER_DEEP_LIMIT: optionalNumber(5),
-  /**
-   * The name generator (§12) researches ~30 candidates with a Quick Check
-   * each — roughly six times a guest's entire Quick Check allowance — so it
-   * gets its own low daily ceiling rather than borrowing the quick/deep ones.
-   */
-  GUEST_GENERATE_LIMIT: optionalNumber(1),
-  USER_GENERATE_LIMIT: optionalNumber(3),
+  GUEST_QUICK_LIMIT: optionalNumber(DEFAULT_QUOTA_LIMITS.guest.quick),
+  GUEST_DEEP_LIMIT: optionalNumber(DEFAULT_QUOTA_LIMITS.guest.deep),
+  USER_QUICK_LIMIT: optionalNumber(DEFAULT_QUOTA_LIMITS.user.quick),
+  USER_DEEP_LIMIT: optionalNumber(DEFAULT_QUOTA_LIMITS.user.deep),
+  GUEST_GENERATE_LIMIT: optionalNumber(DEFAULT_QUOTA_LIMITS.guest.generate),
+  USER_GENERATE_LIMIT: optionalNumber(DEFAULT_QUOTA_LIMITS.user.generate),
 
   /**
    * Hard ceiling on web-search **credits** per calendar month.

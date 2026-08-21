@@ -21,7 +21,7 @@ import type { ScanContext } from '@/lib/core/scan'
 import type { Match, SourceResult } from '@/lib/core/types'
 import { isVerified } from '@/lib/core/types'
 import { CATEGORY_LABELS } from '@/lib/core/scan'
-import { SOURCE_MANIFEST } from '@/lib/core/adapter'
+import { activeSources, SOURCE_MANIFEST } from '@/lib/core/adapter'
 import type { ScanSummary } from '@/lib/orchestrator/run'
 
 /**
@@ -97,11 +97,21 @@ export interface Facts {
   knownLabels: Set<string>
   /** Numbers the model may state. */
   numbers: Set<number>
+  /** The score is a score, never a source count or coverage figure. */
+  score: number
+  /** Coverage is a percentage, never a source count. */
+  coveragePercent: number
+  /** Sources whose result was verified, including findings and clear checks. */
+  verifiedSourceCount: number
+  /** Sources that completed with no relevant conflict. */
+  clearSourceCount: number
+  /** Sources that did not complete automatically. */
+  unverifiedSourceCount: number
 }
 
 /** Every source label the product knows about, normalised once. */
 const KNOWN_LABELS = new Set(
-  Object.values(SOURCE_MANIFEST).map((m) => normaliseEntity(m.label)),
+  activeSources().map((m) => normaliseEntity(m.label)),
 )
 
 function normaliseEntity(value: string): string {
@@ -224,7 +234,6 @@ export function buildDigest({ ctx, summary }: BuildDigestInput): { digest: Diges
     knownLabels: KNOWN_LABELS,
     numbers: new Set<number>([
       summary.viability.score,
-      summary.coverage,
       allFindings.length,
       digest.findings.length,
       digest.omittedFindings,
@@ -233,6 +242,11 @@ export function buildDigest({ ctx, summary }: BuildDigestInput): { digest: Diges
       summary.results.length,
       ...allFindings.map((f) => f.similarity),
     ]),
+    score: summary.viability.score,
+    coveragePercent: summary.coverage,
+    verifiedSourceCount: verifiedIds.size,
+    clearSourceCount: clearSources.length,
+    unverifiedSourceCount: unverifiedSources.length,
   }
 
   return { digest, facts }

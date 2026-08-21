@@ -21,28 +21,28 @@ export default function Error({
   }, [error])
 
   return (
-    <div className="mx-auto flex w-full max-w-[720px] flex-col items-start px-6 py-24">
-      <h1 className="font-display text-3xl font-extrabold tracking-tight text-charcoal sm:text-4xl">
+    <div className="mx-auto flex w-full max-w-[720px] flex-col items-center px-6 py-24 text-center">
+      <h1 className="font-display text-[34px] font-semibold tracking-[-0.03em] text-charcoal sm:text-[40px]">
         Something went wrong
       </h1>
 
-      <p className="mt-3 max-w-[480px] text-charcoal-2">
-        That&apos;s on us, not you. Try again, or head back and start a new search.
+      <p className="mt-3 max-w-[480px] text-balance text-charcoal-2">
+        Try again, or start a new name check.
       </p>
 
       <div className="mt-8 flex items-center gap-3">
         <button
           type="button"
           onClick={retry}
-          className="flex items-center gap-2 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="btn-primary rounded-xl px-5 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           Try again
         </button>
         <Link
           href="/"
-          className="rounded-full border border-line px-5 py-2 text-sm font-semibold text-charcoal-2 transition-colors hover:border-line-strong hover:text-charcoal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="btn-secondary rounded-xl px-5 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          Back to New Check
+          Check a name
         </Link>
       </div>
 

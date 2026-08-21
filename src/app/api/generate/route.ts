@@ -1,7 +1,7 @@
 /**
  * The name generator endpoint (§12).
  *
- * "Generate ~30, auto Quick Check, discard failures, return top 5" as a single
+ * Generate a small pool, Quick Check each option, and return the top 5 as one
  * streamed request: names arrive from Groq, then each is researched with a
  * Quick Check exactly like a standalone search, in the same sequential order
  * `/api/compare` uses and for the same reason — parallel would fire a burst of
@@ -15,27 +15,40 @@ import { isDatabaseConfigured } from '@/lib/db/client'
 import { identifySubject } from '@/lib/db/identity'
 import { consumeQuota } from '@/lib/db/quota'
 import { generateNames } from '@/lib/generator/namegen'
-import { disqualificationReason, screenCandidates } from '@/lib/generator/screen'
+import { screenCandidates } from '@/lib/generator/screen'
 
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
+const API_NO_STORE = 'no-store, no-transform'
+
+function apiError(error: string, status: number): Response {
+  return Response.json({ error }, { status, headers: { 'cache-control': API_NO_STORE } })
+}
+
+export function GET(): Response {
+  return Response.json(
+    { error: 'Use POST to generate names.' },
+    { status: 405, headers: { allow: 'POST, OPTIONS', 'cache-control': API_NO_STORE } },
+  )
+}
+
+export function OPTIONS(): Response {
+  return new Response(null, { status: 204, headers: { allow: 'POST, OPTIONS', 'cache-control': API_NO_STORE } })
+}
 
 export async function POST(req: Request): Promise<Response> {
   let body: unknown
   try {
     body = await req.json()
   } catch {
-    return Response.json({ error: 'Request body must be JSON' }, { status: 400 })
+    return apiError('Request body must be JSON', 400)
   }
 
   const parsed = GenerateRequestSchema.safeParse(body)
   if (!parsed.success) {
-    return Response.json(
-      { error: parsed.error.issues[0]?.message ?? 'Invalid request' },
-      { status: 400 },
-    )
+    return apiError(parsed.error.issues[0]?.message ?? 'Invalid request', 400)
   }
-  const { category, description, seed } = parsed.data
+  const { category, description, seed, stopAfterSurvivors } = parsed.data
 
   // One 'generate' unit, regardless of how many candidates end up being
   // researched — the cost of a run is fixed from the caller's point of view,
@@ -45,15 +58,12 @@ export async function POST(req: Request): Promise<Response> {
     const user = await currentUser()
     const subject = identifySubject(req.headers, user?.id)
     if (subject === undefined) {
-      return Response.json(
-        { error: 'Could not identify the request for usage limiting.' },
-        { status: 400 },
-      )
+      return apiError('Could not identify the request for usage limiting.', 400)
     }
 
     const decision = await consumeQuota(subject, 'generate')
     if (!decision.allowed) {
-      return Response.json({ error: decision.message ?? 'Daily limit reached.' }, { status: 429 })
+      return apiError(decision.message ?? 'Daily limit reached.', 429)
     }
   }
 
@@ -72,28 +82,19 @@ export async function POST(req: Request): Promise<Response> {
           send({ type: 'error', message: generated.reason })
           return
         }
-        send({ type: 'names_ready', names: generated.names })
+        send({ type: 'screening' })
 
-        const { survivors, disqualified, ranked } = await screenCandidates({
+        const { ranked } = await screenCandidates({
           names: generated.names,
           category,
           description,
-          onCandidate: (name, summary) => {
-            send({
-              type: 'candidate_complete',
-              name,
-              score: summary.viability.score,
-              disqualified: disqualificationReason(summary) !== undefined,
-            })
-          },
+          ...(stopAfterSurvivors === undefined ? {} : { stopAfterSurvivors }),
+          onCandidate: () => {},
         })
 
         send({
           type: 'result',
           ranked,
-          survivorCount: survivors.length,
-          disqualifiedCount: disqualified.length,
-          disqualified,
         })
       } catch (cause) {
         send({
@@ -109,7 +110,7 @@ export async function POST(req: Request): Promise<Response> {
   return new Response(stream, {
     headers: {
       'content-type': 'application/x-ndjson; charset=utf-8',
-      'cache-control': 'no-store, no-transform',
+      'cache-control': API_NO_STORE,
       'x-accel-buffering': 'no',
     },
   })

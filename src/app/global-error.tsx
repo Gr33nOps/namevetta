@@ -30,12 +30,12 @@ export default function GlobalError({
           <p className="text-[11px] font-semibold uppercase tracking-widest text-faint">Error</p>
           <h1 className="mt-3 text-3xl font-bold tracking-tight">Something went wrong</h1>
           <p className="mt-3 text-charcoal-2">
-            That&apos;s on us, not you. Reloading usually fixes it.
+            Reload the page, then try again.
           </p>
           <button
             type="button"
             onClick={retry}
-            className="mt-8 rounded-full bg-accent px-5 py-2 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="mt-8 btn-primary rounded-xl px-5 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Try again
           </button>

@@ -14,6 +14,7 @@ import { SourceResultSchema, type SourceId, type SourceResult } from '@/lib/core
 import { classifyScanContext, enrichResult } from '@/lib/industry/enrich'
 import type { Classification } from '@/lib/industry/classify'
 import { adapterFor } from '@/lib/orchestrator/registry'
+import { countsTowardHealth } from '@/lib/presentation'
 import { computeCoverage } from '@/lib/scoring/confidence'
 import { weightsFor } from '@/lib/scoring/weights'
 import { computeViability, type ViabilityResult } from '@/lib/scoring/viability'
@@ -107,16 +108,28 @@ export async function runSource(
         false,
       )
     }
-    // Health follows what we actually learned, not whether the call returned.
-    // A source that answered `unable_to_verify` told us nothing and is counted
-    // as a failure, so repeated throttling visibly erodes its confidence.
-    record(
-      parsed.data.status === 'unable_to_verify'
-        ? parsed.data.error?.code === 'RATE_LIMITED'
-          ? 'rate_limited'
-          : 'failure'
-        : 'success',
-    )
+    /*
+      Health follows what we actually learned, not whether the call returned.
+      A source that answered `unable_to_verify` told us nothing and is counted
+      as a failure, so repeated throttling visibly erodes its confidence.
+
+      With one exception, which the public status page exists to get right: a
+      source the product *chose* not to call has no outcome to record. Counting
+      that as a failure is how Google Play came to read as 100% broken on a
+      page whose whole job is to publish reliability honestly — it was never
+      asked. The same goes for a manual-only source, which issues no request,
+      and for a missing credential or spent budget, which is our constraint
+      rather than the provider's.
+    */
+    if (countsTowardHealth(parsed.data)) {
+      record(
+        parsed.data.status === 'unable_to_verify'
+          ? parsed.data.error?.code === 'RATE_LIMITED'
+            ? 'rate_limited'
+            : 'failure'
+          : 'success',
+      )
+    }
     log('source.done', { source: id, ms: Date.now() - started, status: parsed.data.status })
 
     // Industry relevance is applied here, after validation, so every source is

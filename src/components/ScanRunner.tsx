@@ -4,12 +4,20 @@ import Link from 'next/link'
 
 import { useEffect, useMemo, useReducer } from 'react'
 import { Report, type ReportData } from '@/components/Report'
-import { Badge } from '@/components/ui/Badge'
-import { SOURCE_MANIFEST, sourcesFor } from '@/lib/core/adapter'
+
+import { NameSuggestions } from '@/components/NameSuggestions'
+import { VettaPanel } from '@/components/VettaPanel'
+import { sourcesFor } from '@/lib/core/adapter'
 import type { ScanContext } from '@/lib/core/scan'
 import type { SourceId, SourceResult } from '@/lib/core/types'
 import type { AiSummaryEvent, ScanEvent, ScanSummary } from '@/lib/orchestrator/run'
-import { STATUS_PRESENTATION } from '@/lib/presentation'
+import {
+  conflictBanner,
+  headlineSentence,
+  TONE_TEXT,
+  VERDICT_PRESENTATION,
+} from '@/lib/presentation'
+import { dominantVerdict } from '@/lib/scoring/viability'
 
 type SourcePhase =
   | { phase: 'pending' }
@@ -179,7 +187,19 @@ export function ScanRunner({ context }: { context: ScanContext }) {
 
     void run()
     return () => controller.abort()
-  }, [context, order])
+    /*
+      The values, not the object.
+
+      `context` is built as an object literal by the server component above,
+      so it is a new identity on every render — and a server action refreshes
+      the route it was called from, which re-renders this page. Saving a name
+      therefore started a second scan and spent a second Quick Check, and the
+      history filled with duplicates of whatever the visitor had just looked
+      at. Depending on the three values means a refresh re-renders and nothing
+      re-researches.
+    */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [context.name, context.category, context.scanType, context.description, order])
 
   /**
    * Retry one source that came back `unable_to_verify`, without spending a
@@ -234,19 +254,19 @@ export function ScanRunner({ context }: { context: ScanContext }) {
           <p className="mt-2.5 text-[15px] text-charcoal-2">{state.error}</p>
           <Link
             href="/auth"
-            className="mt-6 inline-block rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-accent-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            className="mt-6 btn-primary rounded-xl px-5 py-2.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           >
             Sign in for more
           </Link>
         </section>
       ) : (
-      <section className="mx-auto w-full max-w-[520px] rounded-xl border border-danger/20 bg-danger-soft p-6 px-6 py-10 text-center">
-        <h1 className="font-semibold text-danger">The scan could not complete</h1>
+      <section className="mx-auto w-full max-w-[520px] rounded-2xl border border-danger/20 bg-danger-soft px-6 py-10 text-center">
+          <h1 className="font-semibold text-danger">Couldn&rsquo;t finish the check</h1>
         <p className="mt-2 text-sm text-danger/90">{state.error}</p>
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="mt-4 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+          className="mt-4 btn-primary rounded-xl px-4 py-2 text-sm"
         >
           Try again
         </button>
@@ -255,77 +275,116 @@ export function ScanRunner({ context }: { context: ScanContext }) {
     )
   }
 
+  /*
+    Everything that has answered so far, in the manifest's order rather than
+    the order they happened to land in. A list that reshuffles itself as each
+    source replies is unreadable while it is filling.
+  */
+  const answered = order
+    .map((id) => state.phases[id])
+    .filter((p): p is { phase: 'done'; result: SourceResult } => p?.phase === 'done')
+    .map((p) => p.result)
+
   if (state.summary !== undefined) {
+    const { viability, results, coverage } = state.summary
+    const presentation = VERDICT_PRESENTATION[dominantVerdict(viability.score, results)]
+
+    /*
+      The banner that outranks the score.
+
+      An exact confirmed collision now ceilings the score below the "Mostly
+      Clear" band, so the number and the verdict can no longer disagree — but
+      the number still has to be read *after* the finding, not instead of it.
+      This sits above the panel, in danger tone, naming the colliding entry.
+    */
+    const banner = conflictBanner(viability.conflicts)
+
     return (
-      <>
-        {state.retryError !== undefined ? (
-          <p
-            role="alert"
-            className="mx-auto mt-6 w-full max-w-[900px] px-6 text-sm text-danger"
+      <div className="mx-auto w-full max-w-3xl px-6 py-10">
+        <header className="mb-6 text-center">
+          <h1 className="font-mono text-[30px] leading-none font-medium tracking-tight text-charcoal sm:text-[38px]">
+            {context.name}
+          </h1>
+          {context.description === undefined ? null : (
+            <p className="mt-2.5 text-sm text-charcoal-2">{context.description}</p>
+          )}
+        </header>
+
+        {banner === '' ? null : (
+          <aside
+            role="status"
+            className="mb-5 flex flex-col gap-2 rounded-xl border border-danger/25 border-l-[3px] bg-danger-soft/75 px-4 py-3 text-left sm:flex-row sm:items-center sm:justify-between"
           >
+            <p className="text-[14px] leading-relaxed text-charcoal-2">
+              <strong className="font-semibold text-danger">Exact match. </strong>
+              {banner}
+            </p>
+            <a href="#findings" className="w-fit text-sm font-semibold text-danger underline decoration-danger/35 underline-offset-4 transition-colors hover:text-charcoal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+              View findings
+            </a>
+          </aside>
+        )}
+
+        <VettaPanel
+          initialName={context.name}
+          results={results}
+          score={viability.score}
+          scoreTone={presentation.tone}
+          total={order.length}
+          suggestions={
+            <NameSuggestions
+              seed={context.name}
+              category={context.category}
+              {...(context.description === undefined ? {} : { description: context.description })}
+            />
+          }
+          note={
+            <>
+              <span className={`font-semibold ${TONE_TEXT[presentation.tone]}`}>
+                {presentation.label}.
+              </span>
+              <span>
+                {headlineSentence(results, presentation.detail)} Research coverage {coverage}%.
+              </span>
+            </>
+          }
+        />
+
+
+        {state.retryError !== undefined ? (
+          <p role="alert" className="mt-4 text-sm text-danger">
             {state.retryError}
           </p>
         ) : null}
+
         <Report
           scan={{ context, ...state.summary } satisfies ReportData}
           aiSummary={state.aiSummary}
           onRetrySource={(source) => void retrySource(source)}
           retryingSources={state.retrying}
         />
-      </>
+      </div>
     )
   }
 
-  const done = order.filter((id) => state.phases[id]?.phase === 'done').length
-
   return (
-    <section aria-live="polite" aria-busy="true" className="mx-auto w-full max-w-[640px] px-6 py-14">
-      <div className="rounded-xl border border-line bg-surface p-6">
-        <div className="text-center">
-          <h1 className="font-display text-2xl font-semibold">
-            Researching <span className="font-mono">{context.name}</span>
-          </h1>
-          <p className="mt-1 text-sm text-charcoal-2">
-            {done} of {order.length} sources complete
-          </p>
-        </div>
-
-        <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-muted-bg">
-          <div
-            className="h-full rounded-full bg-accent transition-[width] duration-300"
-            style={{ width: `${order.length === 0 ? 0 : Math.round((done / order.length) * 100)}%` }}
-          />
-        </div>
-
-        <ul className="mt-5 divide-y divide-line">
-          {order.map((id) => (
-            <SourceProgressRow key={id} id={id} phase={state.phases[id] ?? { phase: 'pending' }} />
-          ))}
-        </ul>
-      </div>
-    </section>
-  )
-}
-
-function SourceProgressRow({ id, phase }: { id: SourceId; phase: SourcePhase }) {
-  const label = SOURCE_MANIFEST[id].label
-
-  return (
-    <li className="flex items-center justify-between gap-3 py-2.5">
-      <span className={phase.phase === 'pending' ? 'text-faint' : ''}>{label}</span>
-      {phase.phase === 'pending' ? (
-        <span className="flex items-center gap-2 text-xs text-charcoal-2">
-          <span
-            aria-hidden="true"
-            className="h-3 w-3 animate-spin rounded-full border-2 border-line-strong border-t-accent"
-          />
-          checking…
-        </span>
-      ) : (
-        <Badge tone={STATUS_PRESENTATION[phase.result.status].tone}>
-          {STATUS_PRESENTATION[phase.result.status].label}
-        </Badge>
-      )}
-    </li>
+    <div aria-live="polite" aria-busy="true" className="mx-auto w-full max-w-3xl px-6 py-10">
+      <h1 className="font-mono mb-6 text-center text-[30px] leading-none font-medium tracking-tight text-charcoal sm:text-[38px]">
+        {context.name}
+      </h1>
+      <VettaPanel
+        initialName={context.name}
+        results={answered}
+        score={0}
+        total={order.length}
+        busy
+        note={
+          <span>
+            {context.scanType === 'deep' ? 'Deep Research considers' : 'Quick Check uses'} {order.length}{' '}
+            sources. Results appear as each one answers.
+          </span>
+        }
+      />
+    </div>
   )
 }

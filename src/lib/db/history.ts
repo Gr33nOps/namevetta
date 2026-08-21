@@ -286,3 +286,196 @@ export async function revokeShareLink(subject: Subject, token: string): Promise<
     .eq('token', token)
   return error === null
 }
+
+/* -------------------------------------------------------------------------- */
+/* Reopening a stored scan                                                    */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A finished scan, rebuilt from what was written down.
+ *
+ * History used to link every row at `/n/{name}`, which starts a fresh scan —
+ * so looking at what you already researched spent another Quick Check and
+ * wrote another history row, and the list filled with copies of the same name
+ * minutes apart. Everything needed to render the report was already in the
+ * database; nothing was reading it back.
+ *
+ * The score is recomputed from the stored results rather than read from
+ * `reports`. Both are honest, and recomputing is the one that cannot go stale:
+ * a report recorded under an older scoring version would otherwise render
+ * today's evidence beside a number today's rules would not produce. The stored
+ * figure comes back too, so the page can say when they differ.
+ */
+export interface StoredScan {
+  scanId: string
+  name: string
+  category: string
+  description: string | undefined
+  scanType: 'quick' | 'deep'
+  createdAt: string
+  results: unknown[]
+  /** What was recorded at the time, for comparison against a recompute. */
+  recorded: { score: number; coverage: number; scoringVersion: number } | undefined
+}
+
+const STORED_SELECT = `
+  id, name, category, description, scan_type, status, created_at,
+  reports(digital_score, coverage, scoring_version),
+  source_results(
+    source, status, confidence, error_code, error_message, error_retryable,
+    from_cache, meta, checked_at, expires_at,
+    source_evidence(label, url, snippet, observed_at),
+    similar_matches(
+      external_id, name, owner, description, categories, active, url, is_exact,
+      sim_text, sim_phonetic, sim_visual, sim_industry, sim_overall, severity
+    )
+  )
+`
+
+interface StoredMatchRow {
+  external_id: string
+  name: string
+  owner: string | null
+  description: string | null
+  categories: string[] | null
+  active: boolean | null
+  url: string | null
+  is_exact: boolean
+  sim_text: number
+  sim_phonetic: number
+  sim_visual: number
+  sim_industry: number | null
+  sim_overall: number
+  severity: string
+}
+
+interface StoredResultRow {
+  source: string
+  status: string
+  confidence: number
+  error_code: string | null
+  error_message: string | null
+  error_retryable: boolean | null
+  from_cache: boolean
+  meta: Record<string, unknown> | null
+  checked_at: string
+  expires_at: string
+  source_evidence: { label: string; url: string | null; snippet: string | null; observed_at: string }[] | null
+  similar_matches: StoredMatchRow[] | null
+}
+
+function toMatch(row: StoredMatchRow, source: string): Record<string, unknown> {
+  return {
+    externalId: row.external_id,
+    name: row.name,
+    categories: row.categories ?? [],
+    similarity: {
+      text: row.sim_text,
+      phonetic: row.sim_phonetic,
+      visual: row.sim_visual,
+      overall: row.sim_overall,
+      // Absent stays absent: an unknown industry must not become a zero.
+      ...(row.sim_industry === null ? {} : { industry: row.sim_industry }),
+    },
+    severity: row.severity,
+    evidence: [],
+    ...(row.owner === null ? {} : { owner: row.owner }),
+    ...(row.description === null ? {} : { description: row.description }),
+    ...(row.active === null ? {} : { active: row.active }),
+    ...(row.url === null ? {} : { url: row.url }),
+    _source: source,
+  }
+}
+
+function toResult(row: StoredResultRow): Record<string, unknown> {
+  const matches = row.similar_matches ?? []
+  return {
+    source: row.source,
+    status: row.status,
+    confidence: row.confidence,
+    exactMatches: matches.filter((m) => m.is_exact).map((m) => toMatch(m, row.source)),
+    similarMatches: matches.filter((m) => !m.is_exact).map((m) => toMatch(m, row.source)),
+    evidence: (row.source_evidence ?? []).map((e) => ({
+      label: e.label,
+      source: row.source,
+      observedAt: e.observed_at,
+      ...(e.url === null ? {} : { url: e.url }),
+      ...(e.snippet === null ? {} : { snippet: e.snippet }),
+    })),
+    checkedAt: row.checked_at,
+    expiresAt: row.expires_at,
+    fromCache: row.from_cache,
+    ...(row.error_code === null
+      ? {}
+      : {
+          error: {
+            code: row.error_code,
+            message: row.error_message ?? 'This source could not be checked.',
+            retryable: row.error_retryable ?? false,
+          },
+        }),
+    ...(row.meta === null ? {} : { meta: row.meta }),
+  }
+}
+
+/**
+ * Load one stored scan, scoped to whoever is asking.
+ *
+ * A signed-in reader goes through RLS; a guest's ownership is checked here,
+ * because a guest hash is not an identity the database can reason about. Both
+ * paths return `undefined` rather than throwing on a scan that is missing or
+ * someone else's — the caller falls back to offering a fresh check.
+ */
+export async function storedScan(
+  subject: Subject,
+  scanId: string,
+): Promise<StoredScan | undefined> {
+  if (!isDatabaseConfigured()) return undefined
+
+  const query =
+    subject.type === 'user'
+      ? (await sessionClient()).from('scans').select(STORED_SELECT).eq('id', scanId)
+      : serviceClient()
+          .from('scans')
+          .select(STORED_SELECT)
+          .eq('id', scanId)
+          .eq('guest_hash', subject.id)
+
+  const { data, error } = await query.maybeSingle()
+  if (error !== null || data === null) return undefined
+
+  const row = data as unknown as {
+    id: string
+    name: string
+    category: string
+    description: string | null
+    scan_type: 'quick' | 'deep'
+    status: string
+    created_at: string
+    reports: { digital_score: number; coverage: number; scoring_version: number }[] | { digital_score: number; coverage: number; scoring_version: number } | null
+    source_results: StoredResultRow[] | null
+  }
+
+  // A scan that never finished has nothing to reopen.
+  if (row.status !== 'complete') return undefined
+
+  const report = Array.isArray(row.reports) ? row.reports[0] : (row.reports ?? undefined)
+
+  return {
+    scanId: row.id,
+    name: row.name,
+    category: row.category,
+    description: row.description ?? undefined,
+    scanType: row.scan_type,
+    createdAt: row.created_at,
+    results: (row.source_results ?? []).map(toResult),
+    recorded:
+      report === undefined
+        ? undefined
+        : {
+            score: report.digital_score,
+            coverage: report.coverage,
+            scoringVersion: report.scoring_version,
+          },
+  }
+}

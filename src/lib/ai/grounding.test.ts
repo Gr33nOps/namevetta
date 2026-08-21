@@ -14,6 +14,11 @@ function facts(overrides: Partial<Facts> = {}): Facts {
     unverifiedSources: new Set(['play_store']),
     knownLabels: new Set(LABELS),
     numbers: new Set([55, 71, 3, 80]),
+    score: 55,
+    coveragePercent: 71,
+    verifiedSourceCount: 3,
+    clearSourceCount: 1,
+    unverifiedSourceCount: 1,
     ...overrides,
   }
 }
@@ -37,6 +42,16 @@ describe('checkGrounding', () => {
     const result = checkGrounding('This name scored 92 out of 100.', facts())
     expect(result.ok).toBe(false)
     expect(result.failures).toContainEqual({ rule: 'unknown_number', detail: '92' })
+  })
+
+  it('does not let a coverage percentage become a checked-source count', () => {
+    const result = checkGrounding('No conflicts were found in the 71 checked sources.', facts())
+    expect(result.ok).toBe(false)
+    expect(result.failures).toContainEqual({ rule: 'unknown_number', detail: '71' })
+  })
+
+  it('allows coverage only when it is described as coverage', () => {
+    expect(checkGrounding('Research coverage was 71%.', facts()).ok).toBe(true)
   })
 
   it('rejects a competitor name that was never found', () => {

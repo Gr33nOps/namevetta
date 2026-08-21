@@ -1,205 +1,144 @@
 import Link from 'next/link'
-import { LegalToc } from '@/components/LegalToc'
+import { LegalPage, LegalSection } from '@/components/LegalPage'
 import { env } from '@/lib/env'
 
 export const metadata = {
   title: 'Privacy Policy | NameVetta',
-  description: 'What NameVetta collects, why, and how to get it back or delete it.',
+  description: 'What is stored, where searches go, and your choices.',
   alternates: { canonical: '/privacy' },
   openGraph: {
     title: 'Privacy Policy | NameVetta',
-    description: 'What NameVetta collects, why, and how to get it back or delete it.',
+    description: 'What is stored, where searches go, and your choices.',
     url: '/privacy',
   },
 }
 
 const UPDATED = '2026-08-18'
 
-const SECTIONS = [
-  { id: 'guests', title: '1. If you never create an account' },
-  { id: 'accounts', title: '2. If you create an account' },
-  { id: 'research-data', title: '3. What a search itself contains' },
-  { id: 'third-parties', title: '4. Who your search is sent to' },
-  { id: 'cookies', title: '5. Cookies' },
-  { id: 'retention', title: '6. How long data is kept' },
-  { id: 'rights', title: '7. Your rights' },
-  { id: 'security', title: '8. Security' },
-  { id: 'children', title: '9. Children' },
-  { id: 'changes', title: '10. Changes' },
-  { id: 'contact', title: '11. Contact' },
-] as const
-
-function Section({
-  id,
-  title,
-  children,
-}: {
-  id: string
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <section id={id} className="scroll-mt-20">
-      <h2 className="text-lg font-semibold text-charcoal">{title}</h2>
-      <div className="mt-2 space-y-3 text-[15px] leading-[1.75] text-charcoal-2">{children}</div>
-    </section>
-  )
-}
-
 export default function Page() {
   const contact = env().CONTACT_EMAIL
 
   return (
-    <div className="mx-auto w-full max-w-[720px] px-6 py-14">
-      <div className="text-center">
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-charcoal">
-          Privacy Policy
-        </h1>
-        <p className="mt-2 text-sm text-faint">Last updated {UPDATED}</p>
-
-        <p className="mx-auto mt-6 max-w-[640px] text-sm leading-[1.75] text-charcoal-2">
-          This describes exactly what NameVetta collects, exactly who it is shared with and why, and
-          how to get your data back or delete it. Where something isn&rsquo;t built yet, that is
-          stated plainly rather than promised.
+    <LegalPage
+      title="Privacy"
+      updated={UPDATED}
+      lead="What we store, where research goes, and your choices."
+    >
+      <LegalSection title="What's stored">
+        <p>
+          The service works fully without an account. To enforce a daily limit and show you your
+          own history, a guest is tracked by a one-way identifier derived from the IP address: a
+          keyed hash (HMAC-SHA256 under a server-side secret), not the address itself. That secret
+          is what makes it impossible to reverse without it, unlike a plain hash of an IPv4
+          address, which is small enough to brute-force in minutes. Nothing about a guest is linked
+          to an email or a name, because there isn&rsquo;t one to link.
         </p>
-      </div>
+        <p>
+          An account stores an email and a password (handled by Supabase Auth; we never see or
+          store your password in plain text), plus whatever you choose to keep: your history, saved
+          names, and any share links you create. That is the complete list. No profile data is
+          collected beyond what you enter to sign up.
+        </p>
+        <p>
+          The name and optional description you research are stored so history and reports work,
+          and are sent to the sources that research them. A share link exposes the score, category
+          and headline figures of one report to whoever holds it, and never your account, your
+          other searches, or how you were identified.
+        </p>
+        <p>
+          The only cookies set are the session cookies Supabase uses to keep you signed in. There
+          is no advertising, tracking or analytics cookie on this service.
+        </p>
+      </LegalSection>
 
-      <div className="mt-10 lg:flex lg:items-start lg:gap-12">
-        <LegalToc items={SECTIONS} />
-        <div className="max-w-[640px] space-y-8">
-        <Section id="guests" title="1. If you never create an account">
-          <p>
-            NameVetta works fully without an account. To enforce a daily research limit and to
-            show you your own history, requests are tracked using a one-way identifier derived
-            from your IP address: a keyed hash (HMAC-SHA256 under a server-side secret), not the
-            address itself. That secret makes the hash impossible to reverse back to an IP without
-            it, unlike a plain hash of an IPv4 address, which is small enough to brute-force in
-            minutes. Nothing about a guest is linked to an email address, a name, or any other
-            identifier, because there isn&rsquo;t one to link.
-          </p>
-        </Section>
+      <LegalSection title="Where your search goes">
+        <p>
+          Only the name and description being researched are ever sent onward, never your email,
+          password or IP address. Each source receives a search query and nothing else about you:
+        </p>
+        <ul className="ml-5 list-disc space-y-1.5">
+          <li>
+            <strong className="font-medium text-charcoal">
+              GitHub, npm, PyPI, YouTube, Apple App Store, Wikidata, SEC EDGAR, UK Companies House
+            </strong>{' '}
+            and the other public registries: read-only lookups, queried directly with the name.
+          </li>
+          <li>
+            <strong className="font-medium text-charcoal">Tavily</strong> powers general web and
+            Google Play research. It receives the name and, on a Deep Check, your description.
+          </li>
+          <li>
+            <strong className="font-medium text-charcoal">Groq</strong> writes the optional AI
+            explanation on a Deep Check, from a compact summary of what was already found. It never
+            receives your account information.
+          </li>
+        </ul>
+        <p>
+          Two providers host the service rather than researching anything:{' '}
+          <strong className="font-medium text-charcoal">Supabase</strong> (account data and history,
+          hosted in the US) and <strong className="font-medium text-charcoal">Vercel</strong>{' '}
+          (application hosting). If you are outside the United States, your data is processed there
+          as a result.
+        </p>
+        <p>
+          None of them are permitted to use what they receive to advertise to you, and none is an ad
+          network or an analytics platform. This service doesn&rsquo;t run any of its own either.
+        </p>
+      </LegalSection>
 
-        <Section id="accounts" title="2. If you create an account">
-          <p>
-            An account stores an email address and a password (handled by our authentication
-            provider, Supabase Auth; we never see or store your password in plain text), plus
-            whatever you choose to save: your scan history, saved names, and any share links you
-            generate. That&rsquo;s the complete list; there is no additional profile data collected
-            beyond what you enter to sign up.
-          </p>
-        </Section>
+      <LegalSection title="Exporting or deleting data">
+        <p>
+          Data is kept until you delete it. There is no automatic expiry, which is stated plainly
+          because promising one that doesn&rsquo;t exist would be worse than not having it.
+        </p>
+        <p>
+          From{' '}
+          <Link href="/account" className="text-accent-ink underline underline-offset-2">
+            account settings
+          </Link>{' '}
+          you can export everything stored about you as a single file, or permanently delete your
+          account and everything attached to it. Both take effect immediately, and deletion cannot
+          be undone. Individual searches can be removed from your{' '}
+          <Link href="/history" className="text-accent-ink underline underline-offset-2">
+            history
+          </Link>{' '}
+          at any time. As a guest, deleting a search works the same way; there is no account to
+          delete.
+        </p>
+      </LegalSection>
 
-        <Section id="research-data" title="3. What a search itself contains">
-          <p>
-            The name and optional description you research are stored so your history and reports
-            work, and are sent to the sources that research them. See the next section for
-            exactly which ones and what they receive. A share link exposes the score, category and
-            headline figures of one report to anyone holding its link; it never exposes your
-            account, your other searches, or how you were identified.
-          </p>
-        </Section>
+      <LegalSection title="Security">
+        <p>
+          Account and research data is protected by row-level security in the database: a signed-in
+          user can only ever read their own rows, enforced by the database itself rather than by
+          application code remembering to filter. A shared report is reachable only through its own
+          unguessable link, and revoking that link makes it unreachable immediately.
+        </p>
+      </LegalSection>
 
-        <Section id="third-parties" title="4. Who your search is sent to">
-          <p>
-            Only the name and description you are researching are ever sent onward, never your
-            account email, password, or IP address. Each source below receives a search query
-            (the candidate name, and for web search, your description) and nothing else about you:
-          </p>
-          <ul className="ml-5 list-disc space-y-1.5">
-            <li><strong className="font-medium text-charcoal">GitHub, npm, PyPI, YouTube, Apple App Store, Wikidata, SEC EDGAR, UK Companies House</strong>: public read-only registries and search APIs, queried directly with the name.</li>
-            <li><strong className="font-medium text-charcoal">Tavily</strong>: powers general web and Google Play research. Receives the name and, for a Deep Check, your description.</li>
-            <li><strong className="font-medium text-charcoal">Groq</strong>: generates the optional AI explanation on a Deep Check report from a compact summary of what was already found. It never receives your account information.</li>
-          </ul>
-          <p>
-            Two infrastructure providers host the service itself rather than researching anything:
-            <strong className="font-medium text-charcoal"> Supabase</strong> (account data and
-            research history, hosted in the US) and{' '}
-            <strong className="font-medium text-charcoal">Vercel</strong> (application hosting).
-            If you are outside the United States, your data is processed there as a result.
-          </p>
-          <p>None of the above are permitted to use what they receive to advertise to you, and none of them are ad networks or analytics platforms. NameVetta doesn&rsquo;t run any of its own, either.</p>
-        </Section>
-
-        <Section id="cookies" title="5. Cookies">
-          <p>
-            The only cookies set are the session cookies our authentication provider (Supabase)
-            uses to keep you signed in. There is no advertising, tracking, or analytics cookie on
-            this service.
-          </p>
-        </Section>
-
-        <Section id="retention" title="6. How long data is kept">
-          <p>
-            Account and research data is kept until you delete it. There is currently no automatic
-            expiry. That&rsquo;s stated plainly because promising one that doesn&rsquo;t exist
-            would be worse than not having it. You can delete an individual search from your{' '}
-            <Link href="/history" className="text-accent underline underline-offset-2">
-              history
-            </Link>{' '}
-            at any time, and delete your account entirely, along with everything attached to it,
-            from{' '}
-            <Link href="/account" className="text-accent underline underline-offset-2">
-              account settings
-            </Link>
-            .
-          </p>
-        </Section>
-
-        <Section id="rights" title="7. Your rights">
-          <p>
-            From{' '}
-            <Link href="/account" className="text-accent underline underline-offset-2">
-              account settings
-            </Link>{' '}
-            you can export everything stored about you as a single file, or permanently delete
-            your account and everything attached to it. Both take effect immediately. Deletion is
-            not reversible. If you use the service as a guest, deleting an individual search from
-            your history removes it the same way; there is no account to delete.
-          </p>
-        </Section>
-
-        <Section id="security" title="8. Security">
-          <p>
-            Account and research data is protected by row-level security in the database: a
-            signed-in user can only ever read their own rows, enforced by the database itself
-            rather than by application code remembering to filter. A shared report is reachable
-            only through its own unguessable link, and revoking that link makes it unreachable
-            immediately.
-          </p>
-        </Section>
-
-        <Section id="children" title="9. Children">
-          <p>
-            NameVetta is not directed at children and is not knowingly used to collect data from
-            anyone under 13.
-          </p>
-        </Section>
-
-        <Section id="changes" title="10. Changes">
-          <p>
-            If this policy changes in a way that matters, the date at the top of this page will
-            change. Continued use after that means you accept the update.
-          </p>
-        </Section>
-
-        <Section id="contact" title="11. Contact">
-          <p>
-            {contact === undefined ? (
-              <>This deployment has not configured a public contact address.</>
-            ) : (
-              <>
-                Questions about this policy, or a request to export or delete your data, can be
-                sent to{' '}
-                <a href={`mailto:${contact}`} className="text-accent underline underline-offset-2">
-                  {contact}
-                </a>
-                .
-              </>
-            )}
-          </p>
-        </Section>
-        </div>
-      </div>
-    </div>
+      <LegalSection title="Children, changes and contact">
+        <p>
+          This service is not directed at children and is not knowingly used to collect data from
+          anyone under 13.
+        </p>
+        <p>
+          If this policy changes in a way that matters, the date above changes with it. Continued
+          use after that means you accept the update.
+        </p>
+        <p>
+          {contact === undefined ? (
+            <>This deployment has not configured a public contact address.</>
+          ) : (
+            <>
+              Questions, or a request to export or delete your data, can go to{' '}
+              <a href={`mailto:${contact}`} className="text-accent-ink underline underline-offset-2">
+                {contact}
+              </a>
+              .
+            </>
+          )}
+        </p>
+      </LegalSection>
+    </LegalPage>
   )
 }

@@ -13,7 +13,7 @@
  */
 import type { ScanSummary } from '@/lib/orchestrator/run'
 import { GROUP_LABELS, type ScoreGroup } from '@/lib/scoring/weights'
-import { verdictFor, type Verdict } from '@/lib/scoring/viability'
+import { dominantVerdict, type Verdict } from '@/lib/scoring/viability'
 
 export interface Candidate {
   name: string
@@ -80,7 +80,7 @@ export function compareCandidates(candidates: readonly Candidate[]): ComparisonR
     name: c.name,
     score: c.summary.viability.score,
     coverage: c.summary.coverage,
-    verdict: verdictFor(c.summary.viability.score),
+    verdict: dominantVerdict(c.summary.viability.score, c.summary.results),
     groups: groupsOf(c.summary),
     caps: c.summary.viability.caps.map((cap) => cap.reason),
   }))
@@ -113,7 +113,7 @@ export function compareCandidates(candidates: readonly Candidate[]): ComparisonR
   return {
     candidates: ranked,
     winner: tooCloseToCall ? undefined : leader?.name,
-    winnerReason: explainLeader(leader, runnerUp, tooCloseToCall),
+    winnerReason: explainLeader(leader, runnerUp, ordered, tooCloseToCall),
     coverageWarning: coverageWarningFor(ordered),
     tooCloseToCall,
   }
@@ -164,12 +164,19 @@ function weaknessesAgainst(candidate: Scored, leader: Scored | undefined): strin
 function explainLeader(
   leader: Scored | undefined,
   runnerUp: Scored | undefined,
+  all: readonly Scored[],
   tooClose: boolean,
 ): string {
   if (leader === undefined) return 'No candidates were researched.'
   if (runnerUp === undefined) return `${leader.name} was the only candidate researched.`
 
   if (tooClose) {
+    const tied = all.filter((candidate) => candidate.score === leader.score).map((candidate) => candidate.name)
+    if (tied.length > 2) {
+      const last = tied.at(-1)
+      const first = tied.slice(0, -1).join(', ')
+      return `${first} and ${last} are tied at ${leader.score}. Compare the individual findings below instead.`
+    }
     return `${leader.name} and ${runnerUp.name} score within ${DECISIVE_MARGIN} points of each other. That gap is too small to call one better. Compare the individual findings below instead.`
   }
 

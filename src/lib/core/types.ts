@@ -106,6 +106,35 @@ export const SOURCE_STATUSES = [
 export const SourceStatusSchema = z.enum(SOURCE_STATUSES)
 export type SourceStatus = z.infer<typeof SourceStatusSchema>
 
+/**
+ * One platform's own answer, inside a source that covers several.
+ *
+ * Two adapters check a handful of networks each and report as a single
+ * source, which is right for scoring — the weight table has one slot for
+ * social identity, not nine. It is wrong for reading: a row labelled "Social
+ * identity" tells you nothing, and the platform a reader cares about is
+ * Instagram or LinkedIn by name.
+ *
+ * So those adapters also publish this, on `meta.platforms`, and the results
+ * list renders a row per entry. It carries no weight of its own and changes
+ * no score; it exists so the page can say which platform it means.
+ */
+export const DiscoveryMatchSchema = z.object({
+  label: z.string().min(1),
+  url: z.string().url(),
+  snippet: z.string().max(500).optional(),
+})
+export type DiscoveryMatch = z.infer<typeof DiscoveryMatchSchema>
+
+export const PlatformVerdictSchema = z.object({
+  name: z.string().min(1),
+  url: z.string().url().optional(),
+  status: SourceStatusSchema,
+  detail: z.string().min(1),
+  discovery: z.array(DiscoveryMatchSchema).max(5).optional(),
+})
+export type PlatformVerdict = z.infer<typeof PlatformVerdictSchema>
+
 /** Statuses that represent a completed, trustworthy observation. */
 export const VERIFIED_STATUSES: readonly SourceStatus[] = [
   'no_conflict',

@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Badge } from '@/components/ui/Badge'
 import type { Category } from '@/lib/core/scan'
 import { CATEGORY_LABELS } from '@/lib/core/scan'
@@ -114,14 +115,12 @@ export function ComparisonTable({
       {/* The comparison-specific honesty warning. */}
       {coverageWarning !== undefined ? (
         <section className="rounded-xl border border-warn/25 bg-warn-soft p-4">
-          <h3 className="text-sm font-semibold text-warn">Uneven research depth</h3>
+          <h3 className="text-sm font-semibold text-warn">Uneven research</h3>
           <p className="mt-1 text-sm text-warn/90">{coverageWarning}</p>
         </section>
       ) : null}
 
-      <p className="text-sm text-charcoal-2">
-        Compared as <strong className="font-medium">{CATEGORY_LABELS[category]}</strong>
-      </p>
+      <p className="text-sm text-charcoal-2">For <strong className="font-medium">{CATEGORY_LABELS[category]}</strong></p>
 
       {/*
         Wide tables must scroll inside their own container, not the page.
@@ -137,7 +136,7 @@ export function ComparisonTable({
       <section
         tabIndex={0}
         aria-label="Comparison of every candidate, metric by metric"
-        className="overflow-x-auto rounded-2xl border border-line bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="overflow-x-auto card rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
       >
         <div role="table" className="min-w-[620px]">
           <div
@@ -155,7 +154,7 @@ export function ComparisonTable({
               <div role="columnheader" key={c.name} className="border-l border-line p-3">
                 <span className="font-medium">{c.name}</span>
                 {c.name === winner ? (
-                  <span className="ml-1.5 rounded-full bg-accent/10 px-1.5 py-0.5 font-mono text-[11px] text-accent">
+                  <span className="ml-1.5 rounded-full bg-accent/10 px-1.5 py-0.5 font-mono text-[11px] text-accent-ink">
                     #1
                   </span>
                 ) : null}
@@ -221,11 +220,12 @@ export function ComparisonTable({
           ))}
         </div>
       </section>
+      <p className="-mt-3 text-xs text-faint sm:hidden">Swipe to compare.</p>
 
       {/* Per-candidate explanation cards. */}
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {candidates.map((c) => (
-          <article key={c.name} className="rounded-2xl border border-line bg-surface p-5">
+          <article key={c.name} className="card rounded-2xl p-5">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <h3 className="text-lg font-semibold">{c.name}</h3>
@@ -265,9 +265,15 @@ export function ComparisonTable({
 
             {c.caps.length === 0 && c.strengths.length === 0 && c.weaknesses.length === 0 ? (
               <p className="mt-3 text-xs text-faint">
-                Nothing separates this name notably from the others.
+                No notable difference from the others.
               </p>
             ) : null}
+            <Link
+              href={`/n/${encodeURIComponent(c.name)}?as=${category}`}
+              className="mt-4 inline-flex min-h-10 items-center rounded-xl border border-line px-3 text-xs font-medium text-charcoal-2 transition-colors hover:border-accent hover:text-accent-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            >
+              Run a fresh Quick Check
+            </Link>
           </article>
         ))}
       </section>

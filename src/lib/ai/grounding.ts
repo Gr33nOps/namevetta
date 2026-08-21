@@ -46,10 +46,61 @@ export interface GroundingResult {
  */
 const ALWAYS_ALLOWED_NUMBERS = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 100])
 
-/** Extract standalone numbers, ignoring ones embedded in words like "GPT-4". */
-function numbersIn(text: string): number[] {
-  const matches = text.match(/(?<![a-zA-Z0-9])\d+(?:\.\d+)?(?![a-zA-Z0-9])/g) ?? []
-  return matches.map(Number)
+type NumberMeaning =
+  | 'score'
+  | 'coverage'
+  | 'verified_source_count'
+  | 'clear_source_count'
+  | 'unverified_source_count'
+  | undefined
+
+/**
+ * A number by itself is not enough to ground a claim. In particular, 86% of
+ * weighted coverage and 86 sources checked are different facts. Read the
+ * words immediately around the number before accepting it.
+ */
+function numberMeaning(text: string, index: number, length: number): NumberMeaning {
+  const before = text.slice(Math.max(0, index - 36), index).toLowerCase()
+  const after = text.slice(index + length, index + length + 48).toLowerCase()
+  if (/^\s*%/.test(after) || /research\s+coverage|coverage\s*(?:is|of|was)?\s*$/.test(before)) {
+    return 'coverage'
+  }
+  if (/score\s*(?:is|was|of|at)?\s*$/.test(before) || /^\s*(?:out of|score\b)/.test(after)) {
+    return 'score'
+  }
+  if (/\b(?:checked|verified)\s*(?:sources?|checks?|places?)\b/.test(after) || /\b(?:of|across)\s*$/.test(before) && /\b(?:checked|verified)\s*(?:sources?|checks?|places?)\b/.test(after)) {
+    return 'verified_source_count'
+  }
+  if (/\b(?:clear)\s*(?:sources?|checks?|places?)\b/.test(after) || /\b(?:sources?|checks?|places?)\s+(?:were|are)\s+clear\b/.test(after)) {
+    return 'clear_source_count'
+  }
+  if (/\b(?:couldn't|could not|unable to)\s+(?:be\s+)?checked\s*(?:sources?|checks?|places?)\b/.test(after)) {
+    return 'unverified_source_count'
+  }
+  if (/\b(?:sources?|checks?|places?)\s+(?:couldn't|could not|were unable to)\s+be\s+checked\b/.test(after)) {
+    return 'unverified_source_count'
+  }
+  if (/\b(?:sources?|checks?|places?)\s+(?:were|are)\s+(?:checked|verified)\b/.test(after)) {
+    return 'verified_source_count'
+  }
+  return undefined
+}
+
+function matchesMeaning(value: number, meaning: NumberMeaning, facts: Facts): boolean {
+  switch (meaning) {
+    case 'score':
+      return value === facts.score
+    case 'coverage':
+      return value === facts.coveragePercent
+    case 'verified_source_count':
+      return value === facts.verifiedSourceCount
+    case 'clear_source_count':
+      return value === facts.clearSourceCount
+    case 'unverified_source_count':
+      return value === facts.unverifiedSourceCount
+    default:
+      return facts.numbers.has(value)
+  }
 }
 
 /**
@@ -102,9 +153,11 @@ export function checkGrounding(text: string, facts: Facts): GroundingResult {
     }
   }
 
-  for (const num of numbersIn(text)) {
+  for (const match of text.matchAll(/(?<![a-zA-Z0-9])\d+(?:\.\d+)?(?![a-zA-Z0-9])/g)) {
+    const num = Number(match[0])
     if (ALWAYS_ALLOWED_NUMBERS.has(num)) continue
-    if (!facts.numbers.has(num)) {
+    const meaning = numberMeaning(text, match.index ?? 0, match[0].length)
+    if (!matchesMeaning(num, meaning, facts)) {
       failures.push({ rule: 'unknown_number', detail: String(num) })
     }
   }

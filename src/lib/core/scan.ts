@@ -34,18 +34,18 @@ export const CategorySchema = z.enum(CATEGORIES)
 export type Category = z.infer<typeof CategorySchema>
 
 export const CATEGORY_LABELS: Record<Category, string> = {
-  saas: 'SaaS',
+  saas: 'Software / SaaS',
   mobile_app: 'Mobile app',
   game: 'Game',
   developer_tool: 'Developer tool / library',
-  business: 'Business / company',
-  creator_brand: 'Creator brand',
-  ecommerce: 'E-commerce / product',
+  business: 'Company / service',
+  creator_brand: 'Creator / media / community',
+  ecommerce: 'Product / online store',
   fashion: 'Fashion',
   restaurant: 'Restaurant / food',
   finance: 'Finance',
-  education: 'Education',
-  other: 'Other',
+  education: 'Education / course',
+  other: 'General brand / not sure',
 }
 
 /* -------------------------------------------------------------------------- */
@@ -112,16 +112,48 @@ export const CompareRequestSchema = z.object({
 export type CompareRequest = z.infer<typeof CompareRequestSchema>
 
 /**
- * The name generator (§12): "generate ~30, auto Quick Check, discard
- * failures, return top 5." No `scanType` — every generated candidate is
- * researched with a Quick Check, never Deep, since researching thirty names
+ * The name generator (§12): generate a small pool, auto Quick Check, and
+ * return the top 5. No `scanType` — every generated candidate is
+ * researched with a Quick Check, never Deep, since researching many names
  * to Deep-Check depth in one request is neither fast nor within any
  * reasonable free-tier budget.
  */
+export const MIN_GENERATE_DESCRIPTION_LENGTH = 8
+
+/** What an empty or near-empty description is told, on the client and the server. */
+export const GENERATE_DESCRIPTION_REQUIRED =
+  'Describe what you are naming, in a few words at least. The generator has nothing to work from without it.'
+
 export const GenerateRequestSchema = z.object({
   category: CategorySchema,
-  description: z.string().trim().max(MAX_DESCRIPTION_LENGTH).optional(),
+  /**
+   * Required, unlike everywhere else this field appears.
+   *
+   * A blank submission used to reach Groq and then run thirty Quick Checks
+   * off a bare category, spending a generation unit to produce names nobody
+   * asked for — the prompt itself says "given a category *and description*".
+   * The seed below is labelled optional in the form; this one never was, and
+   * now the schema agrees with the label.
+   */
+  description: z
+    .string()
+    .trim()
+    .min(MIN_GENERATE_DESCRIPTION_LENGTH, GENERATE_DESCRIPTION_REQUIRED)
+    .max(MAX_DESCRIPTION_LENGTH),
   /** Optional starting point — "names like this one," not a name to check. */
   seed: CandidateNameSchema.optional(),
+  /**
+   * Stop screening once this many candidates have survived.
+   *
+   * Every candidate is a full Quick Check run one after another, so a whole
+   * full batch takes minutes and can outlast the route's own
+   * `maxDuration`. A caller that only needs a handful of names says so and
+   * gets them in a fraction of the time.
+   *
+   * Omitted means screen the whole batch, which is what `/generate` does: it
+   * promises the best five in the batch, and it cannot know which those are
+   * until it has checked the batch.
+   */
+  stopAfterSurvivors: z.number().int().min(1).max(MAX_COMPARE_NAMES).optional(),
 })
 export type GenerateRequest = z.infer<typeof GenerateRequestSchema>

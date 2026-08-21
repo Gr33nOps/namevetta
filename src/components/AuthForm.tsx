@@ -3,6 +3,7 @@
 import Script from 'next/script'
 import { useActionState, useState } from 'react'
 import { requestPasswordReset, signIn, signUp, type AuthState } from '@/app/auth/actions'
+import { quotaPhrase, type QuotaLimits } from '@/lib/core/quota'
 
 const initial: AuthState = {}
 
@@ -27,7 +28,20 @@ function EyeIcon({ open }: { open: boolean }) {
   )
 }
 
-export function AuthForm({ turnstileSiteKey }: { turnstileSiteKey?: string }) {
+export function AuthForm({
+  turnstileSiteKey,
+  guestLimits,
+}: {
+  turnstileSiteKey?: string
+  /**
+   * The guest allowance, passed in rather than imported.
+   *
+   * This is a client component and the configured limits are server-only, so
+   * the number arrives as a prop. Hard-coding it here is what left the page
+   * advertising "5 Quick Checks" against a server handing out 75.
+   */
+  guestLimits: QuotaLimits
+}) {
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin')
   const [showPassword, setShowPassword] = useState(false)
   const [signInState, signInAction, signingIn] = useActionState(signIn, initial)
@@ -36,10 +50,10 @@ export function AuthForm({ turnstileSiteKey }: { turnstileSiteKey?: string }) {
 
   if (mode === 'reset') {
     return (
-      <div className="rounded-xl border border-line bg-surface p-6">
+      <div className="card rounded-2xl p-6">
         <h2 className="text-lg font-semibold">Reset your password</h2>
         <p className="mt-1 text-sm text-charcoal-2">
-          Enter the email on your account and we&rsquo;ll send a link to set a new password.
+          Enter your email and we&rsquo;ll send a reset link.
         </p>
 
         <form action={resetAction} className="mt-4 space-y-4">
@@ -54,7 +68,7 @@ export function AuthForm({ turnstileSiteKey }: { turnstileSiteKey?: string }) {
               required
               autoComplete="email"
               placeholder="you@example.com"
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm outline-none transition-all placeholder:text-faint focus:border-accent-border focus:ring-2 focus:ring-accent/20"
+              className="w-full field rounded-xl px-3 py-2.5 text-sm"
             />
           </div>
 
@@ -71,9 +85,9 @@ export function AuthForm({ turnstileSiteKey }: { turnstileSiteKey?: string }) {
           <button
             type="submit"
             disabled={resetting}
-            className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+            className="w-full btn-primary rounded-xl px-4 py-2.5 text-sm disabled:opacity-50"
           >
-            {resetting ? 'Working…' : 'Send reset link'}
+            {resetting ? 'Sending…' : 'Send reset link'}
           </button>
         </form>
 
@@ -93,12 +107,12 @@ export function AuthForm({ turnstileSiteKey }: { turnstileSiteKey?: string }) {
   const pending = isSignIn ? signingIn : signingUp
 
   return (
-    <div className="rounded-xl border border-line bg-surface p-6">
+    <div className="panel rounded-panel p-6 sm:p-7">
       {turnstileSiteKey === undefined ? null : (
         <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" async defer />
       )}
 
-      <div className="mb-6 flex gap-1 rounded-lg bg-muted-bg p-1">
+      <div className="mb-6 flex gap-1 rounded-xl bg-muted-bg p-1">
         {(
           [
             { value: 'signin' as const, label: 'Sign in' },
@@ -110,9 +124,9 @@ export function AuthForm({ turnstileSiteKey }: { turnstileSiteKey?: string }) {
             type="button"
             onClick={() => setMode(tab.value)}
             aria-pressed={mode === tab.value}
-            className={`flex-1 rounded-md px-3 py-2 text-sm transition-colors ${
+            className={`flex-1 rounded-lg px-3 py-2 text-sm transition-colors ${
               mode === tab.value
-                ? 'bg-surface font-medium text-charcoal'
+                ? 'bg-surface font-medium text-charcoal shadow-sm'
                 : 'text-charcoal-2 hover:text-charcoal'
             }`}
           >
@@ -133,7 +147,7 @@ export function AuthForm({ turnstileSiteKey }: { turnstileSiteKey?: string }) {
             required
             autoComplete="email"
             placeholder="you@example.com"
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 text-sm outline-none transition-all placeholder:text-faint focus:border-accent-border focus:ring-2 focus:ring-accent/20"
+            className="w-full field rounded-xl px-3 py-2.5 text-sm"
           />
         </div>
 
@@ -146,7 +160,7 @@ export function AuthForm({ turnstileSiteKey }: { turnstileSiteKey?: string }) {
               <button
                 type="button"
                 onClick={() => setMode('reset')}
-                className="text-xs text-accent underline underline-offset-2 hover:text-accent"
+                className="text-xs text-accent-ink underline underline-offset-2 hover:text-accent-ink"
               >
                 Forgot password?
               </button>
@@ -161,7 +175,7 @@ export function AuthForm({ turnstileSiteKey }: { turnstileSiteKey?: string }) {
               minLength={8}
               autoComplete={isSignIn ? 'current-password' : 'new-password'}
               placeholder="At least 8 characters"
-              className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 pr-10 text-sm outline-none transition-all placeholder:text-faint focus:border-accent-border focus:ring-2 focus:ring-accent/20"
+              className="w-full field rounded-xl px-3 py-2.5 pr-10 text-sm"
             />
             <button
               type="button"
@@ -195,15 +209,15 @@ export function AuthForm({ turnstileSiteKey }: { turnstileSiteKey?: string }) {
         <button
           type="submit"
           disabled={pending}
-          className="w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+          className="w-full btn-primary rounded-xl px-4 py-2.5 text-sm disabled:opacity-50"
         >
-          {pending ? 'Working…' : isSignIn ? 'Sign in' : 'Create account'}
+          {pending ? 'Please wait…' : isSignIn ? 'Sign in' : 'Create account'}
         </button>
       </form>
 
       <p className="mt-4 text-xs leading-relaxed text-faint">
-        An account raises your daily allowance and keeps your history. You don&rsquo;t need one:
-        you get 5 Quick Checks and 1 Deep Research per day as a guest.
+        Guest limit: {quotaPhrase('quick', guestLimits.quick)} · {quotaPhrase('deep', guestLimits.deep)} ·{' '}
+        {quotaPhrase('generate', guestLimits.generate)} daily.
       </p>
     </div>
   )

@@ -38,7 +38,6 @@ import { gravatarAdapter } from '@/lib/sources/gravatar'
 import { hackageAdapter } from '@/lib/sources/hackage'
 import { hackerNewsAdapter } from '@/lib/sources/hacker_news'
 import { mavenCentralAdapter } from '@/lib/sources/maven_central'
-import { productHuntAdapter } from '@/lib/sources/product_hunt'
 import { pubDevAdapter } from '@/lib/sources/pub_dev'
 import { snapStoreAdapter } from '@/lib/sources/snap_store'
 import { soundcloudAdapter } from '@/lib/sources/soundcloud'
@@ -51,7 +50,6 @@ import { chocolateyAdapter } from '@/lib/sources/chocolatey'
 import { dailymotionAdapter } from '@/lib/sources/dailymotion'
 import { flickrAdapter } from '@/lib/sources/flickr'
 import { goModulesAdapter } from '@/lib/sources/go_modules'
-import { lastfmAdapter } from '@/lib/sources/lastfm'
 import { linktreeAdapter } from '@/lib/sources/linktree'
 import { patreonAdapter } from '@/lib/sources/patreon'
 import { slackAdapter } from '@/lib/sources/slack'
@@ -109,7 +107,6 @@ export const ADAPTERS: Partial<Record<SourceId, SourceAdapter>> = {
   dribbble: dribbbleAdapter,
   behance: behanceAdapter,
   soundcloud: soundcloudAdapter,
-  product_hunt: productHuntAdapter,
   hacker_news: hackerNewsAdapter,
   f_droid: fdroidAdapter,
   x_twitter: xTwitterAdapter,
@@ -120,7 +117,6 @@ export const ADAPTERS: Partial<Record<SourceId, SourceAdapter>> = {
   dailymotion: dailymotionAdapter,
   slack: slackAdapter,
   patreon: patreonAdapter,
-  lastfm: lastfmAdapter,
   chocolatey: chocolateyAdapter,
   go_modules: goModulesAdapter,
   web: webAdapter,

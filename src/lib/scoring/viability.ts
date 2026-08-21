@@ -15,6 +15,7 @@
  *     tracked separately in `@/lib/trademark` and reported beside this number,
  *     never folded into it.
  */
+import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import type { Category } from '@/lib/core/scan'
 import {
   isVerified,
@@ -111,12 +112,64 @@ export interface AppliedCap {
 const SAME_INDUSTRY_THRESHOLD = 70
 
 /**
+ * The ceiling an exact, confirmed collision puts on the score.
+ *
+ * 69 lands the number one point below `promising`, so the verdict beside it
+ * can never read "Mostly Clear" while a source underneath says the exact name
+ * is already claimed. Chosen for that reason rather than as a round figure:
+ * the verdict bands are what a reader actually acts on.
+ */
+const CONFIRMED_CONFLICT_MAX = 69
+
+/**
+ * Sources whose exact match is a namespace collision worth capping for.
+ *
+ * Every source that reports `confirmed_conflict` with an exact match
+ * qualifies. There is deliberately no allow-list: the bug this closes was a
+ * confirmed CPAN conflict sitting beside a score of 100 because CPAN lands in
+ * the `packages` group, which carries zero weight for a restaurant. Category
+ * relevance is allowed to decide *how much* a conflict costs — it is not
+ * allowed to decide whether the reader is told about it.
+ */
+export interface DecisiveConflict {
+  source: SourceId
+  /** The colliding name as the source spells it. */
+  name: string
+  url?: string
+}
+
+/**
+ * Every confirmed, exact collision in a result set.
+ *
+ * `confirmed_conflict` on its own is not enough: the schema permits it with
+ * evidence and no match, which is a weaker claim. An `exactMatches` entry is
+ * the specific thing a reader can go and look at.
+ */
+export function decisiveConflicts(results: readonly SourceResult[]): DecisiveConflict[] {
+  const out: DecisiveConflict[] = []
+  for (const r of results) {
+    if (r.status !== 'confirmed_conflict') continue
+    for (const m of r.exactMatches) {
+      out.push({ source: r.source, name: m.name, ...(m.url === undefined ? {} : { url: m.url }) })
+    }
+  }
+  return out
+}
+
+/**
  * Detect the digital conditions that cap the score (§20).
  *
- * Only one cap survives the V1 trademark removal: an exact, major, same-industry
- * business presence found through web research. The two trademark caps are gone
- * from the automatic path because V1 performs no automated trademark research —
- * a cap fired from evidence we never gathered would be fabricated.
+ * Two now. The first is the original: an exact, major, same-industry business
+ * presence found through web research, which caps hard at 40 because that is a
+ * name somebody is already trading under.
+ *
+ * The second is new, and closes the hole the audit found. A weighted average
+ * over the groups that answered can produce a perfect 100 while a source
+ * inside a zero-weight group reports an exact, confirmed collision — a report
+ * that says "100" and "confirmed conflict" on the same screen is not a report
+ * anyone should trust. So any confirmed exact collision ceilings the number
+ * below the "Mostly Clear" band, and the weighting still decides where under
+ * that ceiling it lands.
  *
  * Trademark findings can still cap, but only once the user has actually
  * completed screening; that path is `screeningCaps` below.
@@ -139,6 +192,18 @@ export function detectCaps(results: readonly SourceResult[]): AppliedCap[] {
   )
   if (majorSameIndustryBusiness) {
     caps.push({ reason: 'Exact major same-industry business', maximum: 40 })
+  }
+
+  const conflicts = decisiveConflicts(results)
+  if (conflicts.length > 0) {
+    const first = conflicts[0] as DecisiveConflict
+    caps.push({
+      reason:
+        conflicts.length === 1
+          ? `Exact conflict confirmed on ${SOURCE_MANIFEST[first.source].label}`
+          : `${conflicts.length} exact conflicts confirmed, including ${SOURCE_MANIFEST[first.source].label}`,
+      maximum: CONFIRMED_CONFLICT_MAX,
+    })
   }
 
   return caps
@@ -244,6 +309,13 @@ export interface ViabilityResult {
   rawScore: number
   caps: AppliedCap[]
   groups: GroupScore[]
+  /**
+   * Exact, confirmed collisions, whatever weight their group carries.
+   *
+   * Carried on the result rather than recomputed by each reader, so the score,
+   * the verdict and the banner above them are all looking at the same list.
+   */
+  conflicts: DecisiveConflict[]
   scoringVersion: number
 }
 
@@ -289,6 +361,7 @@ export function computeViability(input: ViabilityInput): ViabilityResult {
     rawScore,
     caps,
     groups,
+    conflicts: decisiveConflicts(input.results),
     scoringVersion: SCORING_VERSION,
   }
 }
@@ -314,4 +387,14 @@ export function verdictFor(score: number): Verdict {
   if (score >= 50) return 'mixed'
   if (score >= 30) return 'risky'
   return 'avoid'
+}
+
+/**
+ * The conclusion shown to a person. A confirmed exact collision is a
+ * decision-critical fact, so it outranks a category-weighted score even when
+ * that score was already capped. This keeps the label, the banner and the
+ * evidence in agreement for both new and stored reports.
+ */
+export function dominantVerdict(score: number, results: readonly SourceResult[]): Verdict {
+  return decisiveConflicts(results).length > 0 ? 'risky' : verdictFor(score)
 }

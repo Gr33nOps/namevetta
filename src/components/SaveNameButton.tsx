@@ -27,7 +27,7 @@ export function SaveNameButton({
     return (
       <Link
         href="/auth"
-        className="rounded-lg border border-accent-border bg-accent-soft px-3 py-2 text-sm text-accent transition-colors hover:bg-accent/10"
+        className="btn-secondary rounded-xl border-accent-border bg-accent-soft px-3.5 py-2 text-[13.5px] text-accent-ink"
       >
         Sign in to save
       </Link>
@@ -45,9 +45,9 @@ export function SaveNameButton({
           else setNeedsAccount(true)
         })
       }
-      className="rounded-lg border border-line-strong px-3 py-2 text-sm transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+      className="btn-secondary rounded-xl px-3.5 py-2 text-[13.5px]"
     >
-      {saved ? 'Saved ✓' : pending ? 'Saving…' : 'Save this name'}
+      {saved ? 'Saved ✓' : pending ? 'Saving…' : 'Save name'}
     </button>
   )
 }

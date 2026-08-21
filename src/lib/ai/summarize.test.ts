@@ -31,7 +31,7 @@ function result(overrides: Partial<SourceResult> = {}): SourceResult {
 function summary(results: SourceResult[]): ScanSummary {
   return {
     results,
-    viability: { score: 80, rawScore: 80, caps: [], groups: [], scoringVersion: 1 },
+    viability: { score: 80, rawScore: 80, caps: [], groups: [], conflicts: [], scoringVersion: 1 },
     coverage: 90,
   }
 }

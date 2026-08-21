@@ -58,16 +58,49 @@ Every source declares how it may be used, and the product holds itself to it.
 | YouTube | Free tier | 10,000 quota units/day; search.list costs 100 | Exact handle lookup; no search.list spend |
 | Companies House | Free w/ key | 600 requests / 5 minutes | `advanced-search` — exact containment, and the only declared industry signal (SIC) |
 | Tavily (web, Play discovery) | 1,000 credits/month free, **no card** | Metered, budget-guarded | One request per Deep Check; second only where an app store matters |
-| Socials (12 platforms) | n/a | **Manual only** | No unauthenticated profile fetching, ever |
+| Socials (Instagram, TikTok, Reddit, Twitch, Threads) | n/a | **Manual only** | No unauthenticated profile fetching, ever |
+| Slack | n/a | **Manual only** | `{name}.slack.com` answers 403 with a browser-not-supported page for every workspace that exists — a block, not a verdict. Downgraded from automatic after measurement |
 
-**F-Droid was evaluated and left out.** Its only structured endpoint is the full
-repository index (~56 MB) — three times larger than Homebrew's, which was already the
-largest index this product accepts fetching per scan. No lighter-weight search exists,
-so it is left out rather than forced in with a slow or wasteful implementation.
+### Why six platforms remain manual
 
-**Product Hunt is deliberately not implemented.** It is not a core source unless and
-until we have permission for our intended public-product use, so it does not appear
-in `SOURCE_IDS` at all rather than sitting in the manifest looking available.
+| Platform | Official API position | Why it is not an automatic NameVetta check |
+|---|---|---|
+| Instagram | Business Discovery requires a Meta app, a user access token, and a professional Instagram account. It covers public business and creator accounts, not arbitrary personal-handle availability. App and user quotas apply. | No credential-free arbitrary username lookup. |
+| TikTok | Display API reads the user who authorized the app. Research API username queries require approved research access and a client token. Provider quotas apply. | Neither product is an open arbitrary-handle availability API. |
+| Reddit Community | Reddit requires explicit Data API approval. Commercial use also requires written approval. OAuth and approved access limits apply. | The product checks the subreddit/community namespace, and does not assume API approval. |
+| Twitch | Helix `Get Users` can look up a login, but requires a registered application, Client ID, secret-derived app token, and token-bucket rate limits. | The product owner explicitly chose not to add Twitch credentials. |
+| Threads | The Threads API requires a Meta application and access token. It does not provide a credential-free arbitrary-handle availability endpoint. App and user quotas apply. | No new developer app or credential is being introduced. |
+| Slack | `team.info` requires a scoped token. Domain lookup is limited to teams in the same Enterprise as that token. It is Tier 3 rate limited. | It cannot answer whether an arbitrary public workspace subdomain is claimed. |
+
+Manual does not mean ignored. Quick Check supplies the exact platform links. Deep Research also
+classifies relevant profile URLs already returned by its one web search and shows them as possible
+public matches. This costs no additional search credit. Discovery evidence never becomes a verified
+result, never becomes `no_conflict`, and does not affect score or coverage.
+
+Product Hunt and last.fm are legacy source IDs. Their adapters and active manifest membership were
+removed after production reliability review. The IDs and labels remain schema-readable so historical
+reports can still be parsed, but they do not run, appear in source tables, affect scoring, health, or
+active source counts.
+
+### Counting sources honestly
+
+Three numbers, and they are not the same number. `sourceCounts()` in
+`src/lib/core/adapter.ts` is the only place any of them is computed, and every
+page that prints one imports it:
+
+| | What it is |
+|---|---|
+| **Catalog** | Every entry in `SOURCE_MANIFEST` |
+| **Quick Check** | Sources whose `runsOn` includes `quick` |
+| **Deep Research** | Sources whose `runsOn` includes `deep` — the whole catalog |
+| **Manual** | `tosPosture: 'manual_only'`; never asserted automatically |
+| **Category-dependent** | `CATEGORY_DEPENDENT_SOURCES`; runs only where the answer earns its metered cost |
+
+The site used to say "60 sources checked on every search" in three places. It
+was false in both directions at once — seven of the sixty only run on a Deep
+Check, one runs only for the categories it matters to, and one never runs
+automatically at all — and `src/lib/consistency.test.ts` now fails the build on
+a hard-coded count or on that phrase.
 
 ### The rate-limit invariant
 
@@ -180,9 +213,38 @@ The Digital Viability Score is digital-only and never absorbs trademark findings
 
 Next.js 16 (App Router) · React 19 · TypeScript strict + `noUncheckedIndexedAccess` · Tailwind v4 · Zod at every boundary · Vitest.
 
-**Design system:** Fraunces (display), Inter (sans), JetBrains Mono (mono) via `next/font`. Charcoal `#141C2E` on a warm `#FAFAF8` canvas, teal `#0F766E` accent. Committed to a single light palette — the design is built around a paper canvas with a grid, and a dark inversion would be a different design rather than the same one recoloured.
+**Design system:** Outfit via `next/font`, doing display and body both — one
+family, one download. `#635BFF` accent, sampled from `logo.png` where it
+accounts for 170,737 pixels against 564 for the next value, and identical in
+every context rather than lightened anywhere.
 
-Planned: Supabase (Postgres/Auth/Realtime/RLS), Vercel Hobby, Sentry, Cloudflare Turnstile.
+### The theme contract
+
+**System appearance by default, with an explicit choice that outranks it.**
+Stated here because it is the kind of thing three parts of a codebase can
+disagree about silently:
+
+- **No stored choice** — no `data-theme` attribute is written at all, and
+  `color-scheme: light dark` lets the CSS follow `prefers-color-scheme` with no
+  JavaScript involved.
+- **A choice made** — `ThemeToggle` writes `nv-theme` to `localStorage` and
+  stamps `data-theme` on `<html>`; the pre-paint script in `layout.tsx` re-applies
+  it before the first frame, from the same key.
+- **`theme-color`** — one tag, rewritten in place by both the bootstrap and the
+  toggle, so mobile browser chrome always matches what is on screen rather than
+  what the OS asked for.
+- **Hydration** — `getServerSnapshot` returns `null` and renders a placeholder,
+  because which theme is active is not knowable on the server.
+
+`e2e/pages.spec.ts` asserts all four. The one exception to the whole model is
+the print block in `globals.css`, which is not a theme — paper is white whatever
+the screen does.
+
+Surfaces are hard-edged: a 2px border and no drop shadow anywhere, no
+background pattern. The weight of the line is the whole effect.
+
+Live: Supabase (Postgres/Auth/RLS), Vercel Hobby, Sentry, Cloudflare
+Turnstile.
 
 ## Cost posture
 

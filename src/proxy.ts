@@ -1,6 +1,23 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+const PRIVATE_CACHE_CONTROL = 'private, no-store, no-cache, must-revalidate, max-age=0'
+
+function applyPrivateCachePolicy(request: NextRequest, response: NextResponse): NextResponse {
+  const pathname = request.nextUrl.pathname
+  const isPrivateRoute =
+    pathname === '/auth' ||
+    pathname.startsWith('/auth/') ||
+    pathname === '/account' ||
+    pathname.startsWith('/account/') ||
+    pathname === '/history' ||
+    pathname === '/saved' ||
+    pathname.startsWith('/r/')
+
+  if (isPrivateRoute) response.headers.set('Cache-Control', PRIVATE_CACHE_CONTROL)
+  return response
+}
+
 /**
  * Session refresh.
  *
@@ -20,7 +37,7 @@ export async function proxy(request: NextRequest) {
   // The product runs without a database. No credentials means no session to
   // refresh, and the request should pass straight through.
   if (url === undefined || key === undefined || url === '' || key === '') {
-    return NextResponse.next({ request })
+    return applyPrivateCachePolicy(request, NextResponse.next({ request }))
   }
 
   let response = NextResponse.next({ request })
@@ -28,20 +45,23 @@ export async function proxy(request: NextRequest) {
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll: () => request.cookies.getAll(),
-      setAll: (toSet) => {
+      setAll: (toSet, responseHeaders) => {
         for (const { name, value } of toSet) request.cookies.set(name, value)
         response = NextResponse.next({ request })
         for (const { name, value, options } of toSet) {
           response.cookies.set(name, value, options)
         }
+        for (const [name, value] of Object.entries(responseHeaders)) {
+          response.headers.set(name, value)
+        }
       },
     },
   })
 
-  // Touching getUser is what triggers the refresh. Its result is unused here.
-  await supabase.auth.getUser()
+  // This verifies the token and refreshes it when needed. The result is unused.
+  await supabase.auth.getClaims()
 
-  return response
+  return applyPrivateCachePolicy(request, response)
 }
 
 export const config = {

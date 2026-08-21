@@ -18,23 +18,22 @@ export default async function Page() {
   if (user === undefined) {
     return (
       <div className="mx-auto w-full max-w-[600px] px-6 py-14 text-center">
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
+        <h1 className="font-display text-3xl font-semibold">
           Sign in to save names
         </h1>
         <p className="mt-3 text-charcoal-2">
-          Saving names needs an account. As a guest, your history only lives on this device — an
-          account lets you save names and reach them from anywhere.
+          Saving a shortlist needs an account. Guest history stays on this device.
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <Link
             href="/auth"
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+            className="btn-primary rounded-xl px-4 py-2 text-sm"
           >
-            Create a free account
+          Create account
           </Link>
           <Link
             href="/auth"
-            className="rounded-lg border border-line-strong px-4 py-2 text-sm font-medium text-charcoal-2 transition-colors hover:border-accent hover:text-accent"
+            className="btn-secondary rounded-xl px-4 py-2 text-sm"
           >
             Sign in
           </Link>
@@ -48,10 +47,10 @@ export default async function Page() {
   return (
     <div className="mx-auto w-full max-w-[720px] px-6 py-14">
       <div className="text-center">
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
-          Names you are considering
+        <h1 className="font-display text-3xl font-semibold">
+          Saved names
         </h1>
-        <p className="mt-2 text-charcoal-2">Saving and viewing never uses your daily allowance.</p>
+        <p className="mt-2 text-charcoal-2">Your shortlist.</p>
       </div>
 
       <div className="mt-8">

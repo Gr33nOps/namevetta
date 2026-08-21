@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AdapterDeps } from '@/lib/core/adapter'
 import type { ScanContext } from '@/lib/core/scan'
 import { resetEnvCache } from '@/lib/env'
+import { SourceResultSchema } from '@/lib/core/types'
 import { blueskyAdapter } from '@/lib/sources/bluesky'
 
 const ctx: ScanContext = { name: 'Envryn', category: 'saas', scanType: 'quick' }
@@ -110,5 +111,77 @@ describe('bluesky adapter', () => {
     )
     const result = await blueskyAdapter.run(ctx, deps())
     expect(result.status).toBe('confirmed_conflict')
+  })
+
+  /* ── regression: the production INVALID_ADAPTER_OUTPUT ─────────────── */
+
+  /*
+    `lumenly.bsky.social` is a real account with `displayName: ""`, and
+    `lumenly` was the most-scanned name in production. `displayName ?? handle`
+    keeps the empty string — `??` only catches null and undefined — and
+    `Match.name` requires at least one character, so the orchestrator threw the
+    whole result away as malformed. Twenty-nine of Bluesky's hundred results
+    were this.
+  */
+  it('survives a claimed handle whose display name is an empty string', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch([
+        { match: 'resolveHandle', status: 200, body: { did: 'did:plc:lumenly' } },
+        { match: 'getProfile', status: 200, body: { displayName: '', description: '' } },
+        { match: 'searchActors', status: 200, body: { actors: [] } },
+      ]),
+    )
+    const result = await blueskyAdapter.run(ctx, deps())
+
+    // The invariant that was being violated: this must pass the boundary.
+    expect(SourceResultSchema.safeParse(result).success).toBe(true)
+    expect(result.status).toBe('confirmed_conflict')
+    // Falls back to the handle, which is what such an account is known by.
+    expect(result.exactMatches[0]?.name).toBe('envryn.bsky.social')
+  })
+
+  it('survives a similar handle whose display name is an empty string', async () => {
+    vi.stubGlobal(
+      'fetch',
+      mockFetch([
+        {
+          match: 'resolveHandle',
+          status: 400,
+          body: { error: 'InvalidRequest', message: 'Unable to resolve handle' },
+        },
+        {
+          match: 'searchActors',
+          status: 200,
+          body: {
+            actors: [
+              { did: 'did:plc:1', handle: 'envrin.bsky.social', displayName: '' },
+              { did: 'did:plc:2', handle: 'envryn.bsky.social', displayName: '   ' },
+            ],
+          },
+        },
+      ]),
+    )
+    const result = await blueskyAdapter.run(ctx, deps())
+    expect(SourceResultSchema.safeParse(result).success).toBe(true)
+    // Whatever survives the relevance floor, none of it may carry a blank name.
+    for (const match of [...result.exactMatches, ...result.similarMatches]) {
+      expect(match.name.trim()).not.toBe('')
+    }
+  })
+
+  it('never reports an unrecognised 400 as clear', async () => {
+    // The old code pushed an evidence line and fell through to `no_conflict`,
+    // reporting a handle it knew nothing about as free.
+    vi.stubGlobal(
+      'fetch',
+      mockFetch([
+        { match: 'resolveHandle', status: 400, body: { error: 'RateLimitExceeded' } },
+        { match: 'searchActors', status: 200, body: { actors: [] } },
+      ]),
+    )
+    const result = await blueskyAdapter.run(ctx, deps())
+    expect(result.status).toBe('unable_to_verify')
+    expect(result.confidence).toBe(0)
   })
 })

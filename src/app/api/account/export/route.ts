@@ -11,6 +11,11 @@ import { isDatabaseConfigured } from '@/lib/db/client'
 import { sessionClient } from '@/lib/db/auth'
 
 export const dynamic = 'force-dynamic'
+const PRIVATE_NO_STORE = 'private, no-store, no-cache, must-revalidate, max-age=0'
+
+function privateError(error: string, status: number): Response {
+  return Response.json({ error }, { status, headers: { 'cache-control': PRIVATE_NO_STORE } })
+}
 
 const SCAN_SELECT = `
   *,
@@ -20,12 +25,12 @@ const SCAN_SELECT = `
 
 export async function GET(): Promise<Response> {
   if (!isDatabaseConfigured()) {
-    return Response.json({ error: 'Accounts are not available in this environment.' }, { status: 400 })
+    return privateError('Accounts are not available in this environment.', 400)
   }
 
   const user = await currentUser()
   if (user === undefined) {
-    return Response.json({ error: 'Sign in to export your data.' }, { status: 401 })
+    return privateError('Sign in to export your data.', 401)
   }
 
   const supabase = await sessionClient()
@@ -50,7 +55,7 @@ export async function GET(): Promise<Response> {
     headers: {
       'content-type': 'application/json; charset=utf-8',
       'content-disposition': `attachment; filename="namevetta-export-${user.id}.json"`,
-      'cache-control': 'no-store',
+      'cache-control': PRIVATE_NO_STORE,
     },
   })
 }

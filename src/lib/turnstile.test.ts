@@ -74,11 +74,11 @@ describe('verifyTurnstile', () => {
     expect(seen?.get('remoteip')).toBe('9.9.9.9')
   })
 
-  it('fails open when Cloudflare cannot be reached, rather than blocking signup', async () => {
+  it('fails closed when Cloudflare cannot be reached after Turnstile is enabled', async () => {
     vi.stubEnv('TURNSTILE_SECRET_KEY', 'test-secret')
     resetEnvCache()
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('network down'))))
-    await expect(verifyTurnstile('real-token', '1.2.3.4')).resolves.toBe(true)
+    await expect(verifyTurnstile('real-token', '1.2.3.4')).resolves.toBe(false)
   })
 
   it('rejects rather than throwing on a non-OK HTTP response', async () => {

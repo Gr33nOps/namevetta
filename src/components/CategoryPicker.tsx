@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { CATEGORIES, CATEGORY_LABELS, type Category } from '@/lib/core/scan'
+import { CATEGORIES, CATEGORY_LABELS, type Category, type ScanType } from '@/lib/core/scan'
 
 /**
  * Refining a result, after the fact.
@@ -10,25 +10,40 @@ import { CATEGORIES, CATEGORY_LABELS, type Category } from '@/lib/core/scan'
  * it is a plain list of links and not a form: one tap, straight back to the
  * answer.
  */
-export function CategoryPicker({ name, current }: { name: string; current: Category }) {
+export function CategoryPicker({
+  name,
+  current,
+  scanType,
+}: {
+  name: string
+  current: Category
+  scanType: ScanType
+}) {
   return (
     <div className="mx-auto w-full max-w-[560px] px-5 py-16">
-      <h1 className="text-center font-display text-2xl font-bold tracking-tight text-charcoal">
+      <h1 className="text-center font-display text-[28px] font-semibold tracking-[-0.03em] text-charcoal">
         What are you naming?
       </h1>
       <p className="mt-2 text-center text-[14px] text-faint">
-        Changes which places matter most for <span className="text-charcoal-2">{name}</span>.
+        Pick the closest fit for <span className="text-charcoal-2">{name}</span>. This changes
+        weighting, not which core sources are checked.
       </p>
 
       <div className="mt-7 grid gap-2 sm:grid-cols-2">
         {CATEGORIES.map((category) => (
           <Link
             key={category}
-            href={`/n/${encodeURIComponent(name)}?as=${category}`}
-            className={`rounded-xl border px-4 py-3 text-[14.5px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
+            href={`/n/${encodeURIComponent(name)}?as=${category}${scanType === 'deep' ? '&deep=1' : ''}`}
+            /*
+              The chosen one is filled with the brand gradient rather than
+              `card`'s tint. `card` paints a background colour of its own, so
+              the two cannot both apply: an accent fill layered on it never
+              showed, and every tile looked unselected.
+            */
+            className={`press rounded-xl border px-4 py-3 text-[14.5px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent ${
               category === current
-                ? 'border-accent bg-accent-soft font-medium text-accent'
-                : 'border-line bg-surface text-charcoal-2 hover:border-line-strong hover:text-charcoal'
+                ? 'btn-primary border-transparent'
+                : 'card font-medium text-charcoal-2 hover:border-accent-border hover:text-charcoal'
             }`}
           >
             {CATEGORY_LABELS[category]}

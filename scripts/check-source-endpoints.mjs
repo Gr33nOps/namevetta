@@ -128,5 +128,108 @@ await check('GLEIF LEI register', async () => {
   assert(typeof data?.data?.[0]?.attributes?.registration?.status === 'string', 'registration.status is a string')
 })
 
+/* -------------------------------------------------------------------------- */
+/* The probes a production audit caught answering the wrong question          */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * A name nobody has registered anywhere, checked alongside one that exists.
+ *
+ * Every source below was verified once against a name that is taken and never
+ * against a name that is free, and every one of them was wrong in production
+ * because of it. metacpan answers 200 with an application shell for a module
+ * nobody has published, so CPAN reported a confirmed conflict on every name it
+ * ever saw — and a taken-name check passes that adapter perfectly.
+ *
+ * Long and unpronounceable on purpose: a short placeholder is exactly the kind
+ * of string somebody has already registered somewhere.
+ */
+const NONSENSE = 'zzqqxwvblorptu9174'
+
+async function statusOf(url, method = 'GET') {
+  const response = await fetch(url, { method, headers: { 'user-agent': UA } })
+  return response.status
+}
+
+/** Elasticsearch reports `hits.total` as a bare number on some deployments. */
+function totalOf(hits) {
+  const total = hits?.total
+  return typeof total === 'object' ? total?.value : total
+}
+
+await check('MetaCPAN API (cpan adapter)', async () => {
+  // The case-folded field: `normalize()` lowercases before the adapter sees a
+  // name, and `distribution` itself is case-sensitive upstream. Probing the
+  // case-sensitive route would report every name as free — the same systematic
+  // lie as before, in the opposite direction.
+  const takenQuery = encodeURIComponent('distribution.lowercase:"moose"')
+  const taken = await getJson(
+    `https://fastapi.metacpan.org/v1/release/_search?q=${takenQuery}&size=1`,
+  )
+  assert(taken.status === 200, `taken lookup status is 200 (got ${taken.status})`)
+  assert(typeof totalOf(taken.data?.hits) === 'number', 'hits.total is a number')
+  assert(totalOf(taken.data?.hits) > 0, 'a published distribution is found')
+  assert(
+    typeof taken.data?.hits?.hits?.[0]?._source?.distribution === 'string',
+    'the real spelling comes back for the evidence line',
+  )
+
+  const freeQuery = encodeURIComponent(`distribution.lowercase:"${NONSENSE}"`)
+  const free = await getJson(
+    `https://fastapi.metacpan.org/v1/release/_search?q=${freeQuery}&size=1`,
+  )
+  assert(totalOf(free.data?.hits) === 0, 'an unpublished distribution reports zero, not a match')
+})
+
+await check('Maven Central via Sonatype (maven_central adapter)', async () => {
+  // `search.maven.org` serves the same Solr endpoint and timed out on a third
+  // of sampled requests; this host answered every one.
+  const taken = await getJson(
+    'https://central.sonatype.com/solrsearch/select?q=a:guava&rows=1&wt=json',
+  )
+  assert(taken.status === 200, `taken lookup status is 200 (got ${taken.status})`)
+  assert(typeof taken.data?.response?.numFound === 'number', 'response.numFound is a number')
+  assert(taken.data?.response?.numFound > 0, 'a published artifact is found')
+
+  const free = await getJson(
+    `https://central.sonatype.com/solrsearch/select?q=a:${NONSENSE}&rows=1&wt=json`,
+  )
+  assert(free.data?.response?.numFound === 0, 'an unused artifact id reports zero')
+})
+
+await check('Bitbucket workspaces API (bitbucket adapter)', async () => {
+  const taken = await getJson('https://api.bitbucket.org/2.0/workspaces/atlassian')
+  assert(taken.status === 200, `an existing workspace is 200 (got ${taken.status})`)
+  assert(typeof taken.data?.slug === 'string', 'slug is a string')
+
+  const free = await getJson(`https://api.bitbucket.org/2.0/workspaces/${NONSENSE}`)
+  assert(free.status === 404, `a free slug is 404 (got ${free.status})`)
+  // A 403 means the workspace exists but is dormant, and the adapter reads the
+  // body to tell that apart from a refusal aimed at us. This pins the wording.
+  assert(
+    /no workspace with identifier/i.test(free.data?.error?.message ?? ''),
+    'the 404 carries the registry own wording',
+  )
+})
+
+await check('Hackage (hackage adapter)', async () => {
+  const taken = await getJson('https://hackage.haskell.org/package/aeson')
+  assert(taken.status === 200, `a published package is 200 (got ${taken.status})`)
+  const free = await statusOf(`https://hackage.haskell.org/package/${NONSENSE}`)
+  assert(free === 404, `an unpublished package is 404 (got ${free})`)
+})
+
+await check('Slack is no longer probed automatically', async () => {
+  // Recorded as a check so the reasoning is not lost: every workspace that
+  // exists answers 403 with a browser-not-supported page, which is a block and
+  // not a verdict. If that ever stops being true this fails, and the decision
+  // to make Slack manual can be revisited on evidence rather than on a hunch.
+  const status = await statusOf('https://vercel.slack.com')
+  assert(
+    status === 403 || status === 429,
+    `an existing workspace still refuses an automated client (got ${status})`,
+  )
+})
+
 console.log(`\n${failures === 0 ? 'All checks passed.' : `${failures} check(s) failed.`}`)
 process.exit(failures === 0 ? 0 : 1)

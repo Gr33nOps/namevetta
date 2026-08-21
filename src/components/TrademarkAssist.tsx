@@ -37,6 +37,10 @@ const OUTCOME_LABELS: Record<ScreeningOutcome, string> = {
  * The screening state lives in component state here because V1 has no database
  * yet. Phase 4 persists it to `trademark_screenings`; the shape is already the
  * schema's, so that swap does not change this component.
+ *
+ * Draws no surface of its own. Its one call site is a fold on the report,
+ * which is already a card with padding, and a card inside an identical card
+ * is a border that means nothing.
  */
 export function TrademarkAssist({ context }: { context: ScanContext }) {
   const brief = useMemo(() => buildAssistBrief(context), [context])
@@ -62,10 +66,10 @@ export function TrademarkAssist({ context }: { context: ScanContext }) {
   }
 
   return (
-    <section className="rounded-xl border border-line bg-surface p-5 sm:p-6">
+    <section>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold">Trademark Assist</h2>
+          <h2 className="text-lg font-semibold">Trademark research</h2>
           <p className="mt-1 max-w-2xl text-sm text-charcoal-2">{TRADEMARK_SCOPE_NOTICE}</p>
         </div>
         <Badge tone={screeningPresentation.tone}>{screeningPresentation.label}</Badge>
@@ -84,16 +88,15 @@ export function TrademarkAssist({ context }: { context: ScanContext }) {
 
       {/* Steps 1-2 — what to search, collapsed until wanted */}
       <details className="mt-6 group">
-        <summary className="cursor-pointer text-sm font-medium text-accent hover:text-accent">
-          Show recommended queries ({brief.variants.length} variants,{' '}
+        <summary className="cursor-pointer text-sm font-medium text-accent-ink hover:text-accent-ink">
+          Search terms ({brief.variants.length} variants,{' '}
           {brief.classes.length} {brief.classes.length === 1 ? 'class' : 'classes'})
         </summary>
 
         <div className="mt-4">
-          <h3 className="text-sm font-semibold">1. Variants worth checking</h3>
+          <h3 className="text-sm font-semibold">1. Search variants</h3>
           <p className="mt-1 text-sm text-charcoal-2">
-            Registries treat confusingly similar marks as conflicts, so searching only the exact
-            spelling misses most of what matters.
+            Search close spellings too. Exact spelling alone can miss relevant marks.
           </p>
           <ul className="mt-3 grid gap-2 sm:grid-cols-2">
             {brief.variants.map((v) => (
@@ -109,10 +112,9 @@ export function TrademarkAssist({ context }: { context: ScanContext }) {
         </div>
 
         <div className="mt-6">
-          <h3 className="text-sm font-semibold">2. Likely classes and wording</h3>
+          <h3 className="text-sm font-semibold">2. Likely classes</h3>
           <p className="mt-1 text-sm text-charcoal-2">
-            Trademarks are registered per class of goods and services. Filtering to these cuts out
-            unrelated industries, but confirm them since classification is a judgement call.
+            Trademarks are registered by goods and services. Check these classes before searching.
           </p>
           <ul className="mt-3 space-y-2">
             {brief.classes.map((c) => (
@@ -126,14 +128,14 @@ export function TrademarkAssist({ context }: { context: ScanContext }) {
             ))}
           </ul>
           <p className="mt-3 text-xs text-faint">
-            Useful search wording: {brief.goodsAndServices.join(' · ')}
+            Search wording: {brief.goodsAndServices.join(' · ')}
           </p>
         </div>
       </details>
 
       {/* Step 3 — the guided searches, compact by default */}
       <div className="mt-6">
-        <h3 className="text-sm font-semibold">3. Search the official registries</h3>
+        <h3 className="text-sm font-semibold">3. Search registries</h3>
         <div className="mt-3 space-y-2">
           {brief.destinations.map((destination) => {
             const check = screening.checks.find((c) => c.jurisdiction === destination.jurisdiction)
@@ -154,16 +156,16 @@ export function TrademarkAssist({ context }: { context: ScanContext }) {
                       target="_blank"
                       rel="noreferrer noopener"
                       onClick={() => update(destination.jurisdiction, { status: 'in_progress' })}
-                      className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white transition hover:bg-accent-hover"
+                      className="btn-primary rounded-lg px-3 py-1.5 text-xs"
                     >
-                      Open search ↗
+                      Search registry ↗
                     </a>
                   </div>
                 </div>
 
                 {status !== 'not_started' ? (
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-faint">Mark result:</span>
+                    <span className="text-xs text-faint">Mark as:</span>
                     {(Object.keys(OUTCOME_LABELS) as ScreeningOutcome[]).map((outcome) => (
                       <button
                         key={outcome}
@@ -178,7 +180,7 @@ export function TrademarkAssist({ context }: { context: ScanContext }) {
                         aria-pressed={check?.outcome === outcome}
                         className={`rounded-full border px-2.5 py-1 text-xs transition ${
                           check?.outcome === outcome
-                            ? 'border-accent bg-accent-soft font-medium text-accent'
+                            ? 'border-accent bg-accent-soft font-medium text-accent-ink'
                             : 'border-line text-charcoal-2 hover:border-line-strong'
                         }`}
                       >
@@ -189,15 +191,15 @@ export function TrademarkAssist({ context }: { context: ScanContext }) {
                 ) : null}
 
                 <details className="mt-2">
-                  <summary className="cursor-pointer text-xs font-medium text-accent hover:text-accent">
-                    How to search
+                  <summary className="cursor-pointer text-xs font-medium text-accent-ink hover:text-accent-ink">
+                    Search tips
                   </summary>
                   <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-charcoal-2">
                     {destination.instructions.map((step) => (
                       <li key={step}>{step}</li>
                     ))}
                   </ol>
-                  <p className="mt-2 text-xs font-medium text-charcoal-2">What to look for</p>
+                  <p className="mt-2 text-xs font-medium text-charcoal-2">Look for</p>
                   <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-charcoal-2">
                     {destination.whatToLookFor.map((item) => (
                       <li key={item}>{item}</li>

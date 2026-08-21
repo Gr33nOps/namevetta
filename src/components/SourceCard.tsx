@@ -1,8 +1,8 @@
 import { Badge } from '@/components/ui/Badge'
 import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import type { Match, SourceId, SourceResult } from '@/lib/core/types'
-import { SEVERITY_PRESENTATION, STATUS_PRESENTATION } from '@/lib/presentation'
-import { relativeTime } from '@/lib/relativeTime'
+import { deliberatelySkipped, resultPresentation, SEVERITY_PRESENTATION } from '@/lib/presentation'
+import { Freshness } from '@/components/ui/TimeAgo'
 
 /** Shared retry affordance for a source stuck at `unable_to_verify`. */
 export function RetryButton({
@@ -17,7 +17,7 @@ export function RetryButton({
       type="button"
       onClick={onClick}
       disabled={retrying}
-      className="rounded-md border border-line-strong px-2 py-1 text-xs font-medium text-charcoal-2 transition hover:border-accent hover:text-accent disabled:cursor-wait disabled:opacity-60 print:hidden"
+      className="rounded-lg border border-line-strong px-2 py-1 text-xs font-medium text-charcoal-2 transition hover:border-accent hover:text-accent-ink disabled:cursor-wait disabled:opacity-60 print:hidden"
     >
       {retrying ? 'Retrying…' : 'Retry'}
     </button>
@@ -31,12 +31,13 @@ export function isRetryable(result: SourceResult): boolean {
 
 function MatchRow({ match }: { match: Match }) {
   const severity = SEVERITY_PRESENTATION[match.severity]
+  const severityLabel = match.severity === 'none' ? 'Low relevance' : severity.label
   return (
     <li className="rounded-lg border border-line bg-muted-bg p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-medium">{match.name}</span>
         <Badge tone={severity.tone} glyph={false}>
-          {severity.label}
+          {severityLabel}
         </Badge>
       </div>
 
@@ -52,7 +53,7 @@ function MatchRow({ match }: { match: Match }) {
       */}
       <details className="mt-2.5">
         <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 text-xs text-faint marker:content-none hover:text-charcoal-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
-          <span aria-hidden="true">▸</span> Why is this similar?
+          <span aria-hidden="true">▸</span> Why this match?
         </summary>
         <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs sm:grid-cols-4">
           <div>
@@ -85,9 +86,9 @@ function MatchRow({ match }: { match: Match }) {
           href={match.url}
           target="_blank"
           rel="noreferrer noopener"
-          className="mt-2 inline-block text-xs font-medium text-accent underline underline-offset-2 hover:text-accent"
+          className="mt-2 inline-block text-xs font-medium text-accent-ink underline underline-offset-2 hover:text-accent-ink"
         >
-          Open source record
+          Open record
         </a>
       ) : null}
     </li>
@@ -109,7 +110,8 @@ export function CompactSourceRow({
   retrying?: boolean
 }) {
   const manifest = SOURCE_MANIFEST[result.source]
-  const status = STATUS_PRESENTATION[result.status]
+  // Reason-aware, so a deliberate skip is not badged "Unverifiable".
+  const status = resultPresentation(result)
 
   return (
     <div className="flex items-center justify-between gap-3 py-2 text-sm">
@@ -126,7 +128,7 @@ export function CompactSourceRow({
         */}
         <span className="hidden text-xs text-faint sm:inline">
           {result.confidence > 0 ? `${result.confidence} confidence` : 'No confidence'} ·{' '}
-          {relativeTime(result.checkedAt)}
+          <Freshness iso={result.checkedAt} />
         </span>
         {onRetry !== undefined && isRetryable(result) ? (
           <RetryButton onClick={() => onRetry(result.source)} retrying={retrying} />
@@ -145,29 +147,39 @@ export function CompactSourceRow({
  */
 export function SourceCard({ result }: { result: SourceResult }) {
   const manifest = SOURCE_MANIFEST[result.source]
-  const status = STATUS_PRESENTATION[result.status]
+  const status = resultPresentation(result)
   const matches = [...result.exactMatches, ...result.similarMatches]
 
   return (
-    <article className="rounded-xl border border-line bg-surface p-5">
+    <article className="card rounded-2xl p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="font-semibold">{manifest.label}</h3>
+          <h3 className="font-display text-[15.5px] font-semibold text-charcoal">{manifest.label}</h3>
           <p className="mt-0.5 text-sm text-charcoal-2">{status.detail}</p>
         </div>
         <div className="flex items-center gap-2">
           <Badge tone={status.tone}>{status.label}</Badge>
           <span className="hidden text-xs text-faint sm:inline">
             {result.confidence > 0 ? `${result.confidence} confidence` : 'No confidence'}
-            {result.fromCache ? ' · cached' : ''} · {relativeTime(result.checkedAt)}
+            {result.fromCache ? ' · cached' : ''} · <Freshness iso={result.checkedAt} />
           </span>
         </div>
       </header>
 
       {result.error ? (
-        <p className="mt-3 rounded-lg bg-unknown-soft px-3 py-2 text-sm text-unknown">
+        /*
+          Grey rather than the unknown wash when the "error" is a deliberate
+          skip. Nothing failed, so nothing should look like it did.
+        */
+        <p
+          className={`inset mt-3 rounded-lg px-3 py-2 text-sm ${
+            deliberatelySkipped(result)
+              ? 'bg-muted-bg text-charcoal-2'
+              : 'bg-unknown-soft text-unknown'
+          }`}
+        >
           {result.error.message}
-          {result.error.retryable ? ' (This source can be retried.)' : ''}
+          {result.error.retryable ? ' You can retry it.' : ''}
         </p>
       ) : null}
 
@@ -193,7 +205,7 @@ export function SourceCard({ result }: { result: SourceResult }) {
                   href={e.url}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="text-accent underline underline-offset-2"
+                  className="text-accent-ink underline underline-offset-2"
                 >
                   {e.label}
                 </a>
@@ -207,8 +219,8 @@ export function SourceCard({ result }: { result: SourceResult }) {
 
       {result.evidence.length > 0 ? (
         <details className="mt-4 group">
-          <summary className="cursor-pointer text-sm font-medium text-accent hover:text-accent">
-            View evidence ({result.evidence.length})
+          <summary className="cursor-pointer text-sm font-medium text-accent-ink hover:text-accent-ink">
+            Evidence ({result.evidence.length})
           </summary>
           <ul className="mt-2 space-y-1.5 text-sm">
             {result.evidence.map((e, i) => (
@@ -218,7 +230,7 @@ export function SourceCard({ result }: { result: SourceResult }) {
                     href={e.url}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="text-accent underline underline-offset-2 hover:text-accent"
+                    className="text-accent-ink underline underline-offset-2 hover:text-accent-ink"
                   >
                     {e.label}
                   </a>

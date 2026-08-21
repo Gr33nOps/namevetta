@@ -23,6 +23,30 @@ const API = 'https://public.api.bsky.app/xrpc'
 /** Below this a search hit is noise rather than a naming concern. */
 const SIMILARITY_FLOOR = 65
 
+/**
+ * A display name that is safe to put in a `Match`.
+ *
+ * Bluesky returns `displayName: ""` for accounts that have not set one — about
+ * one profile in 250 in a sample of 250. `displayName ?? handle` keeps the
+ * empty string, because `??` only catches null and undefined, and `Match.name`
+ * requires at least one character. The whole result then failed validation at
+ * the orchestrator boundary and was discarded as `INVALID_ADAPTER_OUTPUT`,
+ * which is most of what Bluesky's malformed-output rate was.
+ *
+ * Falling back to the handle is also the better label: an account with no
+ * display name is known by its handle anyway.
+ */
+function displayLabel(displayName: string | undefined, handle: string): string {
+  const trimmed = displayName?.trim() ?? ''
+  return trimmed === '' ? handle : trimmed
+}
+
+/** Same guard for the optional free-text field, which must not be blank. */
+function describe(description: string | undefined): { description: string } | Record<string, never> {
+  const trimmed = description?.trim() ?? ''
+  return trimmed === '' ? {} : { description: trimmed }
+}
+
 interface ResolveHandleResponse {
   did?: string
   error?: string
@@ -68,8 +92,17 @@ export const blueskyAdapter: SourceAdapter = {
         if (data?.error === 'InvalidRequest') {
           evidence.push(makeEvidence('bluesky', `@${candidateHandle} is unclaimed`))
         } else {
-          evidence.push(
-            makeEvidence('bluesky', `Could not determine whether @${candidateHandle} is claimed`),
+          /*
+            A 400 that is not `InvalidRequest` is Bluesky telling us something
+            went wrong, not telling us the handle is free — and falling through
+            here used to land on `no_conflict`, reporting an unknown handle as
+            clear. That is the exact false green this product exists to avoid.
+          */
+          return unverifiable(
+            'bluesky',
+            'UNCLEAR',
+            `Bluesky answered ${data?.error ?? 'an unrecognised error'} for @${candidateHandle}, which does not say whether it is claimed.`,
+            true,
           )
         }
       } else if (data?.did !== undefined) {
@@ -94,14 +127,14 @@ export const blueskyAdapter: SourceAdapter = {
 
         exactMatches.push({
           externalId: did,
-          name: displayName ?? candidateHandle,
+          name: displayLabel(displayName, candidateHandle),
           categories: ['bluesky'],
           active: true,
           url,
           similarity: compareNames(ctx.name, candidateHandle),
           severity: 'high',
           evidence: [makeEvidence('bluesky', `@${candidateHandle} is claimed`, url)],
-          ...(description === undefined ? {} : { description }),
+          ...describe(description),
         })
       }
     } catch (cause) {
@@ -118,23 +151,23 @@ export const blueskyAdapter: SourceAdapter = {
       for (const actor of data?.actors ?? []) {
         if (actor.handle === candidateHandle) continue
 
+        const label = displayLabel(actor.displayName, actor.handle)
         const nameSim = compareNames(ctx.name, actor.handle)
-        const displaySim =
-          actor.displayName === undefined ? undefined : compareNames(ctx.name, actor.displayName)
+        const displaySim = label === actor.handle ? undefined : compareNames(ctx.name, label)
         const best = displaySim !== undefined && displaySim.overall > nameSim.overall ? displaySim : nameSim
         if (best.overall < SIMILARITY_FLOOR) continue
 
         const url = `https://bsky.app/profile/${actor.handle}`
         similarMatches.push({
           externalId: actor.did,
-          name: actor.displayName ?? actor.handle,
+          name: label,
           categories: ['bluesky'],
           active: true,
           url,
           similarity: best,
           severity: severityFor(best),
           evidence: [makeEvidence('bluesky', `Similar handle @${actor.handle}`, url)],
-          ...(actor.description === undefined ? {} : { description: actor.description }),
+          ...describe(actor.description),
         })
       }
       evidence.push(makeEvidence('bluesky', `Searched Bluesky for handles similar to "${handle}"`))

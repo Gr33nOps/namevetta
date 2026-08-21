@@ -19,7 +19,7 @@ function signalTone(subscore: number): 'ok' | 'warn' | 'danger' {
  * asked after the first one has been answered, so it belongs here and closed.
  *
  * The row layout is the real fix: it used to put the group name on the left and
- * its value hard against the right edge of a wide card, with a couple of
+ * its value card against the right edge of a wide card, with a couple of
  * hundred pixels of nothing between them. Label, bar and value now sit together
  * so the eye can pair them.
  */
@@ -83,7 +83,7 @@ export function ScoreBreakdown({
                 </ul>
               ) : (
                 <p className="mt-2 pl-3 text-[12.5px] text-faint">
-                  No source in this group produced a usable answer.
+                  No usable result in this group.
                 </p>
               )}
             </details>
@@ -93,13 +93,13 @@ export function ScoreBreakdown({
 
       <div className="border-t border-line pt-4">
         <p className="text-[13px] text-charcoal-2">
-          <span className="font-semibold text-charcoal">Research coverage {coverage}%.</span>{' '}
+          <span className="font-semibold text-charcoal">Coverage {coverage}%.</span>{' '}
           {coverageCaveat(coverage)}
         </p>
       </div>
 
       {viability.caps.length > 0 ? (
-        <div className="rounded-xl border border-danger/20 bg-danger-soft p-4">
+        <div className="rounded-2xl border border-danger/20 bg-danger-soft p-4">
           <p className="text-sm font-medium text-danger">
             Score capped at {viability.score} (it would otherwise be {viability.rawScore})
           </p>
@@ -111,8 +111,7 @@ export function ScoreBreakdown({
             ))}
           </ul>
           <p className="mt-2 text-xs text-danger/80">
-            A conflict this direct outweighs everything else, so the score is capped rather than
-            averaged.
+            A direct conflict caps the score.
           </p>
         </div>
       ) : null}

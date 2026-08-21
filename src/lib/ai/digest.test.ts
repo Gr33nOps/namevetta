@@ -47,6 +47,7 @@ function summary(results: SourceResult[]): ScanSummary {
       rawScore: 60,
       caps: [{ reason: 'Exact major same-industry business', maximum: 55 }],
       groups: [],
+      conflicts: [],
       scoringVersion: 1,
     },
     coverage: 71,
@@ -55,11 +56,13 @@ function summary(results: SourceResult[]): ScanSummary {
 
 describe('buildDigest', () => {
   it('carries the headline figures through unchanged', () => {
-    const { digest } = buildDigest({ ctx, summary: summary([]) })
+    const { digest, facts } = buildDigest({ ctx, summary: summary([]) })
     expect(digest.name).toBe('Envryn')
     expect(digest.score).toBe(55)
     expect(digest.coverage).toBe(71)
     expect(digest.caps).toEqual(['Exact major same-industry business'])
+    expect(facts.coveragePercent).toBe(71)
+    expect(facts.verifiedSourceCount).toBe(0)
   })
 
   it('sorts findings by severity, active before inactive at equal severity', () => {

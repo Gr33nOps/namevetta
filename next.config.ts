@@ -22,15 +22,48 @@ import { withSentryConfig } from '@sentry/nextjs'
  * request, this trade stops being safe and the nonce is the answer, not a
  * bigger allowlist.
  *
- * `connect-src`/`img-src`/`font-src` stay at `'self'` because nothing in this
- * app talks to a third party from the browser: Supabase, Tavily, Groq,
- * Companies House and every other source are called server-side only, and
- * fonts are self-hosted via `next/font`. Cloudflare Turnstile is the one
- * deliberate exception, allowed only for the paths that render its widget.
+ * `img-src`/`font-src` stay at `'self'` because nothing in this app loads a
+ * third-party asset: fonts are self-hosted via `next/font`, and Tavily, Groq,
+ * Companies House and every other source are called server-side only.
+ *
+ * `connect-src` has two deliberate exceptions. Cloudflare Turnstile, for the
+ * paths that render its widget, and Supabase — whose auth client runs in the
+ * browser for the session-dependent header and the password-reset flow. See
+ * `supabaseOrigin` below for what leaving it out cost.
  */
 const isDev = process.env.NODE_ENV === 'development'
 
 const TURNSTILE_ORIGIN = 'https://challenges.cloudflare.com'
+
+/**
+ * Supabase's own origin, which the browser genuinely does need to reach.
+ *
+ * The comment below used to claim nothing in this app talks to a third party
+ * from the browser. That stopped being true the moment `NavSession` and the
+ * password-reset form started calling `supabase.auth` client-side, and because
+ * `connect-src` did not list it, every one of those calls was blocked by our
+ * own policy. supabase-js reports a blocked request as "no user", so a signed-in
+ * visitor was shown a "Sign up" button, and the session handed over in a
+ * verification link could never be exchanged — you had to sign in by hand
+ * afterwards. Both looked like auth bugs and were a header.
+ *
+ * Derived from the configured URL rather than written out, so a project move
+ * cannot leave a stale hostname allowlisted, and omitted entirely when the app
+ * runs without a database.
+ */
+const supabaseOrigin = (() => {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (url === undefined || url === '') return undefined
+  try {
+    return new URL(url).origin
+  } catch {
+    return undefined
+  }
+})()
+
+/** Realtime uses the same host over WebSocket, which `connect-src` also governs. */
+const supabaseConnect =
+  supabaseOrigin === undefined ? '' : ` ${supabaseOrigin} ${supabaseOrigin.replace(/^https/, 'wss')}`
 
 const csp = [
   `default-src 'self'`,
@@ -41,7 +74,7 @@ const csp = [
   `style-src 'self' 'unsafe-inline'`,
   `img-src 'self' data:`,
   `font-src 'self'`,
-  `connect-src 'self' ${TURNSTILE_ORIGIN}`,
+  `connect-src 'self' ${TURNSTILE_ORIGIN}${supabaseConnect}`,
   `frame-src ${TURNSTILE_ORIGIN}`,
   `object-src 'none'`,
   `base-uri 'self'`,
@@ -64,6 +97,39 @@ const securityHeaders = [
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
 ]
 
+/**
+ * Routes whose response must never sit in a shared cache.
+ *
+ * `/auth/reset` was the one that prompted this: it has no dynamic data of its
+ * own, so it was statically prerendered and served with a public,
+ * revalidating cache policy — a page in an authentication flow, cacheable by
+ * any intermediary. The rest are here because each one renders somebody's
+ * account, their research, or a link they chose to share.
+ *
+ * Deliberately a list, not a wildcard. Caching is what keeps this deployment
+ * inside a free tier; the marketing pages and the status page should stay
+ * cacheable, and turning it off everywhere to fix four routes would be a
+ * worse trade than the bug.
+ */
+const PRIVATE_ROUTES = [
+  '/auth',
+  '/auth/:path*',
+  '/account',
+  '/account/:path*',
+  '/history',
+  '/saved',
+  // A shared report is unlisted, not public: the token is the only thing
+  // keeping it private, and a shared cache holding the response defeats that.
+  '/r/:path*',
+]
+
+const noStore = [
+  {
+    key: 'Cache-Control',
+    value: 'private, no-store, no-cache, must-revalidate, max-age=0',
+  },
+]
+
 const nextConfig: NextConfig = {
   // Framework fingerprinting is a small, free thing to not hand an attacker.
   poweredByHeader: false,
@@ -74,6 +140,7 @@ const nextConfig: NextConfig = {
         source: '/(.*)',
         headers: securityHeaders,
       },
+      ...PRIVATE_ROUTES.map((source) => ({ source, headers: noStore })),
     ]
   },
 }
@@ -88,7 +155,7 @@ const nextConfig: NextConfig = {
  *
  * `tunnelRoute` sends client-side error reports through this app's own
  * `/monitoring` path rather than directly to Sentry's ingest domain. That is
- * what lets `connect-src` in the CSP above stay at `'self'` — the browser
+ * what keeps Sentry's ingest domain out of `connect-src` above — the browser
  * never needs to know Sentry's domain at all, so there is nothing to
  * allowlist and nothing that changes if the Sentry project or region ever
  * does.

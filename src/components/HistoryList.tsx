@@ -4,22 +4,11 @@ import Link from 'next/link'
 import { useMemo, useState, useTransition } from 'react'
 import { removeScan, shareScan } from '@/app/history/actions'
 import { Badge } from '@/components/ui/Badge'
+import { TimeAgo } from '@/components/ui/TimeAgo'
 import { CATEGORY_LABELS, type Category } from '@/lib/core/scan'
 import type { HistoryEntry } from '@/lib/db/history'
 import { VERDICT_PRESENTATION } from '@/lib/presentation'
 import type { Verdict } from '@/lib/scoring/viability'
-
-function timeAgo(iso: string): string {
-  const seconds = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
-  if (seconds < 60) return 'just now'
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  if (days < 30) return `${days}d ago`
-  return new Date(iso).toLocaleDateString()
-}
 
 /** Buckets an entry by its verdict tone, so filtering reuses the same colour
  * language as the badge the user already sees on every row. */
@@ -29,7 +18,7 @@ const FILTER_LABELS: Record<Exclude<FilterBucket, 'all'>, string> = {
   ok: 'Clear',
   warn: 'Review',
   danger: 'Conflict',
-  none: 'No report',
+  none: 'Incomplete',
 }
 
 function bucketFor(entry: HistoryEntry): FilterBucket {
@@ -56,6 +45,23 @@ function sortEntries(entries: HistoryEntry[], sort: SortKey): HistoryEntry[] {
   }
 }
 
+/**
+ * Where a history row goes, and where it deliberately does not.
+ *
+ * The name opens the report that was recorded. "Research again" is the only
+ * thing that starts a new check, and it says so — every row used to link
+ * straight at a fresh scan, so opening your own history spent an allowance
+ * unit per click and wrote a duplicate entry while doing it.
+ */
+function hrefsFor(entry: HistoryEntry): { viewHref: string; rerunHref: string } {
+  const deep = entry.scanType === 'deep' ? '&deep=1' : ''
+  const name = encodeURIComponent(entry.name)
+  return {
+    viewHref: `/n/${name}?as=${entry.category}${deep}&scan=${encodeURIComponent(entry.id)}`,
+    rerunHref: `/n/${name}?as=${entry.category}${deep}`,
+  }
+}
+
 /** Share/delete state and mutations, shared by both the card and table row. */
 function useRowActions(entry: HistoryEntry) {
   const [pending, startTransition] = useTransition()
@@ -70,7 +76,7 @@ function useRowActions(entry: HistoryEntry) {
         setShareUrl(result.url)
         setError(undefined)
       } else {
-        setError(result.error ?? 'Could not create a link.')
+        setError(result.error ?? 'Couldn\'t create a link.')
       }
     })
   }
@@ -79,7 +85,7 @@ function useRowActions(entry: HistoryEntry) {
     startTransition(async () => {
       const result = await removeScan(entry.id)
       if (result.ok) setRemoved(true)
-      else setError(result.error ?? 'Could not delete.')
+      else setError(result.error ?? 'Couldn\'t delete it.')
     })
   }
 
@@ -100,9 +106,9 @@ function FilterChip({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`rounded-full border px-3 py-1 text-xs transition ${
+      className={`min-h-9 rounded-xl border px-3 py-1 text-xs transition ${
         active
-          ? 'border-accent bg-accent-soft font-medium text-accent'
+          ? 'border-accent bg-accent-soft font-medium text-accent-ink'
           : 'border-line text-charcoal-2 hover:border-line-strong'
       }`}
     >
@@ -117,28 +123,29 @@ function Row({ entry }: { entry: HistoryEntry }) {
 
   const verdict = entry.verdict as Verdict | undefined
   const presentation = verdict !== undefined ? VERDICT_PRESENTATION[verdict] : undefined
-  const rerunHref = `/scan?name=${encodeURIComponent(entry.name)}&category=${entry.category}&type=${entry.scanType}`
+  const { viewHref, rerunHref } = hrefsFor(entry)
 
   return (
-    <li className="rounded-xl border border-line bg-surface p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <li className="card rounded-xl px-4 py-3.5">
+      <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="font-medium">{entry.name}</h3>
-          <p className="mt-0.5 text-xs text-faint">
+          <h3 className="font-medium">
+            <Link href={viewHref} className="inline-flex min-h-7 items-center hover:text-accent-ink">
+              {entry.name}
+            </Link>
+          </h3>
+          <p className="mt-0.5 truncate text-xs text-faint">
             {CATEGORY_LABELS[entry.category as Category] ?? entry.category} ·{' '}
             {entry.scanType === 'deep' ? 'Deep Research' : 'Quick Check'} ·{' '}
-            {timeAgo(entry.createdAt)}
+            <TimeAgo iso={entry.createdAt} />
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex shrink-0 items-center gap-2.5">
           {entry.score !== undefined ? (
             <div className="text-right">
-              <span className="font-mono text-xl font-bold">{entry.score}</span>
+              <span className="font-mono text-lg font-bold">{entry.score}</span>
               <span className="ml-1 text-xs text-faint">/ 100</span>
-              {entry.coverage !== undefined ? (
-                <p className="text-[11px] text-faint">{entry.coverage}% coverage</p>
-              ) : null}
             </div>
           ) : (
             <Badge tone="unknown">{entry.status === 'running' ? 'Incomplete' : 'No report'}</Badge>
@@ -151,38 +158,49 @@ function Row({ entry }: { entry: HistoryEntry }) {
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div className="mt-2.5 flex items-center justify-between gap-3">
         <Link
-          href={rerunHref}
-          className="rounded-lg border border-line px-2.5 py-1.5 text-xs transition-colors hover:border-accent hover:text-accent"
+          href={viewHref}
+          className="inline-flex min-h-9 items-center gap-1 rounded-lg text-xs font-semibold text-accent-ink transition-colors hover:text-charcoal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          Research again
+          Open report <span aria-hidden="true">→</span>
         </Link>
-
-        {entry.score !== undefined ? (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={onShare}
-            className="rounded-lg border border-line px-2.5 py-1.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-          >
-            Share privately
-          </button>
-        ) : null}
-
-        <button
-          type="button"
-          disabled={pending}
-          onClick={onDelete}
-          className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-charcoal-2 transition-colors hover:border-danger hover:text-danger disabled:opacity-50"
-        >
-          Delete
-        </button>
+        <details className="group relative">
+          <summary className="min-h-9 cursor-pointer list-none rounded-lg border border-line px-3 py-2 text-xs text-charcoal-2 marker:content-none transition-colors hover:border-line-strong hover:text-charcoal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+            Actions <span aria-hidden="true" className="ml-1 text-faint group-open:hidden">+</span><span aria-hidden="true" className="ml-1 text-faint hidden group-open:inline">−</span>
+          </summary>
+          <div className="absolute right-0 z-10 mt-2 flex min-w-40 flex-col gap-1 rounded-xl border border-line-strong bg-surface p-1.5 shadow-card">
+            <Link
+              href={rerunHref}
+              className="rounded-lg px-2.5 py-2 text-xs text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal"
+            >
+              Research again
+            </Link>
+            {entry.score !== undefined ? (
+              <button
+                type="button"
+                disabled={pending}
+                onClick={onShare}
+                className="rounded-lg px-2.5 py-2 text-left text-xs text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal disabled:opacity-50"
+              >
+                Share privately
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={pending}
+              onClick={onDelete}
+              className="rounded-lg px-2.5 py-2 text-left text-xs text-charcoal-2 transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </div>
+        </details>
       </div>
 
       {shareUrl !== undefined ? (
         <div className="mt-3 rounded-lg border border-accent-border bg-accent-soft p-3">
-          <p className="text-xs font-medium text-accent">Anyone with this link can view the report</p>
+          <p className="text-xs font-medium text-accent-ink">Anyone with this link can view this report</p>
           <div className="mt-1.5 flex items-center gap-2">
             <code className="flex-1 overflow-x-auto whitespace-nowrap rounded bg-surface px-2 py-1 font-mono text-[11px]">
               {shareUrl}
@@ -190,7 +208,7 @@ function Row({ entry }: { entry: HistoryEntry }) {
             <button
               type="button"
               onClick={() => void navigator.clipboard.writeText(shareUrl)}
-              className="rounded border border-accent-border px-2 py-1 text-[11px] text-accent"
+              className="rounded border border-accent-border px-2 py-1 text-[11px] text-accent-ink"
             >
               Copy
             </button>
@@ -209,13 +227,13 @@ function TableRow({ entry }: { entry: HistoryEntry }) {
 
   const verdict = entry.verdict as Verdict | undefined
   const presentation = verdict !== undefined ? VERDICT_PRESENTATION[verdict] : undefined
-  const rerunHref = `/scan?name=${encodeURIComponent(entry.name)}&category=${entry.category}&type=${entry.scanType}`
+  const { viewHref, rerunHref } = hrefsFor(entry)
 
   return (
     <>
       <tr className="border-b border-line last:border-b-0 hover:bg-muted-bg/50">
         <td className="p-3">
-          <Link href={rerunHref} className="font-medium hover:text-accent">
+          <Link href={viewHref} className="font-medium hover:text-accent-ink">
             {entry.name}
           </Link>
           <p className="text-xs text-faint">
@@ -240,31 +258,29 @@ function TableRow({ entry }: { entry: HistoryEntry }) {
             </Badge>
           )}
         </td>
-        <td className="p-3 text-sm text-charcoal-2">{timeAgo(entry.createdAt)}</td>
+        <td className="p-3 text-sm text-charcoal-2"><TimeAgo iso={entry.createdAt} /></td>
         <td className="p-3 text-sm text-charcoal-2">
           {entry.scanType === 'deep' ? 'Deep' : 'Quick'}
         </td>
-        <td className="p-3">
-          <div className="flex items-center justify-end gap-3 text-xs">
-            {entry.score !== undefined ? (
-              <button
-                type="button"
-                disabled={pending}
-                onClick={onShare}
-                className="text-charcoal-2 transition-colors hover:text-accent disabled:opacity-50"
-              >
-                Share
+        <td className="p-3 text-right">
+          <details className="group relative inline-block text-left">
+            <summary className="cursor-pointer list-none rounded-lg border border-line px-2.5 py-1.5 text-xs text-charcoal-2 marker:content-none transition-colors hover:border-line-strong hover:text-charcoal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+              Actions <span aria-hidden="true" className="ml-1 text-faint group-open:hidden">+</span><span aria-hidden="true" className="ml-1 hidden text-faint group-open:inline">−</span>
+            </summary>
+            <div className="absolute right-0 z-10 mt-2 flex min-w-40 flex-col gap-1 rounded-xl border border-line-strong bg-surface p-1.5 shadow-card">
+              <Link href={rerunHref} className="rounded-lg px-2.5 py-2 text-xs text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal">
+                Research again
+              </Link>
+              {entry.score !== undefined ? (
+                <button type="button" disabled={pending} onClick={onShare} className="rounded-lg px-2.5 py-2 text-left text-xs text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal disabled:opacity-50">
+                  Share privately
+                </button>
+              ) : null}
+              <button type="button" disabled={pending} onClick={onDelete} className="rounded-lg px-2.5 py-2 text-left text-xs text-charcoal-2 transition-colors hover:bg-danger-soft hover:text-danger disabled:opacity-50">
+                Delete
               </button>
-            ) : null}
-            <button
-              type="button"
-              disabled={pending}
-              onClick={onDelete}
-              className="text-charcoal-2 transition-colors hover:text-danger disabled:opacity-50"
-            >
-              Delete
-            </button>
-          </div>
+            </div>
+          </details>
         </td>
       </tr>
 
@@ -279,7 +295,7 @@ function TableRow({ entry }: { entry: HistoryEntry }) {
                 <button
                   type="button"
                   onClick={() => void navigator.clipboard.writeText(shareUrl)}
-                  className="rounded border border-accent-border px-2 py-1 text-[11px] text-accent"
+                  className="rounded border border-accent-border px-2 py-1 text-[11px] text-accent-ink"
                 >
                   Copy
                 </button>
@@ -338,34 +354,34 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
 
   if (entries.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-line-strong bg-surface p-10 text-center">
-        <h2 className="text-lg font-semibold">No research yet</h2>
+      <div className="rounded-2xl border border-dashed border-line-strong bg-surface p-10 text-center">
+        <h2 className="text-lg font-semibold">No checks yet</h2>
         <p className="mx-auto mt-2 max-w-sm text-sm text-charcoal-2">
-          Every name you research appears here, with its evidence, so you can come back to it.
+          Your saved reports will appear here.
         </p>
         <Link
           href="/"
-          className="mt-5 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+          className="mt-5 btn-primary rounded-xl px-4 py-2 text-sm"
         >
-          Research a name
+          Check a name
         </Link>
       </div>
     )
   }
 
   return (
-    <div>
+    <div className="flex flex-col items-center">
       <input
         type="search"
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
-        placeholder="Search by name…"
+        placeholder="Find a name"
         aria-label="Search history by name"
-        className="w-full max-w-xs rounded-lg border border-line bg-surface px-3 py-1.5 text-sm text-charcoal outline-none transition-colors placeholder:text-faint focus:border-accent-border focus-visible:ring-2 focus-visible:ring-accent/40"
+        className="w-full max-w-xs field rounded-xl px-3 py-1.5 text-sm text-charcoal"
       />
 
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
+      <div className="mt-3 flex w-full flex-col items-center gap-3">
+        <div className="flex flex-wrap justify-center gap-1.5">
           <FilterChip label="All" active={filter === 'all'} onClick={() => onFilterChange('all')} />
           {(Object.keys(FILTER_LABELS) as Exclude<FilterBucket, 'all'>[]).map((bucket) => (
             <FilterChip
@@ -377,13 +393,13 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center justify-center gap-3">
           <label className="flex items-center gap-2 text-xs text-faint">
             Sort
             <select
               value={sort}
               onChange={(e) => onSortChange(e.target.value as SortKey)}
-              className="rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-charcoal outline-none transition-colors focus:border-accent-border focus-visible:ring-2 focus-visible:ring-accent/40"
+              className="field rounded-xl px-2 py-1.5 text-sm text-charcoal"
             >
               <option value="newest">Newest first</option>
               <option value="oldest">Oldest first</option>
@@ -398,7 +414,7 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
             <select
               value={pageSize}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="rounded-lg border border-line bg-surface px-2 py-1.5 text-sm text-charcoal outline-none transition-colors focus:border-accent-border focus-visible:ring-2 focus-visible:ring-accent/40"
+              className="field rounded-xl px-2 py-1.5 text-sm text-charcoal"
             >
               {PAGE_SIZES.map((size) => (
                 <option key={size} value={size}>
@@ -411,10 +427,10 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
       </div>
 
       {sorted.length === 0 ? (
-        <p className="mt-6 text-sm text-faint">No research matches this filter.</p>
+        <p className="mt-6 text-sm text-faint">No reports match this filter.</p>
       ) : (
         <>
-          <div className="mt-4 hidden overflow-x-auto rounded-xl border border-line bg-surface md:block">
+          <div className="mt-4 hidden w-full overflow-x-auto card rounded-2xl md:block">
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-line bg-muted-bg text-xs uppercase tracking-wide text-faint">
@@ -434,7 +450,7 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
             </table>
           </div>
 
-          <ul className="mt-4 space-y-3 md:hidden">
+          <ul className="mt-4 w-full space-y-3 md:hidden">
             {pageItems.map((entry) => (
               <Row key={entry.id} entry={entry} />
             ))}
@@ -451,7 +467,7 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
                   type="button"
                   disabled={currentPage <= 1}
                   onClick={() => setPage(currentPage - 1)}
-                  className="rounded-lg border border-line px-3 py-1.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:text-charcoal-2"
+                  className="rounded-lg border border-line px-3 py-1.5 text-xs transition-colors hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:text-charcoal-2"
                 >
                   Previous
                 </button>
@@ -462,7 +478,7 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
                   type="button"
                   disabled={currentPage >= pageCount}
                   onClick={() => setPage(currentPage + 1)}
-                  className="rounded-lg border border-line px-3 py-1.5 text-xs transition-colors hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:text-charcoal-2"
+                  className="rounded-lg border border-line px-3 py-1.5 text-xs transition-colors hover:border-accent hover:text-accent-ink disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-line disabled:hover:text-charcoal-2"
                 >
                   Next
                 </button>

@@ -25,21 +25,34 @@ import { runScan, type ScanSummary } from '@/lib/orchestrator/run'
  */
 export const maxDuration = 120
 export const dynamic = 'force-dynamic'
+const API_NO_STORE = 'no-store, no-transform'
+
+function apiError(error: string, status: number): Response {
+  return Response.json({ error }, { status, headers: { 'cache-control': API_NO_STORE } })
+}
+
+export function GET(): Response {
+  return Response.json(
+    { error: 'Use POST to start a scan.' },
+    { status: 405, headers: { allow: 'POST, OPTIONS', 'cache-control': API_NO_STORE } },
+  )
+}
+
+export function OPTIONS(): Response {
+  return new Response(null, { status: 204, headers: { allow: 'POST, OPTIONS', 'cache-control': API_NO_STORE } })
+}
 
 export async function POST(req: Request): Promise<Response> {
   let body: unknown
   try {
     body = await req.json()
   } catch {
-    return Response.json({ error: 'Request body must be JSON' }, { status: 400 })
+    return apiError('Request body must be JSON', 400)
   }
 
   const parsed = ScanContextSchema.safeParse(body)
   if (!parsed.success) {
-    return Response.json(
-      { error: parsed.error.issues[0]?.message ?? 'Invalid request' },
-      { status: 400 },
-    )
+    return apiError(parsed.error.issues[0]?.message ?? 'Invalid request', 400)
   }
   const ctx = parsed.data
 
@@ -56,18 +69,12 @@ export async function POST(req: Request): Promise<Response> {
       // No session and no usable address means no way to enforce a limit.
       // Refusing is the only honest option — the alternative is an unlimited
       // free tier for anyone who can strip a header.
-      return Response.json(
-        { error: 'Could not identify the request for usage limiting.' },
-        { status: 400 },
-      )
+      return apiError('Could not identify the request for usage limiting.', 400)
     }
 
     const decision = await consumeQuota(subject, ctx.scanType)
     if (!decision.allowed) {
-      return Response.json(
-        { error: decision.message ?? 'Daily limit reached.' },
-        { status: 429 },
-      )
+      return apiError(decision.message ?? 'Daily limit reached.', 429)
     }
 
     scanId = (await createScan(ctx, subject))?.id
@@ -139,7 +146,7 @@ export async function POST(req: Request): Promise<Response> {
   return new Response(stream, {
     headers: {
       'content-type': 'application/x-ndjson; charset=utf-8',
-      'cache-control': 'no-store, no-transform',
+      'cache-control': API_NO_STORE,
       // Disable proxy buffering so events actually arrive incrementally.
       'x-accel-buffering': 'no',
     },

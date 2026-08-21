@@ -6,21 +6,24 @@
  * literals. Keeping the one copy here rather than one per image route is what
  * stops the two drifting apart the next time the palette moves.
  *
- * These are the **light** values from `:root` in `globals.css`. A social card
- * is a fixed PNG with no viewer theme to respect, so it always renders light.
+ * These are the values from `:root` in `globals.css`, transcribed. `line` is
+ * the one that cannot be copied straight across: on the page it is ink at 8%
+ * alpha, and Satori is painting it onto a known canvas, so what is written
+ * here is that composite.
  */
 export const BRAND = {
-  charcoal: '#16151F',
-  charcoal2: '#4A4959',
-  canvas: '#FAFAFC',
+  charcoal: '#17152B',
+  charcoal2: '#4B4869',
+  canvas: '#F7F7FC',
   surface: '#FFFFFF',
   accent: '#635BFF',
-  line: '#E7E6F0',
+  accentEnd: '#8B7CFF',
+  line: '#E5E5EB',
 } as const
 
 /** The status ramp, same source, for tone-coloured text in an OG image. */
 export const BRAND_TONE: Record<string, string> = {
-  ok: '#059669',
-  warn: '#D97706',
-  danger: '#DC2626',
+  ok: '#06714F',
+  warn: '#96520A',
+  danger: '#C02A1D',
 }

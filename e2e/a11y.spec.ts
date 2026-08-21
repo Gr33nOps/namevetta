@@ -57,7 +57,9 @@ test.describe('landmarks and structure', () => {
     // The table only renders when a database is configured. Where it does, its
     // headers must be real headers.
     if ((await table.count()) === 0) test.skip()
-    await expect(table.locator('th[scope="col"]')).toHaveCount(4)
+    // Five since "When it runs" was added: a reader cannot judge a success
+    // rate without knowing whether the source runs on every search.
+    await expect(table.locator('th[scope="col"]')).toHaveCount(5)
     expect(await table.locator('th[scope="row"]').count()).toBeGreaterThan(0)
   })
 })

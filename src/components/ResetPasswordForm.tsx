@@ -1,7 +1,8 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { browserClient } from '@/lib/db/browserClient'
 
 /**
@@ -17,6 +18,42 @@ export function ResetPasswordForm() {
   const [showPassword, setShowPassword] = useState(false)
   const [pending, setPending] = useState(false)
   const [error, setError] = useState<string | undefined>()
+  const [recovery, setRecovery] = useState<'checking' | 'ready' | 'invalid'>('checking')
+
+  useEffect(() => {
+    let active = true
+    void browserClient()
+      .auth.getSession()
+      .then(({ data, error: sessionError }) => {
+        if (!active) return
+        setRecovery(sessionError === null && data.session !== null ? 'ready' : 'invalid')
+      })
+      .catch(() => {
+        if (active) setRecovery('invalid')
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  if (recovery === 'checking') {
+    return (
+      <div aria-live="polite" aria-busy="true" className="rounded-xl border border-line bg-surface p-6 text-sm text-charcoal-2">
+        Checking reset link…
+      </div>
+    )
+  }
+
+  if (recovery === 'invalid') {
+    return (
+      <div className="rounded-xl border border-danger/25 bg-danger-soft p-6">
+        <p className="text-sm text-danger">That reset link is invalid or has expired.</p>
+        <Link href="/auth" className="mt-4 inline-flex min-h-10 items-center rounded-xl border border-danger/35 px-3 text-sm font-medium text-danger focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+          Request another reset link
+        </Link>
+      </div>
+    )
+  }
 
   const submit = async (e: React.FormEvent): Promise<void> => {
     e.preventDefault()
@@ -31,9 +68,7 @@ export function ResetPasswordForm() {
 
     setPending(false)
     if (updateError !== null) {
-      setError(
-        'Could not update your password. The reset link may have expired — request a new one.',
-      )
+      setError('Could not update your password. The link may have expired. Request a new one.')
       return
     }
     router.push('/history')
@@ -55,7 +90,7 @@ export function ResetPasswordForm() {
             minLength={8}
             autoComplete="new-password"
             placeholder="At least 8 characters"
-            className="w-full rounded-lg border border-line bg-surface px-3 py-2.5 pr-14 text-sm outline-none transition-all placeholder:text-faint focus:border-accent-border focus:ring-2 focus:ring-accent/20"
+            className="w-full field rounded-xl px-3 py-2.5 pr-14 text-sm"
           />
           <button
             type="button"
@@ -76,9 +111,9 @@ export function ResetPasswordForm() {
       <button
         type="submit"
         disabled={pending}
-        className="mt-4 w-full rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-accent-hover disabled:opacity-50"
+        className="mt-4 w-full btn-primary rounded-xl px-4 py-2.5 text-sm disabled:opacity-50"
       >
-        {pending ? 'Working…' : 'Set new password'}
+        {pending ? 'Saving…' : 'Set new password'}
       </button>
     </form>
   )

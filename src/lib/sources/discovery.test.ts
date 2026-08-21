@@ -246,8 +246,15 @@ describe('socials adapter', () => {
   it('provides a working profile link for every platform', async () => {
     const result = await socialsAdapter.run(ctx, deps())
     const linked = result.evidence.filter((e) => e.url !== undefined)
-    expect(linked.length).toBeGreaterThanOrEqual(6)
+
+    // One link per platform this adapter speaks for, whatever that list holds:
+    // a platform leaves it whenever it becomes checkable properly, and the
+    // point of this test is that none is left without a way to check it.
+    const platforms = result.meta?.['platforms']
+    expect(Array.isArray(platforms)).toBe(true)
+    expect(linked.length).toBe((platforms as unknown[]).length)
     for (const e of linked) expect(e.url).toMatch(/^https:\/\//)
+    for (const p of platforms as { url?: string }[]) expect(p.url).toMatch(/^https:\/\//)
   })
 
   it('uses the normalized handle in profile URLs', async () => {

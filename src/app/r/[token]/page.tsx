@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Badge } from '@/components/ui/Badge'
+import { absoluteDate } from '@/components/ui/TimeAgo'
 import { CATEGORY_LABELS, type Category } from '@/lib/core/scan'
 import { sharedReport } from '@/lib/db/history'
 import {
@@ -40,7 +41,7 @@ export async function generateMetadata({
     description:
       report === undefined
         ? 'This shared report is no longer available.'
-        : `Digital Viability ${report.score}/100, Research Coverage ${report.coverage}%. ${SCOPE_NOTICE}`,
+        : `Score ${report.score}/100. Research coverage ${report.coverage}%. ${SCOPE_NOTICE}`,
     // Deliberately never indexed — see the note above.
     robots: { index: false, follow: false },
   }
@@ -60,18 +61,18 @@ export default async function Page({ params }: PageProps<'/r/[token]'>) {
 
   return (
     <div className="mx-auto w-full max-w-[720px] px-6 py-14">
-      <section className="rounded-xl border border-line bg-surface p-6 sm:p-8">
-        <h1 className="font-display text-3xl font-semibold tracking-tight sm:text-4xl">
-          {report.name}
-        </h1>
-        {report.description !== undefined ? (
-          <p className="mt-1 text-sm text-charcoal-2">{report.description}</p>
-        ) : null}
+      <section className="card rounded-2xl p-6 sm:p-8">
+        <div className="text-center">
+          <h1 className="font-display text-3xl font-semibold sm:text-4xl">{report.name}</h1>
+          {report.description !== undefined ? (
+            <p className="mt-2 text-sm text-charcoal-2">{report.description}</p>
+          ) : null}
+        </div>
 
         <div className="mt-8 grid gap-8 sm:grid-cols-2">
           <div>
             <p className="font-mono text-[11px] uppercase tracking-widest text-faint">
-              Digital Viability
+              Score
             </p>
             <p className="mt-1 flex items-baseline gap-1">
               <span className="font-display text-5xl font-semibold tabular-nums">
@@ -115,19 +116,25 @@ export default async function Page({ params }: PageProps<'/r/[token]'>) {
           {CATEGORY_LABELS[report.category as Category] ?? report.category}
         </strong>{' '}
         · {report.scanType === 'deep' ? 'Deep Research' : 'Quick Check'} ·{' '}
-        {new Date(report.createdAt).toLocaleDateString()}
+        {/*
+          A fixed UTC date rather than the runtime's locale. This renders on
+          the server, where "the runtime" is a Vercel function in UTC/en-US and
+          not the reader — and a shared report is read by several people, who
+          should all be looking at the same date.
+        */}
+        {absoluteDate(report.createdAt)}
       </p>
 
       <section className="mt-8 rounded-xl border border-line bg-surface p-5">
-        <h2 className="text-lg font-semibold">Research your own name</h2>
+        <h2 className="text-lg font-semibold">Check another name</h2>
         <p className="mt-1 text-sm text-charcoal-2">
-          Free every day, no sign-up required.
+          Free daily checks. No account needed.
         </p>
         <Link
           href="/"
-          className="mt-4 inline-block rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-accent-hover"
+          className="mt-4 btn-primary rounded-xl px-4 py-2 text-sm"
         >
-          Try NameVetta
+          Check a name
         </Link>
       </section>
 

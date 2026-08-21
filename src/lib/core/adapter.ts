@@ -55,6 +55,8 @@ export type TosPosture =
 
 export interface SourceManifestEntry {
   id: SourceId
+  /** False only for identifiers retained to read historical reports. */
+  active?: false
   /** Shown in the progressive results list (§58). */
   label: string
   /** Which scan types run this source. */
@@ -706,7 +708,10 @@ export const SOURCE_MANIFEST: Record<SourceId, SourceManifestEntry> = {
     id: 'maven_central',
     label: 'Maven Central',
     runsOn: ['quick', 'deep'],
-    timeoutMs: 8_000,
+    // 8s could not cover an attempt, a backoff and a retry against a Solr host
+    // whose slow path is measured in seconds, so the retry almost never ran and
+    // six lookups in ten were recorded as failures. 15s fits both attempts.
+    timeoutMs: 15_000,
     cacheTtlSeconds: 24 * HOUR,
     baseConfidenceCeiling: 85,
     tosPosture: 'official_api',
@@ -810,7 +815,8 @@ export const SOURCE_MANIFEST: Record<SourceId, SourceManifestEntry> = {
   product_hunt: {
     id: 'product_hunt',
     label: 'Product Hunt',
-    runsOn: ['quick', 'deep'],
+    active: false,
+    runsOn: [],
     timeoutMs: 8_000,
     cacheTtlSeconds: 24 * HOUR,
     baseConfidenceCeiling: 85,
@@ -948,14 +954,15 @@ export const SOURCE_MANIFEST: Record<SourceId, SourceManifestEntry> = {
     runsOn: ['quick', 'deep'],
     timeoutMs: 8_000,
     cacheTtlSeconds: 24 * HOUR,
-    baseConfidenceCeiling: 85,
-    tosPosture: 'official_api',
+    // Manual-only, so it shares the ceiling every manual source carries. It is
+    // deliberately the lowest number in the manifest: a link we hand a person
+    // is not a check we performed.
+    baseConfidenceCeiling: 30,
+    // Downgraded from `official_api` after measurement: `{name}.slack.com`
+    // answers 403 with a browser-not-supported page for every workspace that
+    // exists, which is a block rather than a verdict. See the adapter.
+    tosPosture: 'manual_only',
     metered: false,
-    rateLimit: {
-      requestsPerMinute: 30,
-      documented: false,
-      note: 'One lookup per scan against a public endpoint; a courtesy ceiling, not a published one.',
-    },
   },
   patreon: {
     id: 'patreon',
@@ -975,7 +982,8 @@ export const SOURCE_MANIFEST: Record<SourceId, SourceManifestEntry> = {
   lastfm: {
     id: 'lastfm',
     label: 'last.fm',
-    runsOn: ['quick', 'deep'],
+    active: false,
+    runsOn: [],
     timeoutMs: 8_000,
     cacheTtlSeconds: 24 * HOUR,
     baseConfidenceCeiling: 85,
@@ -1036,5 +1044,79 @@ export const SOURCE_MANIFEST: Record<SourceId, SourceManifestEntry> = {
 
 /** Sources that run for a given scan type, in manifest order. */
 export function sourcesFor(scanType: ScanType): SourceManifestEntry[] {
-  return Object.values(SOURCE_MANIFEST).filter((s) => s.runsOn.includes(scanType))
+  return activeSources().filter((s) => s.runsOn.includes(scanType))
+}
+
+/** Active catalog entries. Legacy IDs remain in the schema for old reports. */
+export function activeSources(): SourceManifestEntry[] {
+  return Object.values(SOURCE_MANIFEST).filter((source) => source.active !== false)
+}
+
+export function isActiveSource(id: SourceId): boolean {
+  return SOURCE_MANIFEST[id].active !== false
+}
+
+/* -------------------------------------------------------------------------- */
+/* Counting sources honestly                                                  */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * How many sources there are, and how many any given search actually asks.
+ *
+ * These are three different numbers and the site used to print one of them
+ * under three different sentences. "60 sources checked on every search" was
+ * false in two directions at once: seven of the sixty only run on a Deep
+ * Check, and some of the fifty-three that do run on a Quick Check are
+ * category-specific or manual and answer nothing on most scans.
+ *
+ * Everything user-facing derives from here rather than from a literal, so a
+ * source added to the manifest updates the copy and a source removed cannot
+ * leave a stale number behind.
+ */
+export interface SourceCounts {
+  /** Every active catalog entry, whether or not a given search runs it. */
+  catalog: number
+  /** Sources a Quick Check asks. */
+  quick: number
+  /** Sources a Deep Check asks. */
+  deep: number
+  /** Sources we never assert from automatically — the user checks them. */
+  manual: number
+  /** Sources whose answer depends on what is being named (see `play_store`). */
+  categoryDependent: number
+  /** Sources on the deep set only. */
+  deepOnly: number
+}
+
+/**
+ * Sources that only spend their (metered, shared) budget when the category
+ * makes it worth spending.
+ *
+ * Declared rather than inferred: an adapter that decides for itself whether to
+ * run is a fact about the product, and the status page has to be able to say
+ * so without importing every adapter to find out.
+ */
+export const CATEGORY_DEPENDENT_SOURCES: readonly SourceId[] = ['play_store']
+
+export function isCategoryDependent(id: SourceId): boolean {
+  return CATEGORY_DEPENDENT_SOURCES.includes(id)
+}
+
+export function sourceCounts(): SourceCounts {
+  const all = activeSources()
+  const quick = all.filter((s) => s.runsOn.includes('quick'))
+  const deep = all.filter((s) => s.runsOn.includes('deep'))
+  return {
+    catalog: all.length,
+    quick: quick.length,
+    deep: deep.length,
+    manual: all.filter((s) => s.tosPosture === 'manual_only').length,
+    categoryDependent: CATEGORY_DEPENDENT_SOURCES.length,
+    deepOnly: deep.filter((s) => !s.runsOn.includes('quick')).length,
+  }
+}
+
+/** Sources that never run automatically. Listed so the copy can name them. */
+export function manualSources(): SourceManifestEntry[] {
+  return activeSources().filter((s) => s.tosPosture === 'manual_only')
 }

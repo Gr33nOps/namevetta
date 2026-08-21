@@ -96,7 +96,11 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   }
 
   const supabase = await sessionClient()
-  const { data, error } = await supabase.auth.signUp(parsed.data)
+  const origin = await requestOrigin()
+  const { data, error } = await supabase.auth.signUp({
+    ...parsed.data,
+    options: { emailRedirectTo: `${origin}/auth/callback?next=/history` },
+  })
 
   if (error !== null) {
     if (error.status === 429) {
@@ -108,7 +112,7 @@ export async function signUp(_prev: AuthState, formData: FormData): Promise<Auth
   // With email confirmation on, Supabase returns a user but no session.
   if (data.session === null) {
     return {
-      message: 'Check your email for a confirmation link, then sign in.',
+      message: 'Check your email for a confirmation link. It will sign you in.',
     }
   }
 
@@ -139,7 +143,7 @@ export async function requestPasswordReset(
   const origin = await requestOrigin()
   const supabase = await sessionClient()
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data.email, {
-    redirectTo: `${origin}/auth/reset`,
+    redirectTo: `${origin}/auth/callback?next=/auth/reset`,
   })
 
   if (error !== null && error.status === 429) {

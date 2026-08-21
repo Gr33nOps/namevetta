@@ -19,9 +19,8 @@ const LAST_MODIFIED = new Date()
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes: { path: string; changeFrequency: MetadataRoute.Sitemap[number]['changeFrequency']; priority: number }[] = [
     { path: '/', changeFrequency: 'weekly', priority: 1 },
+    { path: '/how-it-works', changeFrequency: 'monthly', priority: 0.6 },
     { path: '/generate', changeFrequency: 'monthly', priority: 0.7 },
-    { path: '/compare', changeFrequency: 'monthly', priority: 0.7 },
-    { path: '/methodology', changeFrequency: 'monthly', priority: 0.6 },
     { path: '/status', changeFrequency: 'daily', priority: 0.3 },
     { path: '/terms', changeFrequency: 'yearly', priority: 0.2 },
     { path: '/privacy', changeFrequency: 'yearly', priority: 0.2 },

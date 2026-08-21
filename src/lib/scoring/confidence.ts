@@ -29,18 +29,43 @@ const HEALTH_FLOOR = 0.8
 const HEALTH_CEILING = 0.98
 
 /**
- * Map a source's reliability onto a 0..1 multiplier (§39: "if a source becomes
+ * The smallest multiplier a struggling source can be reduced to.
+ *
+ * It used to be zero, and zero was a bug with teeth. `computeConfidence`
+ * multiplies by this, `SourceResultSchema` refuses a verified result with
+ * confidence 0 ("we learned nothing" is incompatible with "we found nothing"),
+ * and the orchestrator discards a result that fails the schema as
+ * `INVALID_ADAPTER_OUTPUT` — which it then records as another failure. So a
+ * source that dipped below 80% success had every *successful* answer thrown
+ * away as malformed, pushing it further down, permanently. Maven Central and
+ * Bluesky were both stuck in that loop in production, and their
+ * `INVALID_ADAPTER_OUTPUT` counts were this, not an adapter bug.
+ *
+ * A quarter is low enough that a badly degraded source barely moves a score
+ * (an 85-ceiling source reports 21) and high enough that the answer it did
+ * give is still an answer. Distrusting a source is not the same as discarding
+ * it, and the schema is right that only an unverified status may score zero.
+ */
+const HEALTH_MIN_MULTIPLIER = 0.25
+
+/**
+ * Map a source's reliability onto a multiplier (§39: "if a source becomes
  * unreliable, automatically lower confidence").
  *
  * At or above 98% success the source is trusted fully; it degrades linearly to
- * 0.5 at 80%, and below that the source is treated as worthless rather than
- * merely weak — a source failing one call in five cannot support a claim.
+ * 0.5 at 80%, then keeps degrading — linearly again — to
+ * `HEALTH_MIN_MULTIPLIER` at zero success. Never to zero: see above.
  */
 export function healthMultiplier(health: SourceHealth | undefined): number {
   if (health === undefined || health.samples < MIN_HEALTH_SAMPLES) return 1
   const { successRate } = health
   if (successRate >= HEALTH_CEILING) return 1
-  if (successRate < HEALTH_FLOOR) return 0
+  if (successRate < HEALTH_FLOOR) {
+    // Continue the slope below the floor rather than dropping off a cliff, so
+    // a source at 79% and one at 5% are not treated identically.
+    const ratio = Math.max(0, successRate) / HEALTH_FLOOR
+    return HEALTH_MIN_MULTIPLIER + ratio * (0.5 - HEALTH_MIN_MULTIPLIER)
+  }
   // Linear from 0.5 at the floor to 1.0 at the ceiling.
   const span = HEALTH_CEILING - HEALTH_FLOOR
   return 0.5 + ((successRate - HEALTH_FLOOR) / span) * 0.5
@@ -74,7 +99,18 @@ export function computeConfidence(input: ConfidenceInput): number {
   const health = healthMultiplier(input.health)
   const freshness = input.fromCache ? CACHE_FRESHNESS_MULTIPLIER : 1
 
-  return Math.round(Math.max(0, Math.min(100, ceiling * health * freshness)))
+  /*
+    Floored at 1, not 0.
+
+    `healthMultiplier` no longer returns zero, but rounding still can: a
+    ceiling of 30 against a multiplier of 0.01 rounds to nothing. Confidence 0
+    on a verified status is a schema violation, and the orchestrator's response
+    to a schema violation is to throw the result away — so a rounding artefact
+    would silently delete a real finding. The invariant is worth defending in
+    both places.
+  */
+  const raw = ceiling * health * freshness
+  return Math.max(1, Math.round(Math.min(100, raw)))
 }
 
 /* -------------------------------------------------------------------------- */

@@ -37,6 +37,9 @@ Hard rules, all of them load-bearing:
 - Use ONLY the facts in the digest. Never name a competitor, a company or a
   product that is not listed in "findings". Never state a number that does not
   appear in the digest.
+- Keep each number in its proper role. "coverage" is a percentage, not a
+  number of sources. Only call something a checked source count when the digest
+  explicitly gives that count.
 - Never claim or imply a legal conclusion. Do not say a name is "safe",
   "cleared", "available" in a legal sense, or free of trademark risk. This tool
   does not perform legal or trademark clearance, and the explanation must never

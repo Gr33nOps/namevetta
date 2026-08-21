@@ -23,6 +23,7 @@ import { buildResult, makeEvidence, statusFromMatches, unverifiable } from '@/li
 import { severityFor } from '@/lib/sources/severity'
 import { normalize } from '@/lib/similarity/normalize'
 import { compareNames, containsNameAsWord } from '@/lib/similarity/score'
+import { classifyManualDiscovery } from '@/lib/sources/manual-discovery'
 
 /** Below this a hit is noise rather than a naming concern. */
 const SIMILARITY_FLOOR = 60
@@ -138,6 +139,7 @@ export const webAdapter: SourceAdapter = {
 
     const exactMatches: Match[] = []
     const similarMatches: Match[] = []
+    const manualDiscovery = classifyManualDiscovery(ctx.name, outcome.hits)
     let ignored = 0
     // One brand per domain. Three pages from notion.so are one company, and
     // listing them separately reads as three conflicts.
@@ -236,6 +238,7 @@ export const webAdapter: SourceAdapter = {
       similarMatches: similarMatches.slice(0, 8),
       evidence,
       fromCache: outcome.fromCache,
+      meta: { manualDiscovery },
     })
   },
 }

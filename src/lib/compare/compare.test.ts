@@ -24,6 +24,7 @@ function summary(over: {
       score: over.score ?? 80,
       rawScore: over.score ?? 80,
       caps: over.caps ?? [],
+      conflicts: [],
       scoringVersion: 2,
       groups: (Object.entries(groupValues) as [ScoreGroup, number | null][]).map(
         ([group, subscore]) => ({ group, subscore, weight: 25, contributors: [] }),
@@ -210,5 +211,15 @@ describe('edge cases', () => {
     ])
     expect(result.winner).toBeUndefined()
     expect(result.tooCloseToCall).toBe(true)
+  })
+
+  it('names every candidate in a three-way tie', () => {
+    const result = compareCandidates([
+      candidate('Alpha', { score: 100 }),
+      candidate('Beta', { score: 100 }),
+      candidate('Gamma', { score: 100 }),
+    ])
+    expect(result.winner).toBeUndefined()
+    expect(result.winnerReason).toContain('Alpha, Beta and Gamma')
   })
 })

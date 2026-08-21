@@ -1,45 +1,36 @@
 @import 'tailwindcss';
 
 /*
-  Design tokens, rebuilt around the brand mark (logo.png, solid #635BFF).
+  Design tokens.
 
-  Both a light and a dark palette are defined as the same set of custom
-  properties, redefined per mode — every `bg-accent` / `text-charcoal` /
-  etc. utility Tailwind generates from `@theme` below just reads a CSS
-  variable, so re-pointing the variable is enough to re-theme the whole
-  site without touching component classNames.
+  One palette, defined once. Every `bg-surface` / `text-charcoal` utility
+  Tailwind generates from `@theme` below reads a CSS variable, so the values
+  live in exactly one place and no component className encodes a colour.
 
-  Three states, highest specificity wins so it composes correctly:
-  - `:root`                              → light (default)
-  - `@media (prefers-color-scheme:dark)` → dark, unless the user picked light
-  - `:root[data-theme="dark"]`           → dark, forced regardless of system
+  The palette is light: a near-white lavender page, white surfaces, and ink
+  that is the dark brand colour rather than a neutral grey. The status ramp is
+  the one place the product adds to the design language, and it uses distinct
+  hues on purpose: a check's answer must never be mistakable for chrome.
 
-  The status ramp is the one place the product adds to the design language.
   "Unverified" must never borrow amber — amber reads as "minor problem", and
-  the truth is "no information at all". It gets its own neutral slate
-  instead, so a failed check can never be mistaken for a mild warning or,
-  worse, a pass.
+  the truth is "no information at all". It gets its own neutral slate instead,
+  so a failed check can never be mistaken for a mild warning or, worse, a pass.
 */
 @theme {
-  --font-sans: var(--font-inter), system-ui, sans-serif;
-  /* The webfont was dropped: it carried small uppercase labels that the
-     redesign removed. Anything still using `font-mono` falls back to the
-     system's, which costs nothing to download. */
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-sans: var(--font-outfit), system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-display: var(--font-outfit), system-ui, sans-serif;
 
   --color-canvas: var(--nv-canvas);
   --color-surface: var(--nv-surface);
-  --color-surface-2: var(--nv-surface-2);
-  --color-surface-hover: var(--nv-surface-hover);
   --color-muted-bg: var(--nv-muted-bg);
 
   --color-charcoal: var(--nv-charcoal);
   --color-charcoal-2: var(--nv-charcoal-2);
   --color-faint: var(--nv-faint);
-  --color-faint-2: var(--nv-faint-2);
 
   --color-accent: var(--nv-accent);
+  --color-accent-ink: var(--nv-accent-ink);
   --color-accent-hover: var(--nv-accent-hover);
   --color-accent-soft: var(--nv-accent-soft);
   --color-accent-border: var(--nv-accent-border);
@@ -55,111 +46,216 @@
   --color-danger-soft: var(--nv-danger-soft);
   --color-unknown: var(--nv-unknown);
   --color-unknown-soft: var(--nv-unknown-soft);
+
+  /*
+    The two shadows a call site is allowed to reach for directly. Everything
+    heavier belongs to a surface class (`card`, `panel`, `glass-bar`) rather
+    than to a className, because depth is a property of what a thing *is*, not
+    a decoration applied to it.
+  */
+  --shadow-sm: var(--nv-shadow-sm);
+  --shadow-card: var(--nv-shadow-card);
+
+  /*
+    The radius scale, and all of it. Four steps, each with a job:
+
+      lg  (8px)   a chip, a code line, a small inline control
+      xl  (12px)  every button and every input
+      2xl (16px)  a card
+      panel (20px) the containers a card sits inside
+
+    Tailwind's own `rounded-lg`/`rounded-xl`/`rounded-2xl` are redefined here
+    rather than left at their defaults so the four names *are* the scale: a
+    call site cannot reach for a fifth value without inventing one, and
+    `rounded-[22px]` no longer appears anywhere in the app.
+
+    `rounded-full` survives for tags, status pills, filters and the score ring.
+    Nothing else is a pill.
+  */
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-panel: 20px;
+}
+
+/*
+  Two palettes, and every value in both stated exactly once.
+
+  `light-dark()` is what makes that possible: each token names its light value
+  and its dark one on the same line, and the browser picks between them from
+  the resolved `color-scheme`. The alternative is a second forty-line block
+  under a media query and a third under `[data-theme]`, which is three places
+  for one colour to drift.
+
+  Which palette resolves is decided in one place, the `color-scheme` rules
+  directly below: the system preference by default, overridden by a
+  `data-theme` attribute once the visitor changes it in the current page. On a
+  reload, the bootstrap script in `layout.tsx` marks its own `theme-color`
+  meta node before first paint and the `:has()` rules below read that choice.
+  This keeps the chosen palette without mutating React-owned markup before
+  hydration.
+
+  The dark side is not the light side inverted. The accent fills are identical
+  in both, because #635bff is the one value with an outside reference and white
+  on it clears 4.5:1 either way; everything else is re-picked against a dark
+  ground, so a status colour stays as legible on #16142a as it is on white.
+
+  The print block near the bottom of this file forces the light side back on
+  regardless. Paper has no colour scheme, and printing the dark one would empty
+  a cartridge to produce something unreadable.
+*/
+:root {
+  /* Follow the system, until told otherwise. */
+  color-scheme: light dark;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+/* The pre-paint script owns this meta node, so a persisted choice can affect
+   the palette without mutating React-owned markup before hydration. */
+:root:has(meta[data-nv-theme='light']) {
+  color-scheme: light;
+}
+:root:has(meta[data-nv-theme='dark']) {
+  color-scheme: dark;
 }
 
 :root {
-  color-scheme: light;
+  /* Surfaces. Light: the page is a hair off white and every surface on it is
+     white, so a card reads as a sheet laid on the page. Dark: the same three
+     steps walked the other way, all on the brand hue, so a raised surface
+     reads as lit rather than as a different colour. `muted-bg` is the one step
+     *toward* the canvas, for something set into a card. */
+  --nv-canvas: light-dark(#f7f7fc, #0c0b16);
+  --nv-surface: light-dark(#ffffff, #16142a);
+  --nv-muted-bg: light-dark(#f2f1f9, #1e1c36);
 
-  /* Surfaces */
-  --nv-canvas: #fafafc;
-  --nv-surface: #ffffff;
-  --nv-surface-2: #f6f5fa;
-  --nv-surface-hover: #f6f5fa;
-  --nv-muted-bg: #f2f1f8;
+  /* Ink. The light side's darkest value is the dark brand colour rather than
+     black, so the whole page sits on the same hue family as the mark; the dark
+     side's lightest is tinted the same way rather than being pure white. */
+  --nv-charcoal: light-dark(#17152b, #f5f4fb);
+  --nv-charcoal-2: light-dark(#4b4869, #b6b3cc);
+  --nv-faint: light-dark(#6b6885, #8b88a6);
 
-  /* Ink */
-  --nv-charcoal: #16151f;
-  --nv-charcoal-2: #4a4959;
-  /* Darkened from #78758a — that was 4.46:1 on white, just under the 4.5:1
-     AA floor for small text. This clears it with room to spare. */
-  --nv-faint: #69667b;
-  --nv-faint-2: #a6a4b6;
+  /* Accent - the logo now moves from #635bff to #8b7cff. Those values are
+     tokens rather than one-off decoration: glass highlights, headline accents,
+     and the page atmosphere all use the same transition as the mark.
 
-  /* Accent — the exact brand color from logo.png */
-  --nv-accent: #635bff;
-  --nv-accent-hover: #4f47e8;
-  --nv-accent-soft: #efedff;
-  --nv-accent-border: #d6d2ff;
+     `accent` fills things: a button, a focus ring, a border. One value for
+     both palettes, on purpose.
 
-  /* Lines */
-  --nv-line: #e7e6f0;
-  --nv-line-strong: #d2d0e2;
+     `accent-ink` is that colour moved until it clears 4.5:1 as *text*, which
+     #635bff does not on the light canvas (4.36:1) and would not on a dark one
+     either. It walks down on light and up on dark. Two names because a link
+     and a button are different contrast problems, and one value cannot solve
+     both. */
+  --nv-brand-start: #635bff;
+  --nv-brand-end: #8b7cff;
+  --nv-brand-gradient: linear-gradient(118deg, var(--nv-brand-start) 0%, var(--nv-brand-end) 100%);
+  --nv-accent: var(--nv-brand-start);
+  --nv-accent-ink: light-dark(#514ae0, #a79fff);
+  --nv-accent-hover: var(--nv-brand-end);
+  --nv-accent-soft: light-dark(#efeeff, #201d3d);
+  --nv-accent-border: light-dark(rgb(99 91 255 / 0.32), rgb(147 139 255 / 0.4));
 
-  /* Status */
-  --nv-ok: #059669;
-  --nv-ok-soft: #ecfdf5;
-  --nv-warn: #d97706;
-  --nv-warn-soft: #fffbeb;
-  --nv-danger: #dc2626;
-  --nv-danger-soft: #fef2f2;
-  --nv-unknown: #64748b;
-  --nv-unknown-soft: #f1f5f9;
-}
+  /* Lines. Ink at low alpha on light, light at low alpha on dark, so one value
+     works over the canvas, over a card and over glass alike. Deliberately
+     faint: at these weights a border defines an edge without outlining every
+     box on the page. */
+  --nv-line: light-dark(rgb(23 21 43 / 0.08), rgb(255 255 255 / 0.09));
+  --nv-line-strong: light-dark(rgb(23 21 43 / 0.14), rgb(255 255 255 / 0.17));
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    color-scheme: dark;
+  /* Status. Every one of these is used as text as well as as a fill, so each
+     is picked to clear 4.5:1 against its own side's surfaces - which is why
+     the dark values are not the light ones lightened by a fixed amount. The
+     `-soft` values are the same hue at low alpha: they tint whatever they sit
+     on instead of punching a flat block into it, and they run stronger on
+     dark, where a 9% wash disappears. */
+  --nv-ok: light-dark(#06714f, #34d399);
+  --nv-ok-soft: light-dark(rgb(6 113 79 / 0.09), rgb(52 211 153 / 0.14));
+  --nv-warn: light-dark(#96520a, #fbbf24);
+  --nv-warn-soft: light-dark(rgb(150 82 10 / 0.1), rgb(251 191 36 / 0.14));
+  --nv-danger: light-dark(#c02a1d, #fb7185);
+  --nv-danger-soft: light-dark(rgb(192 42 29 / 0.08), rgb(251 113 133 / 0.14));
+  --nv-unknown: light-dark(#5c5a75, #a5a2bd);
+  --nv-unknown-soft: light-dark(rgb(92 90 117 / 0.08), rgb(165 162 189 / 0.12));
 
-    --nv-canvas: #0c0b13;
-    --nv-surface: #15141f;
-    --nv-surface-2: #1a1926;
-    --nv-surface-hover: #201f2e;
-    --nv-muted-bg: #1c1b29;
+  /*
+    Glass.
 
-    --nv-charcoal: #f3f2f9;
-    --nv-charcoal-2: #b6b4c6;
-    --nv-faint: #85829c;
-    --nv-faint-2: #5d5a72;
+    One recipe, in parts, so every glass surface in the app is the same glass.
+    Three things make it read as glass rather than as a flat box: it is
+    translucent enough to move with what passes behind it, it blurs and
+    slightly saturates that, and it carries a one-pixel highlight along its top
+    edge where a real pane would catch the light. That highlight is white in
+    both palettes but far fainter on dark, where a 70% white hairline reads as
+    a drawn border rather than as light.
 
-    --nv-accent: #7a72ff;
-    --nv-accent-hover: #8d86ff;
-    --nv-accent-soft: #211e3d;
-    --nv-accent-border: #3d3773;
+    The base opacity is a floor, not a target. Anywhere text sits on glass over
+    something busy, the call site raises the opacity rather than the blur -
+    contrast wins over transparency, always.
+  */
+  --nv-glass-bg: light-dark(rgb(255 255 255 / 0.55), rgb(27 25 47 / 0.66));
+  --nv-glass-bg-strong: light-dark(rgb(255 255 255 / 0.72), rgb(29 27 52 / 0.84));
+  --nv-glass-blur: blur(22px) saturate(145%);
+  --nv-glass-border: light-dark(rgb(255 255 255 / 0.74), rgb(255 255 255 / 0.13));
+  --nv-glass-highlight: inset 0 1px 0 light-dark(rgb(255 255 255 / 0.7), rgb(255 255 255 / 0.06));
+  /* The hairline that keeps a pane's edge readable where the highlight cannot:
+     ink on light, and nothing at all on dark, where the border above already
+     does that work and a second ring only muddies it. */
+  --nv-glass-edge: light-dark(rgb(23 21 43 / 0.04), rgb(0 0 0 / 0));
 
-    --nv-line: #29283a;
-    --nv-line-strong: #38364c;
+  /*
+    Shadows. Four steps and no glows.
 
-    --nv-ok: #34d399;
-    --nv-ok-soft: #0c2a20;
-    --nv-warn: #fbbf24;
-    --nv-warn-soft: #2e2107;
-    --nv-danger: #f87171;
-    --nv-danger-soft: #2e1212;
-    --nv-unknown: #94a3b8;
-    --nv-unknown-soft: #1e2530;
-  }
-}
+    Ink at very low alpha with a long, soft spread on light; near-black at much
+    higher alpha on dark, because a shadow on a dark ground has almost no
+    contrast to work with and the light values would be invisible. None of them
+    is tinted with the brand colour, because a purple shadow is a light source
+    that isn't there.
+  */
+  --nv-shadow-sm: 0 1px 2px light-dark(rgb(23 21 43 / 0.05), rgb(0 0 0 / 0.4));
+  --nv-shadow-card: 0 1px 2px light-dark(rgb(23 21 43 / 0.04), rgb(0 0 0 / 0.3));
+  --nv-shadow-glass: 0 14px 42px light-dark(rgb(43 36 92 / 0.1), rgb(0 0 0 / 0.52));
+  --nv-shadow-float: 0 18px 54px light-dark(rgb(43 36 92 / 0.13), rgb(0 0 0 / 0.64));
 
-:root[data-theme='dark'] {
-  color-scheme: dark;
+  /*
+    The page behind everything.
 
-  --nv-canvas: #0c0b13;
-  --nv-surface: #15141f;
-  --nv-surface-2: #1a1926;
-  --nv-surface-hover: #201f2e;
-  --nv-muted-bg: #1c1b29;
+    Three radial washes of brand violet, placed off-centre and far enough apart
+    that none of them reads as a circle. They exist for one reason: a pane of
+    glass over a flat colour is just a pale rectangle. Something has to pass
+    behind it for it to look like glass at all.
 
-  --nv-charcoal: #f3f2f9;
-  --nv-charcoal-2: #b6b4c6;
-  --nv-faint: #85829c;
-  --nv-faint-2: #5d5a72;
+    Roughly twice the alpha on dark. The same 8% that is plainly visible over
+    near-white vanishes over near-black, and glass with nothing behind it is
+    the failure this layer exists to prevent.
 
-  --nv-accent: #7a72ff;
-  --nv-accent-hover: #8d86ff;
-  --nv-accent-soft: #211e3d;
-  --nv-accent-border: #3d3773;
+    The two that carry any weight are anchored to the top corners, which leaves
+    the middle of the page - where the search box and every result live - calm.
+  */
+  --nv-page-wash:
+    radial-gradient(
+      78% 52% at 18% -6%,
+      light-dark(rgb(99 91 255 / 0.15), rgb(99 91 255 / 0.25)) 0%,
+      transparent 62%
+    ),
+    radial-gradient(
+      64% 46% at 88% 4%,
+      light-dark(rgb(139 124 255 / 0.1), rgb(139 124 255 / 0.18)) 0%,
+      transparent 66%
+    ),
+    radial-gradient(
+      52% 38% at 62% 34%,
+      light-dark(rgb(99 91 255 / 0.06), rgb(99 91 255 / 0.12)) 0%,
+      transparent 70%
+    );
 
-  --nv-line: #29283a;
-  --nv-line-strong: #38364c;
-
-  --nv-ok: #34d399;
-  --nv-ok-soft: #0c2a20;
-  --nv-warn: #fbbf24;
-  --nv-warn-soft: #2e2107;
-  --nv-danger: #f87171;
-  --nv-danger-soft: #2e1212;
-  --nv-unknown: #94a3b8;
-  --nv-unknown-soft: #1e2530;
+  /* The one easing curve. Fast out of the gate, long settle. */
+  --nv-ease: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 body {
@@ -167,24 +263,543 @@ body {
   color: var(--color-charcoal);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  transition:
-    background-color 0.15s ease,
-    color 0.15s ease;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
+/*
+  Headings, everywhere.
+
+  The premium of this design is carried by type, not by effects, and the two
+  things that do the carrying are weight and tracking: display sizes are set
+  tight, because at 48px the default spacing reads loose and cheap. Set once
+  here rather than repeated as `tracking-tight` on forty headings.
+*/
+h1,
+h2,
+h3 {
+  letter-spacing: -0.021em;
+}
+
+h1 {
+  letter-spacing: -0.032em;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Surfaces                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/*
+  Three surface levels, and nothing else.
+
+    `card`   level 1. A white sheet on the page: a hairline border, a shadow
+             barely worth the name. This is what ordinary content gets, and
+             most content should not even get this.
+    `panel`  level 2. Glass. Reserved for the things that float above the page
+             or that the page is *about* — the search box, the header, a
+             modal. If everything is glass then nothing is elevated, so this
+             appears a handful of times in the whole app.
+    `inset`  level 0. Something set *into* a card: a stat block, a code line,
+             an error strip. Tinted downward, no shadow, no glass.
+
+  None of them sets a radius. Call sites pick one from the four-step scale in
+  `@theme`, because a full-width panel and a 28px chip want the same border
+  and different corners.
+
+  All of them live in `components` rather than at the top level. A rule outside
+  every layer beats a layered one whatever its specificity, so an unlayered
+  `.card` would win against `hover:border-accent-border` and `bg-accent` alike,
+  and a call site could never say "this one, but filled". In `components` they
+  rank below Tailwind's utilities, which is the whole point: they set the
+  default and a utility beside them overrules it.
+*/
+@layer components {
+  .card {
+    border: 1px solid var(--nv-glass-border);
+    background-color: var(--nv-glass-bg);
+    -webkit-backdrop-filter: var(--nv-glass-blur);
+    backdrop-filter: var(--nv-glass-blur);
+    box-shadow: var(--nv-shadow-card), var(--nv-glass-highlight), 0 0 0 1px var(--nv-glass-edge);
+    transition:
+      border-color 0.22s var(--nv-ease),
+      box-shadow 0.22s var(--nv-ease),
+      background-color 0.22s var(--nv-ease);
   }
-  to {
-    opacity: 1;
+
+  /*
+    The glass recipe, in one place.
+
+    `background-color` and `backdrop-filter` have to travel together: without
+    the blur, the translucency is just a washed-out white, and a browser that
+    drops `backdrop-filter` should therefore get a more opaque surface rather
+    than a see-through one. The `@supports not` block below does exactly that.
+  */
+  .panel {
+    border: 1px solid var(--nv-glass-border);
+    background-color: var(--nv-glass-bg-strong);
+    background-image: linear-gradient(
+      112deg,
+      transparent 18%,
+      light-dark(rgb(255 255 255 / 0.2), rgb(255 255 255 / 0.055)) 48%,
+      transparent 78%
+    );
+    background-size: 240% 100%;
+    background-position: 0% 50%;
+    -webkit-backdrop-filter: var(--nv-glass-blur);
+    backdrop-filter: var(--nv-glass-blur);
+    box-shadow:
+      var(--nv-shadow-glass),
+      var(--nv-glass-highlight),
+      0 0 0 1px var(--nv-glass-edge);
+    animation: nv-glass-glaze 26s var(--nv-ease) infinite alternate;
+  }
+
+  .glass-spotlight::before {
+    content: '';
+    position: absolute;
+    z-index: -1;
+    inset: -35% 28% auto -18%;
+    height: 68%;
+    border-radius: 999px;
+    background: radial-gradient(circle, light-dark(rgb(255 255 255 / 0.75), rgb(139 124 255 / 0.22)) 0%, transparent 69%);
+    filter: blur(10px);
+    opacity: 0.8;
+    pointer-events: none;
+    animation: nv-panel-glow 12s var(--nv-ease) infinite alternate;
+  }
+
+  .glass-spotlight {
+    isolation: isolate;
+  }
+
+  .conflict-callout {
+    border: 1px solid light-dark(rgb(192 42 29 / 0.28), rgb(251 113 133 / 0.34));
+    background:
+      linear-gradient(112deg, light-dark(rgb(255 255 255 / 0.56), rgb(49 27 47 / 0.68)), light-dark(rgb(255 247 248 / 0.72), rgb(40 25 45 / 0.82))),
+      var(--nv-glass-bg);
+    box-shadow: var(--nv-shadow-card), inset 0 1px 0 light-dark(rgb(255 255 255 / 0.75), rgb(255 255 255 / 0.07));
+    -webkit-backdrop-filter: var(--nv-glass-blur);
+    backdrop-filter: var(--nv-glass-blur);
+  }
+
+  .conflict-callout-icon {
+    border: 1px solid light-dark(rgb(192 42 29 / 0.25), rgb(251 113 133 / 0.34));
+    background: light-dark(rgb(192 42 29 / 0.08), rgb(251 113 133 / 0.13));
+    color: var(--color-danger);
+  }
+
+  .inset {
+    border: 1px solid var(--color-line);
+    background-color: var(--color-muted-bg);
+  }
+
+  /* A control should answer the pointer before it is clicked. One pixel, not
+     four: the lift is meant to be felt rather than watched. */
+  .press {
+    transition:
+      transform 0.18s var(--nv-ease),
+      box-shadow 0.18s var(--nv-ease),
+      border-color 0.15s ease,
+      background-color 0.15s ease,
+      color 0.15s ease;
+  }
+  .press:hover:not(:disabled):not([aria-disabled='true']) {
+    transform: translateY(-1px);
+  }
+  .press:active:not(:disabled):not([aria-disabled='true']) {
     transform: translateY(0);
   }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.3s ease-out forwards;
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  @layer components {
+    .panel,
+    .card,
+    .glass-bar {
+      background-color: light-dark(rgb(255 255 255 / 0.94), rgb(28 26 48 / 0.96));
+    }
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Controls                                                                   */
+/* -------------------------------------------------------------------------- */
+
+/*
+  Buttons, fields, and the four states each of them owes a user.
+
+  These are components rather than a pile of utilities at each call site
+  because there were nineteen copies of the primary button in this app and they
+  had already drifted. One definition means the hover on the homepage and the
+  hover in the account settings are the same hover.
+*/
+@layer components {
+  /*
+    The primary action. Flat brand violet, white text, and a shadow you would
+    have to look for.
+
+    It used to be a gradient with a violet glow ring around it, which is the
+    house style of every AI product launched this year and reads as loud rather
+    than as expensive. A solid fill of the actual brand colour is both quieter
+    and more brand: there is only one #635bff on the page and it is the thing
+    you are meant to click.
+  */
+  .btn-primary {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid transparent;
+    border-radius: var(--radius-xl);
+    background-color: var(--color-accent);
+    color: #ffffff;
+    font-weight: 600;
+    box-shadow: var(--nv-shadow-sm);
+    transition:
+      transform 0.18s var(--nv-ease),
+      box-shadow 0.18s var(--nv-ease);
+  }
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    mix-blend-mode: screen;
+    background: linear-gradient(
+      112deg,
+      transparent 30%,
+      rgb(139 124 255 / 0.55) 50%,
+      transparent 70%
+    );
+    transform: translateX(-115%);
+  }
+  .btn-primary:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px light-dark(rgb(23 21 43 / 0.1), rgb(0 0 0 / 0.5));
+  }
+  .btn-primary:hover:not(:disabled)::after {
+    animation: nv-button-highlight 0.62s var(--nv-ease) both;
+  }
+  .btn-primary:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: var(--nv-shadow-sm);
+  }
+  .btn-primary:disabled,
+  .btn-primary[aria-disabled='true'] {
+    opacity: 0.5;
+    transform: none;
+    box-shadow: none;
+  }
+
+  /* The other action in the row. White, bordered, dark text. It is a button,
+     not a lesser button: same height, same radius, no colour. */
+  .btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: 1px solid var(--color-line-strong);
+    border-radius: var(--radius-xl);
+    background-color: var(--nv-glass-bg-strong);
+    color: var(--color-charcoal);
+    font-weight: 500;
+    box-shadow: var(--nv-shadow-card);
+    transition:
+      transform 0.18s var(--nv-ease),
+      border-color 0.15s ease,
+      background-color 0.15s ease,
+      box-shadow 0.18s var(--nv-ease);
+  }
+  .btn-secondary:hover:not(:disabled) {
+    border-color: var(--color-accent-border);
+    transform: translateY(-1px);
+  }
+  .btn-secondary:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  .btn-secondary:disabled,
+  .btn-secondary[aria-disabled='true'] {
+    opacity: 0.55;
+    transform: none;
+  }
+
+  /*
+    Every text input in the app, and the container the search field is built
+    out of.
+
+    The focus state is the one place the brand colour is allowed to spread: a
+    45%-alpha border and a 4px ring at 8%. That is a ring you notice and not a
+    lamp — a neon halo around a text field is the single fastest way to make an
+    interface look like a template.
+  */
+  .field {
+    border: 1px solid var(--color-line-strong);
+    background-color: var(--color-surface);
+    color: var(--color-charcoal);
+    transition:
+      border-color 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  .field::placeholder {
+    color: var(--color-faint);
+  }
+  .field:hover:not(:disabled):not(:focus):not(:focus-within) {
+    border-color: light-dark(rgb(23 21 43 / 0.2), rgb(255 255 255 / 0.28));
+  }
+  .field:focus,
+  .field:focus-within,
+  .field:focus-visible {
+    outline: none;
+    border-color: light-dark(rgb(99 91 255 / 0.45), rgb(147 139 255 / 0.6));
+    box-shadow: 0 0 0 4px light-dark(rgb(99 91 255 / 0.08), rgb(99 91 255 / 0.22));
+  }
+  .field:disabled {
+    background-color: var(--color-muted-bg);
+    color: var(--color-faint);
+    cursor: not-allowed;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Chrome                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/*
+  The floating header.
+
+  A slab of glass held clear of the top of the page, not a full-width bar
+  painted across it. It is sticky, so it is one of the few surfaces that
+  genuinely has the page moving behind it — which is the whole argument for
+  making it glass in the first place.
+
+  The scroll transition is a CSS scroll-timeline rather than a scroll listener
+  in React: no state, no re-render, no client component. A browser without it
+  keeps the resting appearance at every scroll position, which is a bar that
+  never quite settles rather than a broken one, so there is nothing to fall
+  back to.
+*/
+@layer components {
+  /*
+    The strip of page above the floating bar.
+
+    A bar held 12 to 16px clear of the top leaves a gap, and text scrolling
+    through that gap reads as a stripe of stray words above the navigation.
+    This frosts the gap — the same blur the bar itself uses, under a thin veil
+    of the page colour — so the bar reads as one pane of glass that happens to
+    have a soft edge, rather than as a bar with a letterbox above it.
+  */
+  .nav-shell {
+    position: relative;
+  }
+  .nav-shell::before {
+    content: '';
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 48px;
+    z-index: -1;
+    pointer-events: none;
+    background-color: light-dark(rgb(247 247 252 / 0.66), rgb(12 11 22 / 0.7));
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    /* Faded out with a mask rather than with a gradient of the page colour: a
+       flat band of canvas painted over the page wash would show as a lighter
+       patch in the corner where the wash is strongest. A mask leaves the
+       colour underneath alone and only stops applying the frost. */
+    -webkit-mask-image: linear-gradient(to bottom, #000 48%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 48%, transparent 100%);
+  }
+
+  .glass-bar {
+    border: 1px solid var(--nv-glass-border);
+    border-radius: var(--radius-panel);
+    background-color: var(--nv-glass-bg);
+    -webkit-backdrop-filter: var(--nv-glass-blur);
+    backdrop-filter: var(--nv-glass-blur);
+    box-shadow:
+      var(--nv-shadow-glass),
+      var(--nv-glass-highlight),
+      0 0 0 1px var(--nv-glass-edge);
+  }
+}
+
+@supports (animation-timeline: scroll()) {
+  @keyframes nv-bar-settle {
+    from {
+      background-color: var(--nv-glass-bg);
+      box-shadow:
+        0 2px 10px light-dark(rgb(23 21 43 / 0.03), rgb(0 0 0 / 0.25)),
+        var(--nv-glass-highlight),
+        0 0 0 1px var(--nv-glass-edge);
+    }
+    to {
+      background-color: var(--nv-glass-bg-strong);
+      box-shadow:
+        var(--nv-shadow-float),
+        var(--nv-glass-highlight),
+        0 0 0 1px var(--nv-glass-edge);
+    }
+  }
+
+  .glass-bar {
+    animation: nv-bar-settle linear both;
+    animation-timeline: scroll();
+    animation-range: 0 88px;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Page atmosphere                                                            */
+/* -------------------------------------------------------------------------- */
+
+/*
+  The wash behind every page. Fixed rather than scrolled, so a long report does
+  not scroll out of the light and leave the header sitting on flat white.
+
+  `pointer-events-none` and `aria-hidden` at the call site; it carries no
+  meaning and nothing sits on it that isn't also on the canvas colour.
+*/
+@layer utilities {
+  .page-wash {
+    background-image: var(--nv-page-wash);
+    background-size: 118% 118%;
+    background-position: 0% 0%;
+    overflow: hidden;
+    animation: nv-wash-shift 36s var(--nv-ease) infinite alternate;
+  }
+  .page-wash::before,
+  .page-wash::after {
+    content: '';
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(34px);
+    opacity: 0.72;
+    will-change: transform;
+  }
+  .page-wash::before {
+    top: 12vh;
+    left: -18vw;
+    width: 44vw;
+    height: 44vw;
+    background: light-dark(rgb(99 91 255 / 0.16), rgb(99 91 255 / 0.2));
+    animation: nv-drift-left 24s var(--nv-ease) infinite alternate;
+  }
+  .page-wash::after {
+    top: 36vh;
+    right: -20vw;
+    width: 42vw;
+    height: 42vw;
+    background: light-dark(rgb(139 124 255 / 0.12), rgb(139 124 255 / 0.18));
+    animation: nv-drift-right 29s var(--nv-ease) infinite alternate;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* Motion                                                                     */
+/* -------------------------------------------------------------------------- */
+
+/* Results arrive one after another rather than all at once, which is what
+   actually happens: each source answers when it answers. */
+@keyframes nv-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (hover: hover) {
+  .card:hover {
+    border-color: var(--color-accent-border);
+    box-shadow: var(--nv-shadow-glass), var(--nv-glass-highlight), 0 0 0 1px var(--nv-glass-edge);
+  }
+}
+@keyframes nv-drift-left {
+  from { transform: translate3d(-2%, -4%, 0) scale(0.96); }
+  to { transform: translate3d(17%, 12%, 0) scale(1.12); }
+}
+@keyframes nv-drift-right {
+  from { transform: translate3d(7%, -6%, 0) scale(1.06); }
+  to { transform: translate3d(-14%, 9%, 0) scale(0.92); }
+}
+@keyframes nv-panel-glow {
+  from { transform: translate3d(-4%, -3%, 0) scale(0.94); opacity: 0.5; }
+  to { transform: translate3d(18%, 12%, 0) scale(1.12); opacity: 0.9; }
+}
+@keyframes nv-wash-shift {
+  from { background-position: 0% 0%; }
+  to { background-position: 8% 10%; }
+}
+@keyframes nv-glass-glaze {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+@keyframes nv-button-highlight {
+  from { transform: translateX(-115%); }
+  to { transform: translateX(115%); }
+}
+@keyframes nv-word-shimmer {
+  from { background-position: 100% 50%; }
+  to { background-position: 0% 50%; }
+}
+@layer utilities {
+  .brand-gradient-bg {
+    background-image: var(--nv-brand-gradient);
+  }
+
+  .brand-gradient-text {
+    background-image: var(--nv-brand-gradient);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .brand-hero-shimmer {
+    background-size: 180% 100%;
+    animation: nv-word-shimmer 1.35s var(--nv-ease) 0.18s both;
+  }
+
+  .animate-rise {
+    animation: nv-rise 0.45s var(--nv-ease) both;
+  }
+}
+
+/* A light travelling the top edge of the search panel: the one thing on the
+   page that says work is happening before any result exists. */
+@keyframes nv-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(220%);
+  }
+}
+@layer utilities {
+  .animate-sweep {
+    animation: nv-sweep 2.4s var(--nv-ease) infinite;
+  }
+}
+
+/* The source marquee. Duplicated content scrolls half its width, seamlessly. */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+.marquee-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 60s linear infinite;
+}
+.marquee-track.reverse {
+  animation-direction: reverse;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -195,15 +810,28 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  .press:hover:not(:disabled),
+  .btn-primary:hover:not(:disabled),
+  .btn-secondary:hover:not(:disabled) {
+    transform: none;
+  }
 }
+
+/* -------------------------------------------------------------------------- */
+/* Print                                                                      */
+/* -------------------------------------------------------------------------- */
 
 /*
   Printing a report (Report.tsx's "Print or save as PDF"). Interactive-only
   chrome is hidden with Tailwind's `print:hidden` at each call site; what's
-  here is what CSS alone has to do:
+  here is what CSS alone has to do.
 
-  - Force the light palette regardless of the viewer's theme choice — a dark
-    canvas is a waste of ink and unreadable on plain paper.
+  The palette needs no overriding any more — the screen palette is already ink
+  on white. What paper cannot reproduce is the *light*: glass, blur, cast
+  shadows and the page wash are all descriptions of how light falls, and a
+  sheet of paper does not emit any. All of it comes off.
+
+  Also here:
   - Expand every `<details>` (evidence lists, the signal breakdown). The UA
     stylesheet hides a closed `<details>`'s content via `display: none`; this
     is the standard override to make a printed page show everything rather
@@ -212,37 +840,43 @@ body {
 */
 @media print {
   /*
-    Redefines the same custom properties the light `:root` block and the two
-    dark-mode overrides set, so this wins regardless of which one the viewer
-    was on — same selectors, same specificity, later in the file, which is
-    what makes the cascade prefer this block during print without `!important`.
+    Paper has no colour scheme. Pinning `color-scheme` here re-resolves every
+    `light-dark()` token in the file to its light value, so a visitor printing
+    from dark mode gets the same sheet as anyone else rather than a page of
+    near-black ink. It has to name `[data-theme='dark']` explicitly: that
+    selector is more specific than `:root`, so a bare `:root` rule would lose
+    to it even here.
   */
   :root,
-  :root[data-theme='dark'] {
+  :root[data-theme='dark'],
+  :root[data-theme='light'] {
     color-scheme: light;
-    --nv-canvas: #fafafc;
-    --nv-surface: #ffffff;
-    --nv-surface-2: #f6f5fa;
-    --nv-surface-hover: #f6f5fa;
-    --nv-muted-bg: #f2f1f8;
-    --nv-charcoal: #16151f;
-    --nv-charcoal-2: #4a4959;
-    --nv-faint: #69667b;
-    --nv-faint-2: #a6a4b6;
-    --nv-accent: #635bff;
-    --nv-accent-hover: #4f47e8;
-    --nv-accent-soft: #efedff;
-    --nv-accent-border: #d6d2ff;
-    --nv-line: #e7e6f0;
-    --nv-line-strong: #d2d0e2;
-    --nv-ok: #059669;
-    --nv-ok-soft: #ecfdf5;
-    --nv-warn: #d97706;
-    --nv-warn-soft: #fffbeb;
-    --nv-danger: #dc2626;
-    --nv-danger-soft: #fef2f2;
-    --nv-unknown: #64748b;
-    --nv-unknown-soft: #f1f5f9;
+  }
+
+  /* The canvas is only a hair off white, but a browser printing with
+     background graphics on would lay that tint over every sheet. */
+  body {
+    background-color: #ffffff;
+  }
+
+  .panel,
+  .card,
+  .inset,
+  .glass-bar {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background-color: transparent;
+    box-shadow: none;
+    animation: none;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    box-shadow: none;
+  }
+
+  .page-wash {
+    display: none;
   }
 
   details:not([open]) > *:not(summary) {

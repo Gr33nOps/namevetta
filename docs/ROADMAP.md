@@ -68,7 +68,7 @@ Supabase project  in us-east-1.
 | 9 | Viability engine refinement: sub-scores, caps, category tuning | **Reviewed** — all 12 weight tables verified to sum to 100 (enforced by test), cap logic and dead-code safety nets checked against the schema invariants; no defect found. Real remaining risk reduction comes from growing the golden dataset (§13), which is what actually surfaces scoring bugs. |
 | 10 | AI explanations via Groq behind `LLMProvider`, with grounding validator | **Done** |
 | 11 | Compare Names — 2–5 names, side-by-side, winner + why | **Done** |
-| 12 | Pre-screened name generation — Groq generates ~30, auto Quick Check, discard exact conflicts, return top 5 | **Done** |
+| 12 | Pre-screened name generation: Groq generates 10, auto Quick Check, return the top 5 | **Done** |
 | 13 | Golden dataset: 116 labelled cases, false-negative gate in CI | **Done** (grow toward 200/500) |
 | 14 | Production hardening: security headers, Terms/Privacy, Turnstile, Sentry, account export/delete | **Done** (retries, backoff and per-source health tracking were already in place from earlier phases) |
 | Later | **Optional** automated trademark module: implement `TrademarkProvider` for USPTO/EUIPO | |

@@ -23,21 +23,67 @@ import { buildResult, makeEvidence, unverifiable } from '@/lib/sources/result'
 import { normalize } from '@/lib/similarity/normalize'
 
 interface Platform {
+  /**
+   * What the reader sees, and it names the *namespace*, not just the site.
+   *
+   * "Reddit" was ambiguous in a way that mattered: the link went to
+   * `reddit.com/r/{name}`, which is a community, while the row sat under a
+   * heading reading "Social identity" and every neighbour on it was a personal
+   * handle. Two different questions with one label between them.
+   *
+   * The community is the right one to ask about — this product researches
+   * whether a *brand* name is free, and `r/yourbrand` is where a brand
+   * collides on Reddit — so the link stays and the label says so instead.
+   */
   name: string
-  /** Profile URL for a handle. */
+  /** The page a person opens to check it. */
   url: (handle: string) => string
+  /** What they are looking at when they get there. */
+  what: string
   /** Which categories care about this platform most. */
   weight: 'high' | 'medium' | 'low'
 }
 
 const PLATFORMS: Platform[] = [
-  { name: 'Instagram', url: (h) => `https://instagram.com/${h}`, weight: 'high' },
-  { name: 'TikTok', url: (h) => `https://tiktok.com/@${h}`, weight: 'high' },
-  { name: 'Reddit', url: (h) => `https://reddit.com/r/${h}`, weight: 'low' },
-  { name: 'Twitch', url: (h) => `https://twitch.tv/${h}`, weight: 'low' },
-  { name: 'Threads', url: (h) => `https://threads.net/@${h}`, weight: 'medium' },
-  { name: 'Bluesky', url: (h) => `https://bsky.app/profile/${h}.bsky.social`, weight: 'medium' },
+  {
+    name: 'Instagram',
+    url: (h) => `https://instagram.com/${h}`,
+    what: 'the account handle',
+    weight: 'high',
+  },
+  {
+    name: 'TikTok',
+    url: (h) => `https://tiktok.com/@${h}`,
+    what: 'the account handle',
+    weight: 'high',
+  },
+  {
+    name: 'Reddit Community',
+    url: (h) => `https://reddit.com/r/${h}`,
+    what: 'the subreddit name, r/yourbrand, not a Reddit username',
+    weight: 'low',
+  },
+  {
+    name: 'Twitch',
+    url: (h) => `https://twitch.tv/${h}`,
+    what: 'the channel name',
+    weight: 'low',
+  },
+  {
+    name: 'Threads',
+    url: (h) => `https://threads.net/@${h}`,
+    what: 'the account handle',
+    weight: 'medium',
+  },
 ]
+
+/**
+ * The platforms this adapter covers, by name.
+ *
+ * Exported so the homepage can say how many social surfaces a check covers
+ * without a second list of the same names going stale beside this one.
+ */
+export const MANUAL_PLATFORM_NAMES: readonly string[] = PLATFORMS.map((p) => p.name)
 
 export const socialsAdapter: SourceAdapter = {
   id: 'socials',
@@ -51,7 +97,7 @@ export const socialsAdapter: SourceAdapter = {
     const evidence: Evidence[] = PLATFORMS.map((platform) =>
       makeEvidence(
         'socials',
-        `${platform.name}: automatic verification unavailable, check manually`,
+        `${platform.name}: check ${platform.what} yourself. No reliable automatic test exists.`,
         platform.url(handle),
       ),
     )
@@ -63,7 +109,7 @@ export const socialsAdapter: SourceAdapter = {
       ),
       makeEvidence(
         'socials',
-        'Most platforms are now checked properly and reported separately, X included. The four left here are the ones that genuinely cannot be: Instagram and TikTok return the same response whether or not a handle exists, and Reddit and Twitch refuse a server outright.',
+        'Most platforms are now checked properly and reported separately, X and Bluesky included. These five genuinely cannot be: every one of them answers 200 for a name that exists and 200 for a name that does not, so a status check would report every name as free. Measured, not assumed.',
       ),
     )
 
@@ -74,7 +120,23 @@ export const socialsAdapter: SourceAdapter = {
       source: 'socials',
       status: 'manual_check_recommended',
       evidence,
-      meta: { handle, platforms: PLATFORMS.length },
+      /*
+        One entry per platform, so the results list can show "Instagram" and
+        "TikTok" as their own rows rather than a single row called "Social
+        identity" that a reader has to open to learn anything from. Structured
+        here rather than parsed back out of the evidence labels above: the
+        adapter knows which platform each verdict belongs to, and no reader of
+        this data should have to guess it from a string.
+      */
+      meta: {
+        handle,
+        platforms: PLATFORMS.map((platform) => ({
+          name: platform.name,
+          url: platform.url(handle),
+          status: 'manual_check_recommended' as const,
+          detail: `Verify ${platform.what} directly`,
+        })),
+      },
     })
   },
 }

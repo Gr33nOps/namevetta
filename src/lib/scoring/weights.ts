@@ -23,10 +23,12 @@ import type { Category } from '@/lib/core/scan'
 import type { SourceId } from '@/lib/core/types'
 
 /**
- * 2 — trademark removed from the automatic score; weights redistributed across
- * digital groups. Reports stamped 1 were scored on a different basis.
+ * 3 — an exact, confirmed collision now ceilings the score below the "Mostly
+ * Clear" band, whatever weight its group carries for the category. Reports
+ * stamped 2 could show 100 beside a confirmed conflict; 1 also folded
+ * trademark into the number. Weights themselves are unchanged from 2.
  */
-export const SCORING_VERSION = 2
+export const SCORING_VERSION = 3
 
 /* -------------------------------------------------------------------------- */
 /* Groups                                                                     */
