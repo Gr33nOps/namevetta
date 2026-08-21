@@ -63,7 +63,8 @@ function whenItRuns(source: SourceManifestEntry): string {
 
 /** Whether the product asserts anything from this source without a human. */
 function howItRuns(source: SourceManifestEntry): string {
-  return source.tosPosture === 'manual_only' ? 'Manual' : 'Automatic'
+  if (source.tosPosture === 'manual_only') return 'Manual'
+  return source.resultMode === 'discovery' ? 'Discovery' : 'Automatic'
 }
 
 /**
@@ -104,10 +105,9 @@ export default async function Page() {
       {/*
         The three counts, stated as three counts.
 
-        "60 sources checked on every search" was the single most misleading
-        sentence on the site: seven of the sixty only run on a Deep Check, one
-        runs only for the categories it matters to, and one never runs
-        automatically at all.
+        "All sources checked on every search" was the single most misleading
+        sentence on the site: some run only on Deep Research, some only where
+        the category makes them useful, and some never run automatically.
       */}
       <div className="panel mt-8 grid overflow-hidden rounded-panel divide-y divide-line sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
         <Stat value={String(COUNTS.catalog)} label="research sources in the catalog" />
@@ -115,8 +115,8 @@ export default async function Page() {
         <Stat value={String(COUNTS.deep)} label="considered by Deep Research" />
       </div>
       <p className="mt-3 text-xs leading-relaxed text-faint">
-        {COUNTS.deepOnly} Deep-only · {COUNTS.categoryDependent} category-dependent · {COUNTS.manual}{' '}
-        manual. Not run never means clear.
+        {COUNTS.deepOnly} Deep-only · {COUNTS.categoryDependent} category-dependent · {COUNTS.discovery}{' '}
+        discovery · {COUNTS.manual} manual. Not run never means clear.
       </p>
 
       {!configured ? (

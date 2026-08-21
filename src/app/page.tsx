@@ -1,7 +1,5 @@
 import { Fragment } from 'react'
 import { VettaPanel } from '@/components/VettaPanel'
-import { quotaPhrase } from '@/lib/core/quota'
-import { effectiveLimits } from '@/lib/quota'
 
 /**
  * The catalog, and what a search of it actually asks.
@@ -50,7 +48,6 @@ const COVERAGE_TERMS = ['Domains', 'Handles', 'Packages', 'Registers', 'App stor
  * does it work, and then the box again.
  */
 export default function Page() {
-  const { guest } = effectiveLimits()
 
   return (
     <>
@@ -88,7 +85,7 @@ export default function Page() {
       <section id="search" className="animate-rise mx-auto max-w-3xl px-6 pb-16" style={{ animationDelay: '80ms' }}>
         <VettaPanel showResearchOptions />
         <p className="mt-4 text-center text-[13px] text-faint">
-          Free, no account, {quotaPhrase('quick', guest.quick)} a day.
+          Start without an account.
         </p>
       </section>
 

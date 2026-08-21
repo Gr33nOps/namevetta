@@ -281,4 +281,18 @@ test('removed sources stay out of the active catalog UI', async ({ page }) => {
     await expect(page.getByText('Product Hunt', { exact: true })).toHaveCount(0)
     await expect(page.getByText('last.fm', { exact: true })).toHaveCount(0)
   }
+
+})
+
+test('the footer provides the public showcase and support destinations', async ({ page }) => {
+  await page.goto('/')
+
+  await expect(page.getByRole('link', { name: 'GitHub showcase' })).toHaveAttribute(
+    'href',
+    'https://github.com/Gr33nOps/namevetta',
+  )
+  await expect(page.getByRole('link', { name: 'Support' })).toHaveAttribute(
+    'href',
+    'https://ko-fi.com/zain021xd',
+  )
 })

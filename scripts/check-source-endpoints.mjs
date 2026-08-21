@@ -231,5 +231,46 @@ await check('Slack is no longer probed automatically', async () => {
   )
 })
 
+await check('AUR RPC (aur adapter)', async () => {
+  const taken = await getJson('https://aur.archlinux.org/rpc/v5/info/yay')
+  assert(taken.status === 200, `taken lookup status is 200 (got ${taken.status})`)
+  assert(taken.data?.resultcount === 1, 'a known AUR package reports one result')
+  assert(taken.data?.results?.[0]?.Name === 'yay', 'the returned package name is readable')
+
+  const free = await getJson(`https://aur.archlinux.org/rpc/v5/info/${NONSENSE}`)
+  assert(free.data?.resultcount === 0, 'an unused package name reports zero results')
+})
+
+await check('Roblox usernames API (roblox adapter)', async () => {
+  const lookup = (name) =>
+    getJson('https://users.roblox.com/v1/usernames/users', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ usernames: [name], excludeBannedUsers: false }),
+    })
+
+  const taken = await lookup('Roblox')
+  assert(taken.status === 200, `taken lookup status is 200 (got ${taken.status})`)
+  assert(taken.data?.data?.[0]?.name === 'Roblox', 'a known username returns its account')
+
+  const free = await lookup(NONSENSE)
+  assert(Array.isArray(free.data?.data) && free.data.data.length === 0, 'an unused username returns no accounts')
+})
+
+await check('Modrinth project search (modrinth discovery)', async () => {
+  const { status, data } = await getJson('https://api.modrinth.com/v2/search?query=sodium&limit=1')
+  assert(status === 200, `status is 200 (got ${status})`)
+  assert(Array.isArray(data?.hits), 'hits is an array')
+  assert(typeof data?.hits?.[0]?.title === 'string', 'a result has a readable title')
+  assert(typeof data?.hits?.[0]?.project_type === 'string', 'a result has a project type')
+})
+
+await check('Hugging Face model search (huggingface discovery)', async () => {
+  const { status, data } = await getJson('https://huggingface.co/api/models?search=bert&limit=1')
+  assert(status === 200, `status is 200 (got ${status})`)
+  assert(Array.isArray(data), 'response is an array')
+  assert(typeof data?.[0]?.id === 'string', 'a result has a repository id')
+})
+
 console.log(`\n${failures === 0 ? 'All checks passed.' : `${failures} check(s) failed.`}`)
 process.exit(failures === 0 ? 0 : 1)

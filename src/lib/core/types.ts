@@ -76,6 +76,10 @@ export const SOURCE_IDS = [
   'lastfm',
   'chocolatey',
   'go_modules',
+  'aur',
+  'roblox',
+  'modrinth',
+  'huggingface',
 ] as const
 
 export const SourceIdSchema = z.enum(SOURCE_IDS)
@@ -132,6 +136,8 @@ export const PlatformVerdictSchema = z.object({
   status: SourceStatusSchema,
   detail: z.string().min(1),
   discovery: z.array(DiscoveryMatchSchema).max(5).optional(),
+  /** A discovery source completed, even if it did not surface a match. */
+  discoveryChecked: z.boolean().optional(),
 })
 export type PlatformVerdict = z.infer<typeof PlatformVerdictSchema>
 

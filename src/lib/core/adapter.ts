@@ -76,6 +76,12 @@ export interface SourceManifestEntry {
   baseConfidenceCeiling: number
   tosPosture: TosPosture
   /**
+   * Some official APIs can surface public projects but cannot establish that a
+   * candidate is free or globally reserved. They stay visible as discovery,
+   * not as an automatic availability verdict.
+   */
+  resultMode?: 'discovery'
+  /**
    * True when the source consumes a metered external quota (Brave credits,
    * Groq tokens). The orchestrator checks the budget guard before running it.
    */
@@ -1040,6 +1046,68 @@ export const SOURCE_MANIFEST: Record<SourceId, SourceManifestEntry> = {
       note: 'The AT Protocol public API publishes no hard limit for this endpoint; this is a courtesy ceiling.',
     },
   },
+  aur: {
+    id: 'aur',
+    label: 'Arch User Repository',
+    runsOn: ['quick', 'deep'],
+    timeoutMs: 8_000,
+    cacheTtlSeconds: 7 * DAY,
+    baseConfidenceCeiling: 90,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 30,
+      documented: false,
+      note: 'Public AUR RPC API. Courtesy ceiling.',
+    },
+  },
+  roblox: {
+    id: 'roblox',
+    label: 'Roblox',
+    runsOn: ['quick', 'deep'],
+    timeoutMs: 8_000,
+    cacheTtlSeconds: 24 * HOUR,
+    baseConfidenceCeiling: 90,
+    tosPosture: 'official_api',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 30,
+      documented: false,
+      note: 'Public Roblox username lookup. Courtesy ceiling.',
+    },
+  },
+  modrinth: {
+    id: 'modrinth',
+    label: 'Modrinth',
+    runsOn: ['deep'],
+    timeoutMs: 8_000,
+    cacheTtlSeconds: 24 * HOUR,
+    baseConfidenceCeiling: 50,
+    tosPosture: 'official_api',
+    resultMode: 'discovery',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 30,
+      documented: false,
+      note: 'Public project search API. Results are discovery evidence, not namespace availability.',
+    },
+  },
+  huggingface: {
+    id: 'huggingface',
+    label: 'Hugging Face',
+    runsOn: ['deep'],
+    timeoutMs: 8_000,
+    cacheTtlSeconds: 24 * HOUR,
+    baseConfidenceCeiling: 50,
+    tosPosture: 'official_api',
+    resultMode: 'discovery',
+    metered: false,
+    rateLimit: {
+      requestsPerMinute: 30,
+      documented: false,
+      note: 'Public Hub search API. Results are discovery evidence, not namespace availability.',
+    },
+  },
 }
 
 /** Sources that run for a given scan type, in manifest order. */
@@ -1064,10 +1132,9 @@ export function isActiveSource(id: SourceId): boolean {
  * How many sources there are, and how many any given search actually asks.
  *
  * These are three different numbers and the site used to print one of them
- * under three different sentences. "60 sources checked on every search" was
- * false in two directions at once: seven of the sixty only run on a Deep
- * Check, and some of the fifty-three that do run on a Quick Check are
- * category-specific or manual and answer nothing on most scans.
+ * under three different sentences. "All sources checked on every search" was
+ * false in two directions: some only run on Deep Research, and some in the
+ * Quick set are category-specific or manual and answer nothing on most scans.
  *
  * Everything user-facing derives from here rather than from a literal, so a
  * source added to the manifest updates the copy and a source removed cannot
@@ -1082,6 +1149,8 @@ export interface SourceCounts {
   deep: number
   /** Sources we never assert from automatically — the user checks them. */
   manual: number
+  /** Sources that surface public matches but never assert availability. */
+  discovery: number
   /** Sources whose answer depends on what is being named (see `play_store`). */
   categoryDependent: number
   /** Sources on the deep set only. */
@@ -1096,7 +1165,13 @@ export interface SourceCounts {
  * run is a fact about the product, and the status page has to be able to say
  * so without importing every adapter to find out.
  */
-export const CATEGORY_DEPENDENT_SOURCES: readonly SourceId[] = ['play_store']
+export const CATEGORY_DEPENDENT_SOURCES: readonly SourceId[] = [
+  'play_store',
+  'aur',
+  'roblox',
+  'modrinth',
+  'huggingface',
+]
 
 export function isCategoryDependent(id: SourceId): boolean {
   return CATEGORY_DEPENDENT_SOURCES.includes(id)
@@ -1111,6 +1186,7 @@ export function sourceCounts(): SourceCounts {
     quick: quick.length,
     deep: deep.length,
     manual: all.filter((s) => s.tosPosture === 'manual_only').length,
+    discovery: all.filter((s) => s.resultMode === 'discovery').length,
     categoryDependent: CATEGORY_DEPENDENT_SOURCES.length,
     deepOnly: deep.filter((s) => !s.runsOn.includes('quick')).length,
   }

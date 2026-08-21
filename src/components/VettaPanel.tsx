@@ -209,9 +209,9 @@ export function VettaPanel({
   /*
     The denominator excludes what was deliberately never asked.
 
-    "48 of 53 checks clear" counted a source the product chose not to call as a
-    check that failed to come back clear, which is the same arithmetic mistake
-    as scoring it zero.
+    A source the product chose not to call must not count as a check that
+    failed to come back clear. That is the same arithmetic mistake as scoring
+    it zero.
   */
   const answered = results?.filter((result) => isVerified(result.status)).length ?? 0
 

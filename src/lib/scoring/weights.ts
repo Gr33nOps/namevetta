@@ -131,6 +131,10 @@ export const SOURCE_GROUP: Record<SourceId, ScoreGroup> = {
   lastfm: 'social',
   chocolatey: 'packages',
   go_modules: 'packages',
+  aur: 'packages',
+  roblox: 'social',
+  modrinth: 'app_store',
+  huggingface: 'packages',
 }
 
 /* -------------------------------------------------------------------------- */

@@ -83,6 +83,7 @@ const DiscoveryByPlatformSchema = z.record(z.string(), z.array(DiscoveryMatchSch
 
 function manualPlatforms(results: readonly SourceResult[]): PlatformVerdict[] {
   const web = results.find((result) => result.source === 'web')
+  const discoverySearched = web !== undefined && isVerified(web.status)
   const parsedDiscovery = DiscoveryByPlatformSchema.safeParse(web?.meta?.['manualDiscovery'])
   const discovery = parsedDiscovery.success ? parsedDiscovery.data : {}
   const platforms: PlatformVerdict[] = []
@@ -105,7 +106,8 @@ function manualPlatforms(results: readonly SourceResult[]): PlatformVerdict[] {
     platforms.push(
       ...sourcePlatforms.map((platform) => ({
         ...platform,
-        discovery: discovery[platform.name] ?? [],
+        discovery: [...(platform.discovery ?? []), ...(discovery[platform.name] ?? [])].slice(0, 5),
+        discoveryChecked: platform.discoveryChecked ?? discoverySearched,
       })),
     )
   }
@@ -114,10 +116,8 @@ function manualPlatforms(results: readonly SourceResult[]): PlatformVerdict[] {
 
 function ManualVerification({
   platforms,
-  discoverySearched,
 }: {
   platforms: readonly PlatformVerdict[]
-  discoverySearched: boolean
 }) {
   return (
     <section>
@@ -157,8 +157,8 @@ function ManualVerification({
                       ))}
                     </ul>
                   </div>
-                ) : discoverySearched ? (
-                  <p className="mt-1 text-xs text-faint">Nothing surfaced in this web search. Check directly.</p>
+                ) : platform.discoveryChecked ? (
+                  <p className="mt-1 text-xs text-faint">No matching public result surfaced. Check directly.</p>
                 ) : null}
                 </div>
                 {platform.url === undefined ? null : (
@@ -232,7 +232,6 @@ export function Report({
   const unverified = results.filter(
     (r) => r.status === 'unable_to_verify' && !deliberatelySkipped(r),
   )
-  const discoverySearched = results.some((r) => r.source === 'web' && isVerified(r.status))
   const cleared = results.filter((r) => r.status === 'no_conflict')
   const retryableUnverified = unverified.filter(isRetryable)
   const oldestChecked = oldest(results.filter((r) => isVerified(r.status)).map((r) => r.checkedAt))
@@ -315,7 +314,7 @@ export function Report({
 
       {/* ── 2. what could not be established ─────────────────────────────── */}
       {manual.length > 0 ? (
-        <ManualVerification platforms={manual} discoverySearched={discoverySearched} />
+        <ManualVerification platforms={manual} />
       ) : null}
 
       {unverified.length > 0 ? (

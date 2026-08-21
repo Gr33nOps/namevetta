@@ -5,8 +5,8 @@
  * auth page "25 Quick Checks and 5 Deep Research runs", and the history page
  * "74/75" — three different products, described by one codebase, none of them
  * matching the other two. Separately, three pages said "60 sources checked on
- * every search" while a Quick Check asked 53 and one of those was never asked
- * automatically at all.
+ * every search" while some sources were Deep-only and others were deliberately
+ * not asked for the selected category.
  *
  * Both classes of bug have the same shape: a figure typed into a component
  * instead of imported from the thing that enforces it. So this file reads the
@@ -143,6 +143,13 @@ describe('source counts', () => {
     expect(counts.manual).toBeGreaterThan(0)
     for (const source of manualSources()) {
       expect(source.tosPosture).toBe('manual_only')
+    }
+  })
+
+  it('keeps discovery sources separate from automatic availability checks', () => {
+    expect(counts.discovery).toBeGreaterThan(0)
+    for (const source of activeSources().filter((source) => source.resultMode === 'discovery')) {
+      expect(source.tosPosture).not.toBe('manual_only')
     }
   })
 

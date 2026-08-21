@@ -3,7 +3,6 @@
 import Script from 'next/script'
 import { useActionState, useState } from 'react'
 import { requestPasswordReset, signIn, signUp, type AuthState } from '@/app/auth/actions'
-import { quotaPhrase, type QuotaLimits } from '@/lib/core/quota'
 
 const initial: AuthState = {}
 
@@ -30,17 +29,8 @@ function EyeIcon({ open }: { open: boolean }) {
 
 export function AuthForm({
   turnstileSiteKey,
-  guestLimits,
 }: {
   turnstileSiteKey?: string
-  /**
-   * The guest allowance, passed in rather than imported.
-   *
-   * This is a client component and the configured limits are server-only, so
-   * the number arrives as a prop. Hard-coding it here is what left the page
-   * advertising "5 Quick Checks" against a server handing out 75.
-   */
-  guestLimits: QuotaLimits
 }) {
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin')
   const [showPassword, setShowPassword] = useState(false)
@@ -214,11 +204,6 @@ export function AuthForm({
           {pending ? 'Please wait…' : isSignIn ? 'Sign in' : 'Create account'}
         </button>
       </form>
-
-      <p className="mt-4 text-xs leading-relaxed text-faint">
-        Guest limit: {quotaPhrase('quick', guestLimits.quick)} · {quotaPhrase('deep', guestLimits.deep)} ·{' '}
-        {quotaPhrase('generate', guestLimits.generate)} daily.
-      </p>
     </div>
   )
 }

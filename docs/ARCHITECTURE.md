@@ -84,7 +84,7 @@ active source counts.
 
 ### Counting sources honestly
 
-Three numbers, and they are not the same number. `sourceCounts()` in
+Several source counts, and none mean the same thing. `sourceCounts()` in
 `src/lib/core/adapter.ts` is the only place any of them is computed, and every
 page that prints one imports it:
 
@@ -93,14 +93,15 @@ page that prints one imports it:
 | **Catalog** | Every entry in `SOURCE_MANIFEST` |
 | **Quick Check** | Sources whose `runsOn` includes `quick` |
 | **Deep Research** | Sources whose `runsOn` includes `deep` — the whole catalog |
+| **Discovery** | `resultMode: 'discovery'`; surfaces public leads without an availability verdict |
 | **Manual** | `tosPosture: 'manual_only'`; never asserted automatically |
-| **Category-dependent** | `CATEGORY_DEPENDENT_SOURCES`; runs only where the answer earns its metered cost |
+| **Category-dependent** | `CATEGORY_DEPENDENT_SOURCES`; runs only where the surface is relevant |
 
 The site used to say "60 sources checked on every search" in three places. It
-was false in both directions at once — seven of the sixty only run on a Deep
-Check, one runs only for the categories it matters to, and one never runs
-automatically at all — and `src/lib/consistency.test.ts` now fails the build on
-a hard-coded count or on that phrase.
+was false in both directions: some sources run only on Deep Research, some run
+only where their category makes them useful, and some never run automatically.
+`src/lib/consistency.test.ts` now fails the build on a hard-coded count or on
+that phrase.
 
 ### The rate-limit invariant
 

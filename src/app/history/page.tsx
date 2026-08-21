@@ -5,7 +5,6 @@ import { currentUser } from '@/lib/db/auth'
 import { isDatabaseConfigured } from '@/lib/db/client'
 import { recentScans } from '@/lib/db/history'
 import { identifySubject } from '@/lib/db/identity'
-import { limitsFor, remainingQuota } from '@/lib/db/quota'
 
 export const metadata = {
   title: 'History | NameVetta',
@@ -38,8 +37,6 @@ export default async function Page() {
   const user = await currentUser()
   const subject = identifySubject(await headers(), user?.id)
   const entries = subject === undefined ? [] : await recentScans(subject)
-  const remaining = subject === undefined ? undefined : await remainingQuota(subject)
-  const limits = subject === undefined ? undefined : limitsFor(subject)
 
   return (
     <div className="mx-auto w-full max-w-[860px] px-6 py-14">
@@ -53,37 +50,14 @@ export default async function Page() {
             : 'Your saved research.'}
         </p>
 
-        {remaining !== undefined && limits !== undefined ? (
-          <div className="mx-auto mt-5 grid w-full max-w-md grid-cols-[auto_repeat(3,minmax(0,1fr))] items-center gap-x-3 rounded-xl border border-line bg-surface px-4 py-3">
-            <p className="font-mono text-[10px] uppercase tracking-[0.12em] text-faint">
-              Left today
-            </p>
-            <p className="whitespace-nowrap text-xs sm:text-sm">
-              <span className="font-mono font-semibold">{remaining.quick}</span>
-              <span className="text-faint">/{limits.quick} Quick</span>
-            </p>
-            <p className="whitespace-nowrap text-xs sm:text-sm">
-              <span className="font-mono font-semibold">{remaining.deep}</span>
-              <span className="text-faint">/{limits.deep} Deep</span>
-            </p>
-            {/*
-              Generation is metered too, and leaving it off this row meant the
-              only place a user could discover the limit was the 429 that
-              refused them.
-            */}
-            <p className="whitespace-nowrap text-xs sm:text-sm">
-              <span className="font-mono font-semibold">{remaining.generate}</span>
-              <span className="text-faint">/{limits.generate} Generate</span>
-            </p>
-          </div>
-        ) : null}
       </div>
 
       {user === undefined ? (
-        <div className="card mt-6 rounded-xl p-3 text-center">
-          <p className="text-sm text-accent-ink">
-            <Link href="/auth" className="font-medium underline underline-offset-2">
-              Keep history across devices
+        <div className="card mt-6 rounded-xl px-4 py-3 text-center">
+          <p className="text-sm text-charcoal-2">
+            Keep this research across devices.{' '}
+            <Link href="/auth" className="font-medium text-accent-ink underline underline-offset-2">
+              Create an account
             </Link>
           </p>
         </div>

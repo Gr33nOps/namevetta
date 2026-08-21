@@ -9,6 +9,7 @@ import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import type { Evidence, Match, SourceId, SourceResult, SourceStatus } from '@/lib/core/types'
 import { computeConfidence, type SourceHealth } from '@/lib/scoring/confidence'
 import { healthFor } from '@/lib/sources/health'
+import { SourceRequestError } from '@/lib/sources/http'
 
 export interface BuildResultInput {
   source: SourceId
@@ -71,6 +72,21 @@ export function unverifiable(
     status: 'unable_to_verify',
     error: { code, message, retryable },
   })
+}
+
+/**
+ * Give every JSON API adapter the same honest failure result. The provider name
+ * remains visible to the researcher, while the error code still feeds source
+ * health without letting an upstream error look like a clear result.
+ */
+export function requestFailure(source: SourceId, provider: string, cause: unknown): SourceResult {
+  if (cause instanceof SourceRequestError) {
+    if (cause.code === 'RATE_LIMITED') return unverifiable(source, 'RATE_LIMITED', `${provider} rate-limited this request.`, true)
+    if (cause.code === 'TIMEOUT') return unverifiable(source, 'TIMEOUT', `${provider} did not answer in time.`, true)
+    if (cause.code === 'BAD_JSON') return unverifiable(source, 'MALFORMED_RESPONSE', `${provider} returned malformed JSON.`, false)
+    if (cause.status !== undefined && cause.status >= 500) return unverifiable(source, 'UPSTREAM_ERROR', `${provider} responded ${cause.status}.`, true)
+  }
+  return unverifiable(source, 'LOOKUP_FAILED', `${provider} could not be reached.`, true)
 }
 
 /** Convenience for the common "we looked, nothing there" outcome. */

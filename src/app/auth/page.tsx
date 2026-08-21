@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { AuthForm } from '@/components/AuthForm'
 import { currentUser } from '@/lib/db/auth'
-import { effectiveLimits } from '@/lib/quota'
 
 export const metadata = {
   title: 'Sign in | NameVetta',
@@ -9,19 +8,12 @@ export const metadata = {
   robots: { index: false, follow: false },
 }
 
-/**
- * What an account is actually worth, in the configured numbers.
- *
- * Written out here the page once promised 25 and 5 while the server was
- * handing out 500 and 50, which is the kind of gap a reader notices on their
- * first refused scan. Both figures now come from the same configuration the
- * scan route enforces.
- */
-function benefitsFor(limits: ReturnType<typeof effectiveLimits>) {
+/** Keep the account benefits specific without turning the sign-in page into a rate card. */
+function benefitsFor() {
   return [
   {
-    title: `${limits.user.quick} Quick · ${limits.user.deep} Deep · ${limits.user.generate} Generate`,
-    detail: `Guest: ${limits.guest.quick} · ${limits.guest.deep} · ${limits.guest.generate}`,
+    title: 'More daily research',
+    detail: 'A higher allowance for checks and ideas.',
   },
   {
     title: 'History across devices',
@@ -44,8 +36,7 @@ export default async function Page({ searchParams }: PageProps<'/auth'>) {
 
   const query = await searchParams
   const confirmationFailed = query.error === 'confirmation'
-  const limits = effectiveLimits()
-  const benefits = benefitsFor(limits)
+  const benefits = benefitsFor()
 
   return (
     <div className="mx-auto w-full max-w-[900px] px-6 py-14">
@@ -93,7 +84,6 @@ export default async function Page({ searchParams }: PageProps<'/auth'>) {
             </p>
           ) : null}
           <AuthForm
-            guestLimits={limits.guest}
             turnstileSiteKey={
               process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY === ''
                 ? undefined

@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { JetBrains_Mono, Outfit } from 'next/font/google'
 import { SiteMark } from '@/components/SiteMark'
 import { SiteNav } from '@/components/SiteNav'
+import { BRAND_LINKS } from '@/lib/brand'
 import { SCOPE_NOTICE } from '@/lib/presentation'
 import { SITE_URL } from '@/lib/site'
 import './globals.css'
@@ -162,6 +163,8 @@ const FOOTER_LINKS = [
   { href: '/status', label: 'Source status' },
   { href: '/privacy', label: 'Privacy' },
   { href: '/terms', label: 'Terms' },
+  { href: BRAND_LINKS.githubShowcase, label: 'GitHub showcase', external: true },
+  { href: BRAND_LINKS.support, label: 'Support', external: true },
 ] as const
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
@@ -221,6 +224,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                   <Link
                     key={link.href}
                     href={link.href}
+                    {...('external' in link && link.external ? { target: '_blank', rel: 'noreferrer' } : {})}
                     className="inline-flex min-h-8 items-center rounded text-[13px] text-faint transition-colors hover:text-charcoal-2 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
                   >
                     {link.label}

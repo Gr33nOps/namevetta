@@ -27,3 +27,9 @@ export const BRAND_TONE: Record<string, string> = {
   warn: '#96520A',
   danger: '#C02A1D',
 }
+
+/** Public destinations shown in the product chrome. */
+export const BRAND_LINKS = {
+  githubShowcase: 'https://github.com/Gr33nOps/namevetta',
+  support: 'https://ko-fi.com/zain021xd',
+} as const

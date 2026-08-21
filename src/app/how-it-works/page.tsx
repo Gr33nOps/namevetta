@@ -123,10 +123,10 @@ export default function Page() {
             {COUNTS.quick} of them; Deep Research asks all {COUNTS.deep}, including the{' '}
             {COUNTS.deepOnly} that only earn their cost on a deeper look. Of the catalog,{' '}
             {COUNTS.categoryDependent}{' '}
-            {COUNTS.categoryDependent === 1 ? 'runs' : 'run'} only for the categories where the
-            answer is worth a metered search credit, and {COUNTS.manual}{' '}
-            {COUNTS.manual === 1 ? 'is' : 'are'} never automatic at all. A source that did not run
-            is reported as not run.
+            {COUNTS.categoryDependent === 1 ? 'runs' : 'run'} only for relevant categories. {COUNTS.discovery}{' '}
+            {COUNTS.discovery === 1 ? 'source surfaces' : 'sources surface'} public matches without
+            judging availability, and {COUNTS.manual} {COUNTS.manual === 1 ? 'is' : 'are'} never
+            automatic at all. A source that did not run is reported as not run.
           </p>
         </LegalSection>
 

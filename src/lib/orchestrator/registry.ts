@@ -66,6 +66,10 @@ import { socialsAdapter } from '@/lib/sources/socials'
 import { webAdapter } from '@/lib/sources/web'
 import { wikidataAdapter } from '@/lib/sources/wikidata'
 import { youtubeAdapter } from '@/lib/sources/youtube'
+import { aurAdapter } from '@/lib/sources/aur'
+import { huggingFaceAdapter } from '@/lib/sources/huggingface'
+import { modrinthAdapter } from '@/lib/sources/modrinth'
+import { robloxAdapter } from '@/lib/sources/roblox'
 
 export const ADAPTERS: Partial<Record<SourceId, SourceAdapter>> = {
   domain: domainAdapter,
@@ -126,6 +130,10 @@ export const ADAPTERS: Partial<Record<SourceId, SourceAdapter>> = {
   gleif: gleifAdapter,
   osm: osmAdapter,
   bluesky: blueskyAdapter,
+  aur: aurAdapter,
+  roblox: robloxAdapter,
+  modrinth: modrinthAdapter,
+  huggingface: huggingFaceAdapter,
 }
 
 export function adapterFor(id: SourceId): SourceAdapter | undefined {
