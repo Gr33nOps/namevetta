@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { LegalPage, LegalSection } from '@/components/LegalPage'
 import { ScrollArea } from '@/components/ui/ScrollArea'
+import { SourceLogo } from '@/components/SourceLogo'
 import {
   isCategoryDependent,
   sourceCounts,
@@ -242,7 +243,10 @@ export default function Page() {
               {sources.map((s) => (
                 <li key={s.id} className="px-4 py-3">
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-[14px] font-medium text-charcoal">{s.label}</p>
+                    <p className="flex items-center gap-2 text-[14px] font-medium text-charcoal">
+                      <SourceLogo label={s.label} />
+                      {s.label}
+                    </p>
                     <span className="shrink-0 tabular-nums text-[13px] text-charcoal-2">
                       {s.baseConfidenceCeiling}
                       <span className="ml-1 text-xs text-faint">ceiling</span>
@@ -291,7 +295,10 @@ export default function Page() {
                   {sources.map((s) => (
                     <tr key={s.id}>
                       <td className="px-3 py-2 whitespace-nowrap text-charcoal">
-                        {s.label}
+                        <span className="inline-flex items-center gap-2">
+                          <SourceLogo label={s.label} size="sm" />
+                          {s.label}
+                        </span>
                         <span className="ml-1.5 text-xs text-faint">
                           {GROUP_LABELS[SOURCE_GROUP[s.id]]}
                         </span>

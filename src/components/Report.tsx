@@ -21,6 +21,7 @@ import type { AiSummaryEvent, ScanSummary } from '@/lib/orchestrator/run'
 import { deliberatelySkipped, resultPresentation, SCOPE_NOTICE } from '@/lib/presentation'
 import { Freshness } from '@/components/ui/TimeAgo'
 import { oldest } from '@/lib/relativeTime'
+import { SourceLogo } from '@/components/SourceLogo'
 
 /**
  * Where a wrong report goes.
@@ -133,7 +134,10 @@ function ManualVerification({
             >
               <div className="flex min-w-0 items-start justify-between gap-3">
                 <div className="min-w-0">
-                <h3 className="font-semibold text-charcoal">{platform.name}</h3>
+                <h3 className="flex items-center gap-2 font-semibold text-charcoal">
+                  <SourceLogo label={platform.name} />
+                  {platform.name}
+                </h3>
                 {platform.name === 'Reddit Community' ? (
                   <p className="mt-1 text-xs leading-relaxed text-faint">
                     Checks the subreddit name, not a Reddit user account.
@@ -363,7 +367,10 @@ export function Report({
                 >
                   <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold text-charcoal">{label(r)}</h3>
+                      <h3 className="flex items-center gap-2 font-semibold text-charcoal">
+                        <SourceLogo label={label(r)} />
+                        {label(r)}
+                      </h3>
                       {isGooglePlay ? (
                         <Badge tone="neutral" glyph={false}>Apps and games</Badge>
                       ) : null}

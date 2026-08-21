@@ -10,6 +10,7 @@ import { GROUP_LABELS, SOURCE_GROUP } from '@/lib/scoring/weights'
 import { Badge } from '@/components/ui/Badge'
 import { ScrollArea } from '@/components/ui/ScrollArea'
 import type { Tone } from '@/lib/presentation'
+import { SourceLogo } from '@/components/SourceLogo'
 
 export const metadata = {
   title: 'Source status | NameVetta',
@@ -169,7 +170,10 @@ export default async function Page() {
                 return (
                   <li key={s.id} className="px-5 py-3.5">
                     <div className="flex items-start justify-between gap-3">
-                      <p className="text-[14.5px] font-medium text-charcoal">{s.label}</p>
+                      <p className="flex items-center gap-2 text-[14.5px] font-medium text-charcoal">
+                        <SourceLogo label={s.label} />
+                        {s.label}
+                      </p>
                       {health === undefined ? (
                         <span className="shrink-0 text-xs text-faint">No recent data</span>
                       ) : (
@@ -235,7 +239,10 @@ export default async function Page() {
                     return (
                       <tr key={s.id}>
                         <th scope="row" className="px-5 py-3 font-normal text-charcoal">
-                          {s.label}
+                          <span className="flex items-center gap-2">
+                            <SourceLogo label={s.label} />
+                            {s.label}
+                          </span>
                         </th>
                         <td className="px-5 py-3 text-charcoal-2">
                           {GROUP_LABELS[SOURCE_GROUP[s.id]]}

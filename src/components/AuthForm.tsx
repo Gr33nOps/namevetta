@@ -3,6 +3,8 @@
 import Script from 'next/script'
 import { useActionState, useState } from 'react'
 import { requestPasswordReset, signIn, signUp, type AuthState } from '@/app/auth/actions'
+import { browserClient } from '@/lib/db/browserClient'
+import { SourceLogo } from '@/components/SourceLogo'
 
 const initial: AuthState = {}
 
@@ -34,6 +36,8 @@ export function AuthForm({
 }) {
   const [mode, setMode] = useState<'signin' | 'signup' | 'reset'>('signin')
   const [showPassword, setShowPassword] = useState(false)
+  const [oauthProvider, setOauthProvider] = useState<'google' | 'github' | undefined>()
+  const [oauthError, setOauthError] = useState<string | undefined>()
   const [signInState, signInAction, signingIn] = useActionState(signIn, initial)
   const [signUpState, signUpAction, signingUp] = useActionState(signUp, initial)
   const [resetState, resetAction, resetting] = useActionState(requestPasswordReset, initial)
@@ -95,6 +99,23 @@ export function AuthForm({
   const isSignIn = mode === 'signin'
   const state = isSignIn ? signInState : signUpState
   const pending = isSignIn ? signingIn : signingUp
+
+  async function continueWith(provider: 'google' | 'github') {
+    setOauthProvider(provider)
+    setOauthError(undefined)
+
+    const { error } = await browserClient().auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback?next=/history`,
+      },
+    })
+
+    if (error !== null) {
+      setOauthProvider(undefined)
+      setOauthError('That sign-in option is unavailable right now. Try email sign-in instead.')
+    }
+  }
 
   return (
     <div className="panel rounded-panel p-6 sm:p-7">
@@ -204,6 +225,43 @@ export function AuthForm({
           {pending ? 'Please wait…' : isSignIn ? 'Sign in' : 'Create account'}
         </button>
       </form>
+
+      {isSignIn ? (
+        <>
+          <div className="my-5 flex items-center gap-3 text-xs text-faint" aria-hidden="true">
+            <span className="h-px flex-1 bg-line" />
+            <span>or</span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => void continueWith('google')}
+              disabled={oauthProvider !== undefined}
+              className="btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm disabled:cursor-wait disabled:opacity-60"
+            >
+              <SourceLogo label="Google" />
+              {oauthProvider === 'google' ? 'Opening…' : 'Continue with Google'}
+            </button>
+            <button
+              type="button"
+              onClick={() => void continueWith('github')}
+              disabled={oauthProvider !== undefined}
+              className="btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm disabled:cursor-wait disabled:opacity-60"
+            >
+              <SourceLogo label="GitHub" />
+              {oauthProvider === 'github' ? 'Opening…' : 'Continue with GitHub'}
+            </button>
+          </div>
+
+          {oauthError !== undefined ? (
+            <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
+              {oauthError}
+            </p>
+          ) : null}
+        </>
+      ) : null}
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { activeSources } from '@/lib/core/adapter'
+import { SourceLogo } from '@/components/SourceLogo'
 
 const SOURCES = activeSources()
 const LABELS = SOURCES.map((source) => source.label)
@@ -22,6 +23,7 @@ function Row({ reverse = false }: { reverse?: boolean }) {
               key={`${copy}-${label}`}
               className="flex shrink-0 items-center rounded-full border border-line bg-surface/50 px-3.5 py-1.5 text-[12.5px] whitespace-nowrap text-charcoal-2"
             >
+              <SourceLogo label={label} size="sm" />
               {label}
             </span>
           ))}

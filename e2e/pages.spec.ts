@@ -222,6 +222,14 @@ test.describe('crawler directives', () => {
     const robots = await page.locator('meta[name="robots"]').getAttribute('content')
     expect(robots).toContain('noindex')
   })
+
+  test('the sign-in page offers configured social sign-in paths', async ({ page }) => {
+    await page.goto('/auth')
+    const google = page.getByRole('button', { name: 'Continue with Google' })
+    await expect(google).toBeVisible()
+    await expect(google.locator('svg')).toHaveCount(1)
+    await expect(page.getByRole('button', { name: 'Continue with GitHub' })).toBeVisible()
+  })
 })
 
 test.describe('name generation validation', () => {
@@ -269,10 +277,28 @@ test.describe('name generation validation', () => {
 
 test('Ideas gives a clear route back to a name check', async ({ page }) => {
   await page.goto('/generate')
-  const search = page.getByRole('link', { name: 'Back to search' })
+  const search = page.getByRole('link', { name: 'Search a name' })
   await expect(search).toBeVisible()
   await search.click()
   await expect(page).toHaveURL('/')
+})
+
+test('primary navigation keeps three destinations visible and marks the current page', async ({ page }) => {
+  await page.goto('/generate')
+  const nav = page.getByRole('navigation', { name: 'Main' })
+  await expect(nav.getByRole('link')).toHaveCount(3)
+  await expect(nav.getByRole('link', { name: 'Generate ideas' })).toHaveAttribute('aria-current', 'page')
+  await expect(nav.getByRole('link', { name: 'Search a name' })).not.toHaveAttribute('aria-current', 'page')
+})
+
+test('primary navigation fits a compact screen without horizontal overflow', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 800 })
+  await page.goto('/')
+  const nav = page.getByRole('navigation', { name: 'Main' })
+  await expect(nav.getByRole('link')).toHaveCount(3)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+    await page.evaluate(() => window.innerWidth),
+  )
 })
 
 test('removed sources stay out of the active catalog UI', async ({ page }) => {

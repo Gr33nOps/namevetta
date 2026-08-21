@@ -3,6 +3,7 @@ import type { SourceResult } from '@/lib/core/types'
 import { coverageCaveat, SCORE_EXPLAINER, TONE_FILL } from '@/lib/presentation'
 import { sourceSubscore, type ViabilityResult } from '@/lib/scoring/viability'
 import { GROUP_LABELS } from '@/lib/scoring/weights'
+import { SourceLogo } from '@/components/SourceLogo'
 
 /** A subscore reads as "how clear this group is": high is good, like a grade. */
 function signalTone(subscore: number): 'ok' | 'warn' | 'danger' {
@@ -76,7 +77,10 @@ export function ScoreBreakdown({
                       key={result.source}
                       className="flex items-baseline justify-between gap-2 text-[12.5px] text-charcoal-2"
                     >
-                      <span>{SOURCE_MANIFEST[result.source].label}</span>
+                      <span className="flex items-center gap-2">
+                        <SourceLogo label={SOURCE_MANIFEST[result.source].label} size="sm" />
+                        {SOURCE_MANIFEST[result.source].label}
+                      </span>
                       <span className="tabular-nums text-faint">{subscore ?? '—'}</span>
                     </li>
                   ))}

@@ -3,6 +3,7 @@ import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import type { Match, SourceId, SourceResult } from '@/lib/core/types'
 import { deliberatelySkipped, resultPresentation, SEVERITY_PRESENTATION } from '@/lib/presentation'
 import { Freshness } from '@/components/ui/TimeAgo'
+import { SourceLogo } from '@/components/SourceLogo'
 
 /** Shared retry affordance for a source stuck at `unable_to_verify`. */
 export function RetryButton({
@@ -115,7 +116,10 @@ export function CompactSourceRow({
 
   return (
     <div className="flex items-center justify-between gap-3 py-2 text-sm">
-      <span className="text-charcoal-2">{manifest.label}</span>
+      <span className="flex min-w-0 items-center gap-2 text-charcoal-2">
+        <SourceLogo label={manifest.label} size="sm" />
+        <span className="truncate">{manifest.label}</span>
+      </span>
       <div className="flex items-center gap-2">
         <Badge tone={status.tone} glyph={false}>
           {status.label}
@@ -154,7 +158,10 @@ export function SourceCard({ result }: { result: SourceResult }) {
     <article className="card rounded-2xl p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h3 className="font-display text-[15.5px] font-semibold text-charcoal">{manifest.label}</h3>
+          <h3 className="flex items-center gap-2 font-display text-[15.5px] font-semibold text-charcoal">
+            <SourceLogo label={manifest.label} />
+            {manifest.label}
+          </h3>
           <p className="mt-0.5 text-sm text-charcoal-2">{status.detail}</p>
         </div>
         <div className="flex items-center gap-2">

@@ -57,27 +57,17 @@ export default async function Page({ searchParams }: PageProps<'/auth'>) {
         </p>
       </header>
 
-      <div className="mt-12 md:grid md:grid-cols-[1fr_400px] md:items-start md:gap-16">
-        <div className="max-w-md">
-          <ul className="space-y-5">
-            {benefits.map((b) => (
-              <li key={b.title} className="flex gap-3">
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-ok-soft text-xs font-semibold text-ok"
-                >
-                  ✓
-                </span>
-                <div>
-                  <p className="text-sm font-medium text-charcoal">{b.title}</p>
-                  <p className="mt-0.5 text-sm text-charcoal-2">{b.detail}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+      <div className="mx-auto mt-10 w-full max-w-[520px]">
+        <ul className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-center">
+          {benefits.map((b) => (
+            <li key={b.title} className="inline-flex items-center gap-1.5 text-xs text-charcoal-2">
+              <span aria-hidden="true" className="text-ok">✓</span>
+              <span>{b.title}</span>
+            </li>
+          ))}
+        </ul>
 
-        <div className="mt-10 md:mt-0">
+        <div className="mt-7">
           {confirmationFailed ? (
             <p role="alert" className="mb-3 rounded-xl border border-danger/25 bg-danger-soft px-4 py-3 text-sm text-danger">
               That confirmation link could not sign you in. Request a new link or sign in below.

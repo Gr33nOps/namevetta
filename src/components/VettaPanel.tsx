@@ -9,6 +9,7 @@ import { MAX_NAME_LENGTH, type Category, type ScanType } from '@/lib/core/scan'
 import { isVerified, type SourceResult } from '@/lib/core/types'
 import { type Tone } from '@/lib/presentation'
 import { manualVerificationCount, panelRows, ROW_FILTERS, type RowFilterId } from '@/lib/rows'
+import { SourceLogo } from '@/components/SourceLogo'
 
 const RECENT_KEY = 'nv-recent'
 const MAX_RECENT = 5
@@ -390,6 +391,7 @@ export function VettaPanel({
                   >
                     <div className="min-w-0">
                       <p className="flex items-center gap-2 text-sm font-medium text-charcoal">
+                        <SourceLogo label={row.label} size="sm" />
                         {row.label}
                         {row.category === '' ? null : (
                           <span className="text-[10px] tracking-widest text-faint uppercase">

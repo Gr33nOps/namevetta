@@ -22,8 +22,9 @@ const CONFIGURED =
  * costs a swap after hydration instead, and the swap is between two links of
  * similar width so nothing else on the row moves.
  *
- * Signed out it offers an account. Signed in it offers the two things an
- * account is actually for: the history it keeps, and the saved shortlist.
+ * Signed out it offers an account. Signed in it offers the account area; the
+ * primary navigation owns History so it stays in the same position for every
+ * visitor.
  */
 export function NavSession() {
   const [signedIn, setSignedIn] = useState<boolean | undefined>(CONFIGURED ? undefined : false)
@@ -70,19 +71,11 @@ export function NavSession() {
   }
 
   return (
-    <>
-      <Link
-        href="/history"
-        className="rounded-lg py-2 transition-colors hover:text-charcoal focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
-      >
-        History
-      </Link>
-      <Link
-        href="/account"
-        className="btn-secondary px-4 py-2 text-[14px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
-      >
-        Account
-      </Link>
-    </>
+    <Link
+      href="/account"
+      className="btn-secondary px-3.5 py-2 text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent sm:px-4 sm:text-[14px]"
+    >
+      Account
+    </Link>
   )
 }
