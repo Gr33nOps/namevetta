@@ -24,13 +24,13 @@ const SCAN_SELECT = `
 `
 
 export async function GET(): Promise<Response> {
-  if (!isDatabaseConfigured()) {
-    return privateError('Accounts are not available in this environment.', 400)
-  }
-
   const user = await currentUser()
   if (user === undefined) {
     return privateError('Sign in to export your data.', 401)
+  }
+
+  if (!isDatabaseConfigured()) {
+    return privateError('Accounts are not available in this environment.', 400)
   }
 
   const supabase = await sessionClient()

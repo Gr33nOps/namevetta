@@ -118,7 +118,7 @@ test.describe('search', () => {
     // thing shouting at you. It reads as a ring labelled "Score" now,
     // with the count of what actually came back clear beside it.
     await expect(page.getByText('Score', { exact: true })).toBeVisible()
-    await expect(page.getByText(/\d+ of \d+ clear/)).toBeVisible()
+    await expect(page.getByText(/\d+ of \d+ automatic checks clear/)).toBeVisible()
   })
 
   test('leads with the findings that need a decision', async ({ page }) => {

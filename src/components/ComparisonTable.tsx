@@ -136,7 +136,7 @@ export function ComparisonTable({
       <section
         tabIndex={0}
         aria-label="Comparison of every candidate, metric by metric"
-        className="overflow-x-auto card rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="hidden overflow-x-auto card rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent md:block"
       >
         <div role="table" className="min-w-[620px]">
           <div
@@ -220,10 +220,8 @@ export function ComparisonTable({
           ))}
         </div>
       </section>
-      <p className="-mt-3 text-xs text-faint sm:hidden">Swipe to compare.</p>
-
       {/* Per-candidate explanation cards. */}
-      <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <section className="mx-auto grid w-full max-w-lg gap-4 sm:max-w-none sm:grid-cols-2 lg:grid-cols-3">
         {candidates.map((c) => (
           <article key={c.name} className="card rounded-2xl p-5">
             <div className="flex items-start justify-between gap-2">

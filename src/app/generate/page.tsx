@@ -24,7 +24,7 @@ export default function Page() {
   const limits = effectiveLimits()
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 pt-12 pb-16 sm:pt-16">
+    <div className="mx-auto w-full max-w-5xl px-6 pt-12 pb-16 sm:pt-16">
       <div className="animate-rise text-center">
         <h1 className="font-display text-[2.5rem] leading-[1.04] font-semibold text-charcoal sm:text-[3.5rem]">
           Find names that <span className="brand-gradient-text brand-hero-shimmer">fit</span>.

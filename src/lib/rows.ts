@@ -252,6 +252,19 @@ export function panelRows(
   return rows
 }
 
+/**
+ * How many individual platform links still need a person.
+ *
+ * A manual source can stand for several platforms. Counting source rows here
+ * would tell a reader "2 manual checks" when the report actually asks them to
+ * verify Instagram, TikTok, Reddit Community, Twitch, Threads, and Slack.
+ */
+export function manualVerificationCount(results: readonly SourceResult[]): number {
+  return results
+    .filter((result) => result.status === 'manual_check_recommended')
+    .flatMap(rowsFor).length
+}
+
 function detailFor(result: SourceResult): string {
   const exact = result.exactMatches[0]
   if (exact !== undefined) return exact.name

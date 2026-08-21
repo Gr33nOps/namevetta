@@ -8,7 +8,7 @@ import { sourceCounts } from '@/lib/core/adapter'
 import { MAX_NAME_LENGTH, type Category, type ScanType } from '@/lib/core/scan'
 import { isVerified, type SourceResult } from '@/lib/core/types'
 import { type Tone } from '@/lib/presentation'
-import { panelRows, ROW_FILTERS, type RowFilterId } from '@/lib/rows'
+import { manualVerificationCount, panelRows, ROW_FILTERS, type RowFilterId } from '@/lib/rows'
 
 const RECENT_KEY = 'nv-recent'
 const MAX_RECENT = 5
@@ -196,8 +196,16 @@ export function VettaPanel({
   const clear = results?.filter((r) => r.status === 'no_conflict').length ?? 0
   const review =
     results?.filter((r) => r.status === 'similar_found' || r.status === 'confirmed_conflict').length ?? 0
-  const manual = results?.filter((r) => r.status === 'manual_check_recommended').length ?? 0
+  const manual = results === undefined ? 0 : manualVerificationCount(results)
   const unverified = results?.filter((r) => r.status === 'unable_to_verify').length ?? 0
+  const hasConfirmedConflict = results?.some((r) => r.status === 'confirmed_conflict') ?? false
+  const completedScoreTone: Tone = hasConfirmedConflict
+    ? 'danger'
+    : (score ?? 0) >= 85
+      ? 'ok'
+      : (score ?? 0) >= 50
+        ? 'warn'
+        : 'danger'
   /*
     The denominator excludes what was deliberately never asked.
 
@@ -307,19 +315,21 @@ export function VettaPanel({
           */}
           <div className="mt-7 grid gap-4 sm:grid-cols-[17.5rem_1fr] sm:items-center">
             <div className="inset flex items-center gap-4 rounded-2xl px-5 py-4">
-              <ScoreRing score={score ?? 0} tone={scoreTone} />
+              <ScoreRing score={score ?? 0} tone={busy ? scoreTone : completedScoreTone} />
               <div>
                 <p className="font-display text-sm font-semibold text-charcoal">Score</p>
                 <p className="text-xs tabular-nums text-charcoal-2">
                   {busy
                     ? `${answered} of ${total ?? answered} sources answered`
-                    : `${clear} of ${answered} clear`}
+                    : manual > 0
+                      ? `${clear} automatic checks clear. ${manual} direct ${manual === 1 ? 'check' : 'checks'} remain.`
+                      : `${clear} of ${answered} automatic checks clear`}
                 </p>
               </div>
             </div>
 
             {busy ? (
-              <div className="flex flex-nowrap gap-1.5 overflow-x-auto pb-1" role="group" aria-label="Filter results">
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter results">
                 {[{ id: 'all' as const, label: 'All' }, ...ROW_FILTERS].map((f) => (
                   <button
                     key={f.id}

@@ -158,7 +158,7 @@ function ManualVerification({
                     </ul>
                   </div>
                 ) : discoverySearched ? (
-                  <p className="mt-1 text-xs text-faint">No indexed match found.</p>
+                  <p className="mt-1 text-xs text-faint">Nothing surfaced in this web search. Check directly.</p>
                 ) : null}
                 </div>
                 {platform.url === undefined ? null : (

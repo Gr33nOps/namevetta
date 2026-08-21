@@ -227,7 +227,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                   </Link>
                 ))}
               </nav>
-              <span className="max-w-[46ch] text-[12px] leading-relaxed text-faint sm:text-right">
+              <span className="max-w-[46ch] text-[12px] leading-relaxed text-faint sm:max-w-none sm:whitespace-nowrap sm:text-right">
                 {SCOPE_NOTICE}
               </span>
             </div>

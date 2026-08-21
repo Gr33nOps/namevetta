@@ -122,8 +122,8 @@ export function GenerateRunner({
 
   if (phase.kind === 'done') {
     return (
-      <div className="space-y-6">
-        <h2 className="font-display text-2xl font-semibold text-charcoal">Top 5 names</h2>
+      <div className="mx-auto w-full max-w-4xl space-y-6">
+        <h2 className="font-display text-center text-2xl font-semibold text-charcoal">Top 5 names</h2>
         <ComparisonTable result={phase.result} category={category} />
 
         <button
@@ -182,7 +182,7 @@ export function GenerateRunner({
   }
 
   return (
-    <form onSubmit={submit} noValidate>
+    <form onSubmit={submit} noValidate className="mx-auto w-full max-w-3xl">
       <div className="panel glass-spotlight rounded-panel p-5 sm:p-7">
         <div>
           <label htmlFor="gen-description" className="mb-1.5 block text-sm font-medium">

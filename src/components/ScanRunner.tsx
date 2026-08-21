@@ -300,7 +300,7 @@ export function ScanRunner({ context }: { context: ScanContext }) {
     const banner = conflictBanner(viability.conflicts)
 
     return (
-      <div className="mx-auto w-full max-w-3xl px-6 py-10">
+      <div className="mx-auto w-full max-w-4xl px-6 py-10">
         <header className="mb-6 text-center">
           <h1 className="font-mono text-[30px] leading-none font-medium tracking-tight text-charcoal sm:text-[38px]">
             {context.name}
@@ -368,7 +368,7 @@ export function ScanRunner({ context }: { context: ScanContext }) {
   }
 
   return (
-    <div aria-live="polite" aria-busy="true" className="mx-auto w-full max-w-3xl px-6 py-10">
+    <div aria-live="polite" aria-busy="true" className="mx-auto w-full max-w-4xl px-6 py-10">
       <h1 className="font-mono mb-6 text-center text-[30px] leading-none font-medium tracking-tight text-charcoal sm:text-[38px]">
         {context.name}
       </h1>

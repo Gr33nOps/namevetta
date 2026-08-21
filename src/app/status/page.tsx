@@ -124,34 +124,34 @@ export default async function Page() {
           No history database is configured, so there is no recent reliability data yet.
         </p>
       ) : (
-        <>
-          <div className="inset mt-8 grid overflow-hidden rounded-2xl divide-y divide-line sm:grid-cols-2 sm:divide-y-0 sm:divide-x">
-            {/*
-              A fresh deployment has nothing recorded yet, and "0/0" reads as
-              "none of them are working" rather than "nobody has asked".
-            */}
-            {reporting.length === 0 ? (
-              <>
-                <Stat value="–" label="no sources queried in 24 hours" />
-                <Stat value="–" label="data appears after the first check" />
-              </>
-            ) : (
-              <>
-                <Stat
-                  value={`${healthy.length}/${reporting.length}`}
-                  label="above 95% in the last 24 hours"
-                  tone="ok"
-                />
-                <Stat
-                  value={String(struggling.length)}
-                  label="below 80%, scored down"
-                  {...(struggling.length > 0 ? { tone: 'warn' as const } : {})}
-                />
-              </>
-            )}
-          </div>
+        <div className="inset mt-8 grid overflow-hidden rounded-2xl divide-y divide-line sm:grid-cols-2 sm:divide-y-0 sm:divide-x">
+          {/*
+            A fresh deployment has nothing recorded yet, and "0/0" reads as
+            "none of them are working" rather than "nobody has asked".
+          */}
+          {reporting.length === 0 ? (
+            <>
+              <Stat value="–" label="no sources queried in 24 hours" />
+              <Stat value="–" label="data appears after the first check" />
+            </>
+          ) : (
+            <>
+              <Stat
+                value={`${healthy.length}/${reporting.length}`}
+                label="above 95% in the last 24 hours"
+                tone="ok"
+              />
+              <Stat
+                value={String(struggling.length)}
+                label="below 80%, scored down"
+                {...(struggling.length > 0 ? { tone: 'warn' as const } : {})}
+              />
+            </>
+          )}
+        </div>
+      )}
 
-          <details className="card mt-4 overflow-hidden rounded-2xl">
+      <details className="card mt-4 overflow-hidden rounded-2xl">
             <summary className="flex cursor-pointer list-none items-center gap-2.5 px-5 py-3.5 text-[14.5px] font-semibold text-charcoal marker:content-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
               <span aria-hidden="true" className="text-[11px] text-faint">
                 ▸
@@ -264,9 +264,7 @@ export default async function Page() {
                 </tbody>
               </table>
             </ScrollArea>
-          </details>
-        </>
-      )}
+      </details>
 
       <p className="mt-5 text-xs leading-relaxed text-faint">
         No recent data means no recent request, not a failure.

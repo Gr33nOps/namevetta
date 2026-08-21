@@ -1,5 +1,3 @@
-import Image from 'next/image'
-
 /**
  * The lockup: the mark, then the word.
  *
@@ -33,13 +31,12 @@ export function SiteMark({
 
   return (
     <span className="flex items-center gap-2">
-      <Image
-        src="/logo.png"
+      <img
+        src="/logo.png?v=20260821"
         alt=""
         aria-hidden="true"
         width={px}
         height={px}
-        priority
         className="shrink-0"
         style={{ width: px, height: px }}
       />
