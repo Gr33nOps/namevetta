@@ -30,6 +30,13 @@ jobs:
       - name: Tests and quality benchmark
         run: npm test
 
+      # Fails the build only on a high or critical advisory in a production
+      # dependency. Dev-only and lower-severity advisories are surfaced by
+      # Dependabot rather than blocking a merge, so this gate stays signal, not
+      # noise the team learns to ignore.
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
       - name: Build
         run: npm run build
         env:

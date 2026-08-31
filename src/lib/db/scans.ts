@@ -41,6 +41,7 @@ export async function createScan(
       category: ctx.category,
       description: ctx.description ?? null,
       scan_type: ctx.scanType,
+      include_specialized: ctx.includeSpecialized === true,
       status: 'running',
     })
     .select('id')

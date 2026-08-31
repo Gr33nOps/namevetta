@@ -312,6 +312,7 @@ export interface StoredScan {
   category: string
   description: string | undefined
   scanType: 'quick' | 'deep'
+  includeSpecialized: boolean
   createdAt: string
   results: unknown[]
   /** What was recorded at the time, for comparison against a recompute. */
@@ -319,7 +320,7 @@ export interface StoredScan {
 }
 
 const STORED_SELECT = `
-  id, name, category, description, scan_type, status, created_at,
+  id, name, category, description, scan_type, include_specialized, status, created_at,
   reports(digital_score, coverage, scoring_version),
   source_results(
     source, status, confidence, error_code, error_message, error_retryable,
@@ -450,6 +451,7 @@ export async function storedScan(
     category: string
     description: string | null
     scan_type: 'quick' | 'deep'
+    include_specialized: boolean
     status: string
     created_at: string
     reports: { digital_score: number; coverage: number; scoring_version: number }[] | { digital_score: number; coverage: number; scoring_version: number } | null
@@ -467,6 +469,7 @@ export async function storedScan(
     category: row.category,
     description: row.description ?? undefined,
     scanType: row.scan_type,
+    includeSpecialized: row.include_specialized,
     createdAt: row.created_at,
     results: (row.source_results ?? []).map(toResult),
     recorded:

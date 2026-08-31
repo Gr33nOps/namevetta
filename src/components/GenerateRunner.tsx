@@ -2,10 +2,12 @@
 
 import { useId, useRef, useState } from 'react'
 import { ComparisonTable } from '@/components/ComparisonTable'
+import { BroaderCheck } from '@/components/BroaderCheck'
 import { CategorySelect } from '@/components/CategorySelect'
 import {
   GENERATE_DESCRIPTION_REQUIRED,
   GenerateRequestSchema,
+  MAX_COMPARE_NAMES,
   MAX_DESCRIPTION_LENGTH,
   MAX_NAME_LENGTH,
   MIN_GENERATE_DESCRIPTION_LENGTH,
@@ -35,6 +37,7 @@ export function GenerateRunner({
 }) {
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState<Category>('saas')
+  const [includeSpecialized, setIncludeSpecialized] = useState(false)
   const [seed, setSeed] = useState('')
   const [phase, setPhase] = useState<Phase>({ kind: 'setup' })
   const [error, setError] = useState<string | null>(null)
@@ -54,6 +57,7 @@ export function GenerateRunner({
     */
     const parsed = GenerateRequestSchema.safeParse({
       category,
+      includeSpecialized,
       description,
       seed: seed.trim() === '' ? undefined : seed,
     })
@@ -121,9 +125,19 @@ export function GenerateRunner({
   }
 
   if (phase.kind === 'done') {
+    const found = phase.result.candidates.length
+    const short = found < MAX_COMPARE_NAMES
     return (
       <div className="mx-auto w-full max-w-4xl space-y-6">
-        <h2 className="font-display text-center text-2xl font-semibold text-charcoal">Top 5 names</h2>
+        <h2 className="font-display text-center text-2xl font-semibold text-charcoal">
+          {short ? `Top ${found} ${found === 1 ? 'name' : 'names'}` : 'Top 5 names'}
+        </h2>
+        {short ? (
+          <p className="mx-auto max-w-xl text-center text-sm text-charcoal-2">
+            We could only clear {found} this time. The rest of the ideas were already
+            taken or too close to an existing name. Try again or add a bit more detail.
+          </p>
+        ) : null}
         <ComparisonTable result={phase.result} category={category} />
 
         <button
@@ -230,6 +244,10 @@ export function GenerateRunner({
 
         <div className="mt-4">
           <CategorySelect value={category} onChange={setCategory} />
+        </div>
+
+        <div className="mt-3">
+          <BroaderCheck checked={includeSpecialized} onChange={setIncludeSpecialized} />
         </div>
 
         <div className="mt-4">

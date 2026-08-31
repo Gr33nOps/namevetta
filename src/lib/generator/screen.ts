@@ -10,6 +10,7 @@
 import { MAX_COMPARE_NAMES, type Category, type ScanContext } from '@/lib/core/scan'
 import { isVerified, type SourceId } from '@/lib/core/types'
 import { compareCandidates, type Candidate, type ComparisonResult } from '@/lib/compare/rank'
+import { assessBrandability } from '@/lib/generator/quality'
 import { runScanToCompletion, type ScanSummary } from '@/lib/orchestrator/run'
 
 /**
@@ -38,6 +39,18 @@ const MINIMUM_SCORE = 45
  * than to be reached.
  */
 const SCREEN_ATTEMPTS_PER_SURVIVOR = 3
+
+/**
+ * Extra survivors to collect beyond the five that ship, so the ranker chooses
+ * the best five from a slightly larger set rather than screening the whole pool.
+ *
+ * The generated pool arrives ranked best-first by brandability, so screening in
+ * order and stopping a couple past five yields "the best five free names" while
+ * bounding how many sequential Quick Checks a run costs. Without this, a
+ * `/generate` run screened every candidate in the pool — reliable, but minutes
+ * of checks the result never needed.
+ */
+const SELECTION_BUFFER = 2
 
 export interface ScreenedCandidate {
   name: string
@@ -91,6 +104,7 @@ export interface ScreenCandidatesInput {
   names: readonly string[]
   category: Category
   description: string | undefined
+  includeSpecialized?: boolean
   /** Called after each candidate's Quick Check completes, for progress UI. */
   onCandidate?: (name: string, summary: ScanSummary) => void
   /**
@@ -112,17 +126,28 @@ export async function screenCandidates({
   names,
   category,
   description,
+  includeSpecialized = false,
   onCandidate,
   stopAfterSurvivors,
 }: ScreenCandidatesInput): Promise<ScreeningResult> {
   const survivors: ScreenedCandidate[] = []
   const disqualified: DisqualifiedCandidate[] = []
 
+  /*
+    How many survivors to collect before ranking. A caller that sets
+    `stopAfterSurvivors` (the broader-check flow) wants exactly that many, first
+    ones that pass. `/generate` leaves it undefined and gets a small buffer over
+    the five it ships, so the top five are chosen by quality rather than by
+    whichever five happened to be checked first.
+  */
+  const surviveGoal = stopAfterSurvivors ?? MAX_COMPARE_NAMES + SELECTION_BUFFER
+
   for (const name of names) {
     const ctx: ScanContext = {
       name,
       category,
       scanType: 'quick',
+      ...(includeSpecialized ? { includeSpecialized: true } : {}),
       ...(description === undefined ? {} : { description }),
     }
     const summary = await runScanToCompletion(ctx)
@@ -136,25 +161,22 @@ export async function screenCandidates({
     }
 
     /*
-      Enough. Each candidate above is a whole Quick Check against every
-      source, run one at a time to stay inside the rate limiters, so the
-      difference between stopping here and finishing the batch is minutes.
+      Enough. Each candidate above is a whole Quick Check against every source,
+      run one at a time to stay inside the rate limiters, so the difference
+      between stopping here and screening the whole pool is minutes. Because the
+      pool arrives ranked best-first, the survivors collected here are the best
+      free names, not merely the first — so a small buffer over the five shipped
+      is all the ranker needs.
 
-      A caller that sets this is asking for "some names that are free", not
-      "the best of thirty", and the two are different questions: the survivors
-      below are the first that passed, not the highest scoring of the batch.
-
-      The second condition is the one that matters when a batch goes badly. On
-      a run where nothing survives, the first condition never fires and the
-      whole thirty get checked, which outlasts the route's own `maxDuration`
-      and returns nothing at all. Giving up after `SCREEN_ATTEMPTS_PER_SURVIVOR`
-      tries each returns the few that did pass, in time to show them.
+      The second condition is the backstop for a pool that goes badly. When
+      almost nothing survives, the first condition never fires and every
+      candidate gets checked, which can outlast the route's own `maxDuration`
+      and return nothing. Giving up after `SCREEN_ATTEMPTS_PER_SURVIVOR` tries
+      per name still returns the few that passed, in time to show them.
     */
-    if (stopAfterSurvivors !== undefined) {
-      if (survivors.length >= stopAfterSurvivors) break
-      if (survivors.length + disqualified.length >= stopAfterSurvivors * SCREEN_ATTEMPTS_PER_SURVIVOR) {
-        break
-      }
+    if (survivors.length >= surviveGoal) break
+    if (survivors.length + disqualified.length >= surviveGoal * SCREEN_ATTEMPTS_PER_SURVIVOR) {
+      break
     }
   }
 
@@ -162,8 +184,18 @@ export async function screenCandidates({
   // its strengths/weaknesses logic ("beats the average of the others") was
   // built and tuned for the 2-5 candidates Compare Names actually shows, and
   // that average would be diluted into meaninglessness across the full batch.
+  //
+  // Digital viability decides the order; brandability breaks ties. Two names
+  // that are equally free should be ordered by which is the better brand, so a
+  // strong, clean name is never ranked below a clumsy one they both scored the
+  // same on digitally.
   const topSurvivors = [...survivors]
-    .sort((a, b) => b.summary.viability.score - a.summary.viability.score)
+    .sort(
+      (a, b) =>
+        b.summary.viability.score - a.summary.viability.score ||
+        assessBrandability(b.name).score - assessBrandability(a.name).score ||
+        a.name.localeCompare(b.name),
+    )
     .slice(0, MAX_COMPARE_NAMES)
   const candidates: Candidate[] = topSurvivors.map((s) => ({ name: s.name, summary: s.summary }))
   const ranked = compareCandidates(candidates)

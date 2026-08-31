@@ -6,7 +6,19 @@ vi.mock('@/lib/providers/groq', () => ({
   groqProvider: { id: 'groq', label: 'Groq', model: 'test-model', complete: (...a: unknown[]) => complete(...a) },
 }))
 
-const { generateNames, sanitiseCandidates } = await import('./namegen')
+const { generateNames, sanitiseCandidates, filterQuality, rankByQuality } = await import('./namegen')
+
+/** A batch response shaped like the provider's, for the mock. */
+function batch(names: unknown[]): { text: string; model: string } {
+  return { text: JSON.stringify({ names }), model: 'test-model' }
+}
+
+/** Twenty-plus distinct, clean, non-famous coined names for pool tests. */
+const GOOD_POOL = [
+  'Cloudari', 'Marketrove', 'Nordvel', 'Lumira', 'Nordvel', 'Brixto', 'Pallova', 'Ternex',
+  'Vantel', 'Kestril', 'Orbane', 'Halcyra', 'Juniro', 'Wyndel', 'Sablon', 'Corvina', 'Tavira',
+  'Miravel', 'Dovern', 'Rundis', 'Calyx', 'Feldspar',
+]
 
 beforeEach(() => {
   complete.mockReset()
@@ -29,11 +41,10 @@ describe('sanitiseCandidates', () => {
   })
 
   it('drops empty strings, whitespace-only entries and non-strings', () => {
-    expect(sanitiseCandidates(['', '   ', 'Ok', 123 as unknown as string, null as unknown as string], undefined)).toEqual(['Ok'])
+    expect(sanitiseCandidates(['', '   ', 'Ok', 123, null], undefined)).toEqual(['Ok'])
   })
 
   it('drops names that fail the same CandidateNameSchema a human-typed name goes through', () => {
-    // Single character is below CandidateNameSchema's 2-char minimum.
     expect(sanitiseCandidates(['A', 'Ok'], undefined)).toEqual(['Ok'])
   })
 
@@ -43,44 +54,125 @@ describe('sanitiseCandidates', () => {
   })
 })
 
+describe('filterQuality', () => {
+  it('drops famous names and records why', () => {
+    const { kept, dropped } = filterQuality(['Cloudari', 'Tekken', 'Google'])
+    expect(kept).toContain('Cloudari')
+    expect(kept).not.toContain('Tekken')
+    expect(kept).not.toContain('Google')
+    expect(dropped.some((d) => /tekken/i.test(d.reason))).toBe(true)
+  })
+
+  it('drops brandability failures', () => {
+    const { kept } = filterQuality(['Cloudari', 'Bcdfgh', 'One Two Three Four'])
+    expect(kept).toEqual(['Cloudari'])
+  })
+
+  it('keeps genuinely good names', () => {
+    const { kept } = filterQuality(['Cloudari', 'Marketrove', 'Nordvel'])
+    expect(kept).toEqual(['Cloudari', 'Marketrove', 'Nordvel'])
+  })
+})
+
+describe('rankByQuality', () => {
+  it('orders stronger brand names ahead of weaker ones', () => {
+    const ranked = rankByQuality(['DataifyAI', 'Cloudari', 'QuantumSphereHub'])
+    expect(ranked[0]).toBe('Cloudari')
+  })
+
+  it('is a stable sort for equal scores', () => {
+    const names = ['Lumira', 'Zephyra']
+    // Both clean; ties fall back to original order.
+    const ranked = rankByQuality(names)
+    expect(new Set(ranked)).toEqual(new Set(names))
+  })
+})
+
 describe('generateNames', () => {
-  it('returns ready with sanitised names on a well-formed response', async () => {
-    complete.mockResolvedValueOnce({
-      text: JSON.stringify({ names: ['Zolvex', 'Marbrix', 'zolvex'] }),
-      model: 'test-model',
-    })
+  it('returns a ready, quality-ranked pool from a healthy batch', async () => {
+    complete.mockResolvedValueOnce(batch(GOOD_POOL))
     const outcome = await generateNames('SaaS', 'a project tool', undefined)
-    expect(outcome).toEqual({ status: 'ready', names: ['Zolvex', 'Marbrix'] })
+    expect(outcome.status).toBe('ready')
+    if (outcome.status !== 'ready') return
+    expect(outcome.names.length).toBeGreaterThanOrEqual(5)
+    expect(outcome.names.length).toBeLessThanOrEqual(18)
+  })
+
+  it('never lets a famous name or garbage into the pool', async () => {
+    complete.mockResolvedValueOnce(batch([...GOOD_POOL, 'Tekken', 'Google', 'Bcdfgh', 'a b c d e']))
+    const outcome = await generateNames('Game', 'a fighting game', undefined)
+    expect(outcome.status).toBe('ready')
+    if (outcome.status !== 'ready') return
+    expect(outcome.names).not.toContain('Tekken')
+    expect(outcome.names).not.toContain('Google')
+    expect(outcome.names).not.toContain('Bcdfgh')
+  })
+
+  it('collapses near-duplicate families into one member', async () => {
+    complete.mockResolvedValueOnce(
+      batch(['Nexora', 'Nexorra', 'Nexora Labs', 'Nexoro', 'Cloudari', 'Marketrove']),
+    )
+    const outcome = await generateNames('SaaS', 'infra tooling', undefined)
+    expect(outcome.status).toBe('ready')
+    if (outcome.status !== 'ready') return
+    const nexoraLike = outcome.names.filter((n) => /^nexor/i.test(n))
+    expect(nexoraLike.length).toBe(1)
+  })
+
+  it('refills across attempts, accumulating names it has not seen', async () => {
+    complete
+      .mockResolvedValueOnce(batch(['Cloudari', 'Marketrove', 'Nordvel']))
+      .mockResolvedValueOnce(batch(['Lumira', 'Pallova', 'Brixto']))
+      .mockResolvedValueOnce(batch(['Vantel', 'Kestril']))
+    const outcome = await generateNames('SaaS', 'a tool', undefined)
+    expect(outcome.status).toBe('ready')
+    if (outcome.status !== 'ready') return
+    expect(outcome.names).toEqual(
+      expect.arrayContaining(['Cloudari', 'Lumira', 'Vantel']),
+    )
+    expect(complete).toHaveBeenCalledTimes(3)
+  })
+
+  it('excludes already-seen names on refill so the model is asked for new ones', async () => {
+    complete
+      .mockResolvedValueOnce(batch(['Cloudari', 'Marketrove']))
+      .mockResolvedValueOnce(batch(['Lumira']))
+      .mockResolvedValueOnce(batch(['Nordvel']))
+    await generateNames('SaaS', 'a tool', undefined)
+    // The second call's user prompt should list the first batch as excluded.
+    const secondCall = complete.mock.calls[1]?.[0] as { user: string } | undefined
+    expect(secondCall?.user).toMatch(/Cloudari/)
+    expect(secondCall?.user).toMatch(/do not repeat/i)
   })
 
   it('asks for json-mode output', async () => {
-    complete.mockResolvedValueOnce({ text: '{"names":["Ok"]}', model: 'test-model' })
-    await generateNames('SaaS', undefined, undefined)
+    complete.mockResolvedValueOnce(batch(GOOD_POOL))
+    await generateNames('SaaS', 'x', undefined)
     expect(complete).toHaveBeenCalledWith(expect.objectContaining({ json: true }))
   })
 
-  it('reports unavailable on unparsable JSON rather than throwing', async () => {
-    complete.mockResolvedValueOnce({ text: 'not json at all', model: 'test-model' })
-    const outcome = await generateNames('SaaS', undefined, undefined)
+  it('does not crash on malformed JSON and reports unavailable', async () => {
+    complete.mockResolvedValue({ text: 'not json at all', model: 'test-model' })
+    const outcome = await generateNames('SaaS', 'x', undefined)
     expect(outcome.status).toBe('unavailable')
   })
 
-  it('reports unavailable when the JSON does not match the expected shape', async () => {
-    complete.mockResolvedValueOnce({ text: JSON.stringify({ wrong: true }), model: 'test-model' })
-    const outcome = await generateNames('SaaS', undefined, undefined)
+  it('reports unavailable when the JSON never matches the expected shape', async () => {
+    complete.mockResolvedValue({ text: JSON.stringify({ wrong: true }), model: 'test-model' })
+    const outcome = await generateNames('SaaS', 'x', undefined)
     expect(outcome.status).toBe('unavailable')
   })
 
-  it('reports unavailable when every candidate is filtered out by sanitisation', async () => {
-    // Every entry equals the seed after normalisation, so nothing survives.
-    complete.mockResolvedValueOnce({ text: JSON.stringify({ names: ['Envryn', 'ENVRYN'] }), model: 'test-model' })
-    const outcome = await generateNames('SaaS', undefined, 'envryn')
+  it('reports unavailable when every candidate is filtered out', async () => {
+    // All famous or garbage: nothing survives quality filtering.
+    complete.mockResolvedValue(batch(['Tekken', 'Google', 'Bcdfgh']))
+    const outcome = await generateNames('SaaS', 'x', undefined)
     expect(outcome.status).toBe('unavailable')
   })
 
   it('maps a missing key to a clear reason without throwing', async () => {
-    complete.mockRejectedValueOnce(new LLMUnavailableError('no_api_key', 'no key'))
-    const outcome = await generateNames('SaaS', undefined, undefined)
+    complete.mockRejectedValue(new LLMUnavailableError('no_api_key', 'no key'))
+    const outcome = await generateNames('SaaS', 'x', undefined)
     expect(outcome).toEqual({
       status: 'unavailable',
       reason: 'Name generation is not configured on this deployment.',
@@ -88,8 +180,18 @@ describe('generateNames', () => {
   })
 
   it('maps an exhausted budget to a same-day-specific reason', async () => {
-    complete.mockRejectedValueOnce(new LLMUnavailableError('budget_exhausted', 'gone'))
-    const outcome = await generateNames('SaaS', undefined, undefined)
+    complete.mockRejectedValue(new LLMUnavailableError('budget_exhausted', 'gone'))
+    const outcome = await generateNames('SaaS', 'x', undefined)
     expect((outcome as { reason: string }).reason).toContain('allowance')
+  })
+
+  it('salvages an earlier good batch when a later refill fails', async () => {
+    complete
+      .mockResolvedValueOnce(batch(['Cloudari', 'Marketrove', 'Nordvel', 'Lumira']))
+      .mockRejectedValueOnce(new LLMUnavailableError('rate_limited', 'slow down'))
+    const outcome = await generateNames('SaaS', 'a tool', undefined)
+    expect(outcome.status).toBe('ready')
+    if (outcome.status !== 'ready') return
+    expect(outcome.names).toEqual(expect.arrayContaining(['Cloudari']))
   })
 })

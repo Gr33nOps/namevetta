@@ -17,7 +17,7 @@ export const robloxAdapter: SourceAdapter = {
   id: 'roblox',
 
   async run(ctx: ScanContext, deps: AdapterDeps): Promise<SourceResult> {
-    if (!(APPLICABLE_CATEGORIES as readonly string[]).includes(ctx.category)) {
+    if (!ctx.includeSpecialized && !(APPLICABLE_CATEGORIES as readonly string[]).includes(ctx.category)) {
       return unverifiable('roblox', 'NOT_APPLICABLE', 'Roblox is checked for game and creator names only.', false)
     }
 

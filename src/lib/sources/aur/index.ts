@@ -30,7 +30,7 @@ export const aurAdapter: SourceAdapter = {
   id: 'aur',
 
   async run(ctx: ScanContext, deps: AdapterDeps): Promise<SourceResult> {
-    if (!(APPLICABLE_CATEGORIES as readonly string[]).includes(ctx.category)) {
+    if (!ctx.includeSpecialized && !(APPLICABLE_CATEGORIES as readonly string[]).includes(ctx.category)) {
       return unverifiable('aur', 'NOT_APPLICABLE', 'AUR is checked for developer-tool names only.', false)
     }
 

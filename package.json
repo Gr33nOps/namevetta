@@ -12,6 +12,7 @@
     "test:watch": "vitest",
     "bench": "vitest run golden",
     "check-sources": "node scripts/check-source-endpoints.mjs",
+    "security": "node scripts/security-scan.mjs",
     "test:e2e": "playwright test"
   },
   "dependencies": {
@@ -19,7 +20,7 @@
     "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.112.3",
     "double-metaphone": "^2.0.1",
-    "next": "16.3.1",
+    "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "simple-icons": "^16.28.0",
@@ -33,7 +34,7 @@
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.1.10",
     "eslint": "^9",
-    "eslint-config-next": "16.3.1",
+    "eslint-config-next": "16.3.4",
     "server-only": "^0.0.1",
     "tailwindcss": "^4",
     "typescript": "^5",

@@ -14,10 +14,12 @@ export function CategoryPicker({
   name,
   current,
   scanType,
+  includeSpecialized,
 }: {
   name: string
   current: Category
   scanType: ScanType
+  includeSpecialized: boolean
 }) {
   return (
     <div className="mx-auto w-full max-w-[560px] px-5 py-16">
@@ -33,7 +35,7 @@ export function CategoryPicker({
         {CATEGORIES.map((category) => (
           <Link
             key={category}
-            href={`/n/${encodeURIComponent(name)}?as=${category}${scanType === 'deep' ? '&deep=1' : ''}`}
+            href={`/n/${encodeURIComponent(name)}?as=${category}${scanType === 'deep' ? '&deep=1' : ''}${includeSpecialized ? '&broad=1' : ''}`}
             /*
               The chosen one is filled with the brand gradient rather than
               `card`'s tint. `card` paints a background colour of its own, so

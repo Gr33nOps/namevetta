@@ -38,6 +38,7 @@ export function StoredReport({ scan }: { scan: StoredScan }) {
     name: scan.name,
     category,
     scanType: scan.scanType,
+    ...(scan.includeSpecialized ? { includeSpecialized: true } : {}),
     ...(scan.description === undefined ? {} : { description: scan.description }),
   }
 
@@ -121,7 +122,7 @@ export function StoredReport({ scan }: { scan: StoredScan }) {
       <p className="mt-6 text-center text-[13px] text-faint">
         Saved findings.{' '}
         <Link
-          href={`/n/${encodeURIComponent(scan.name)}?as=${category}${scan.scanType === 'deep' ? '&deep=1' : ''}`}
+          href={`/n/${encodeURIComponent(scan.name)}?as=${category}${scan.scanType === 'deep' ? '&deep=1' : ''}${scan.includeSpecialized ? '&broad=1' : ''}`}
           className="text-accent-ink underline underline-offset-2"
         >
           Research it again

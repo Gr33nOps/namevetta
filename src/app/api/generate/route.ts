@@ -48,7 +48,7 @@ export async function POST(req: Request): Promise<Response> {
   if (!parsed.success) {
     return apiError(parsed.error.issues[0]?.message ?? 'Invalid request', 400)
   }
-  const { category, description, seed, stopAfterSurvivors } = parsed.data
+  const { category, description, includeSpecialized, seed, stopAfterSurvivors } = parsed.data
 
   // One 'generate' unit, regardless of how many candidates end up being
   // researched — the cost of a run is fixed from the caller's point of view,
@@ -88,6 +88,7 @@ export async function POST(req: Request): Promise<Response> {
           names: generated.names,
           category,
           description,
+          ...(includeSpecialized ? { includeSpecialized: true } : {}),
           ...(stopAfterSurvivors === undefined ? {} : { stopAfterSurvivors }),
           onCandidate: () => {},
         })

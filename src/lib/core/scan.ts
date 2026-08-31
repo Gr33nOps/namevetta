@@ -89,6 +89,8 @@ export const ScanContextSchema = z.object({
   /** "Describe it" — optional, but dramatically improves relevance (§3). */
   description: z.string().trim().max(MAX_DESCRIPTION_LENGTH).optional(),
   scanType: ScanTypeSchema,
+  /** Include free specialist sources outside the selected category. */
+  includeSpecialized: z.boolean().optional(),
 })
 export type ScanContext = z.infer<typeof ScanContextSchema>
 
@@ -126,6 +128,8 @@ export const GENERATE_DESCRIPTION_REQUIRED =
 
 export const GenerateRequestSchema = z.object({
   category: CategorySchema,
+  /** Screen generated names against free specialist sources too. */
+  includeSpecialized: z.boolean().optional(),
   /**
    * Required, unlike everywhere else this field appears.
    *

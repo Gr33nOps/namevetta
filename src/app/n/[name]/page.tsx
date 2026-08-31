@@ -42,10 +42,11 @@ export default async function Page({ params, searchParams }: PageProps<'/n/[name
   const category: Category = parsed.success ? parsed.data : 'other'
 
   const scanType = first(query.deep) === '1' ? 'deep' : 'quick'
+  const includeSpecialized = first(query.broad) === '1'
 
   // `?pick=1` comes from the "change" link on the result.
   if (first(query.pick) === '1') {
-    return <CategoryPicker name={name} current={category} scanType={scanType} />
+    return <CategoryPicker name={name} current={category} scanType={scanType} includeSpecialized={includeSpecialized} />
   }
 
   /*
@@ -74,6 +75,7 @@ export default async function Page({ params, searchParams }: PageProps<'/n/[name
         name,
         category,
         scanType,
+        ...(includeSpecialized ? { includeSpecialized: true } : {}),
       }}
     />
   )

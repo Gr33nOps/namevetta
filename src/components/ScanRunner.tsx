@@ -199,7 +199,7 @@ export function ScanRunner({ context }: { context: ScanContext }) {
       re-researches.
     */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [context.name, context.category, context.scanType, context.description, order])
+  }, [context.name, context.category, context.scanType, context.description, context.includeSpecialized, order])
 
   /**
    * Retry one source that came back `unable_to_verify`, without spending a

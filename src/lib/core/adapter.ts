@@ -1173,6 +1173,22 @@ export const CATEGORY_DEPENDENT_SOURCES: readonly SourceId[] = [
   'huggingface',
 ]
 
+/**
+ * Free specialist sources a person can opt into outside their chosen category.
+ * Google Play is deliberately absent: it consumes a shared web-search credit
+ * and remains limited to app and game research.
+ */
+export const SPECIALIST_SOURCES: readonly SourceId[] = [
+  'aur',
+  'roblox',
+  'modrinth',
+  'huggingface',
+]
+
+export function isSpecialistSource(id: SourceId): boolean {
+  return SPECIALIST_SOURCES.includes(id)
+}
+
 export function isCategoryDependent(id: SourceId): boolean {
   return CATEGORY_DEPENDENT_SOURCES.includes(id)
 }

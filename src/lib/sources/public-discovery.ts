@@ -29,7 +29,7 @@ export function publicDiscoveryAdapter<TData, TItem>(config: PublicDiscoveryConf
     id: config.source,
 
     async run(context: ScanContext, deps: AdapterDeps): Promise<SourceResult> {
-      if (!config.appliesTo.includes(context.category)) {
+      if (!context.includeSpecialized && !config.appliesTo.includes(context.category)) {
         return unverifiable(config.source, 'NOT_APPLICABLE', config.notApplicableMessage, false)
       }
 

@@ -6,7 +6,7 @@ import { ScoreBreakdown } from '@/components/ScoreBreakdown'
 import { TrademarkAssist } from '@/components/TrademarkAssist'
 import { CompactSourceRow, isRetryable, SourceCard } from '@/components/SourceCard'
 import { Badge } from '@/components/ui/Badge'
-import { SOURCE_MANIFEST } from '@/lib/core/adapter'
+import { isSpecialistSource, SOURCE_MANIFEST } from '@/lib/core/adapter'
 import { CATEGORY_LABELS, type ScanContext } from '@/lib/core/scan'
 import {
   DiscoveryMatchSchema,
@@ -239,6 +239,14 @@ export function Report({
   const cleared = results.filter((r) => r.status === 'no_conflict')
   const retryableUnverified = unverified.filter(isRetryable)
   const oldestChecked = oldest(results.filter((r) => isVerified(r.status)).map((r) => r.checkedAt))
+  const specialistSkipped = skipped.filter((result) => isSpecialistSource(result.source))
+  const query = new URLSearchParams({ as: context.category })
+  if (context.scanType === 'deep') query.set('deep', '1')
+  if (context.includeSpecialized) query.set('broad', '1')
+  const researchHref = `/n/${encodeURIComponent(context.name)}?${query.toString()}`
+  const broaderQuery = new URLSearchParams(query)
+  broaderQuery.set('broad', '1')
+  const broaderHref = `/n/${encodeURIComponent(context.name)}?${broaderQuery.toString()}`
 
   const label = (r: SourceResult): string => SOURCE_MANIFEST[r.source].label
   const attention = [
@@ -270,7 +278,7 @@ export function Report({
         {context.scanType === 'deep' ? 'Deep Research' : 'Quick Check'}
         {' · '}
         <Link
-          href={`/n/${encodeURIComponent(context.name)}?as=${context.category}${context.scanType === 'deep' ? '&deep=1' : ''}&pick=1`}
+          href={`${researchHref}&pick=1`}
           className="text-accent-ink underline underline-offset-2"
         >
           Change category
@@ -354,6 +362,19 @@ export function Report({
       {/* ── 2b. useful elsewhere, but outside this category ───────────────── */}
       {skipped.length > 0 ? (
         <Fold title="Relevant for other uses" meta={`${skipped.length} not run`}>
+          {context.includeSpecialized || specialistSkipped.length === 0 ? null : (
+            <div className="inset mb-3 flex flex-wrap items-center justify-between gap-3 rounded-xl px-4 py-3">
+              <p className="text-sm text-charcoal-2">
+                Add developer, game, and creator sources.
+              </p>
+              <Link
+                href={broaderHref}
+                className="btn-secondary shrink-0 rounded-xl px-3.5 py-2 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              >
+                Run broader check
+              </Link>
+            </div>
+          )}
           <div className="divide-y divide-line">
             {skipped.map((r) => {
               const isGooglePlay = r.source === 'play_store'
