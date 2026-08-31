@@ -2,7 +2,6 @@
 
 import { useId, useRef, useState } from 'react'
 import { ComparisonTable } from '@/components/ComparisonTable'
-import { BroaderCheck } from '@/components/BroaderCheck'
 import { CategorySelect } from '@/components/CategorySelect'
 import {
   GENERATE_DESCRIPTION_REQUIRED,
@@ -37,7 +36,6 @@ export function GenerateRunner({
 }) {
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState<Category>('saas')
-  const [includeSpecialized, setIncludeSpecialized] = useState(false)
   const [seed, setSeed] = useState('')
   const [phase, setPhase] = useState<Phase>({ kind: 'setup' })
   const [error, setError] = useState<string | null>(null)
@@ -57,7 +55,6 @@ export function GenerateRunner({
     */
     const parsed = GenerateRequestSchema.safeParse({
       category,
-      includeSpecialized,
       description,
       seed: seed.trim() === '' ? undefined : seed,
     })
@@ -244,10 +241,6 @@ export function GenerateRunner({
 
         <div className="mt-4">
           <CategorySelect value={category} onChange={setCategory} />
-        </div>
-
-        <div className="mt-3">
-          <BroaderCheck checked={includeSpecialized} onChange={setIncludeSpecialized} />
         </div>
 
         <div className="mt-4">

@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
 import { ArrowRightIcon, SearchIcon } from '@/components/vetta/Icons'
-import { BroaderCheck } from '@/components/BroaderCheck'
 import { CategorySelect } from '@/components/CategorySelect'
 import { sourceCounts } from '@/lib/core/adapter'
 import { MAX_NAME_LENGTH, type Category, type ScanType } from '@/lib/core/scan'
@@ -126,7 +125,6 @@ interface VettaPanelProps {
   showResearchOptions?: boolean
   initialCategory?: Category
   initialScanType?: ScanType
-  initialIncludeSpecialized?: boolean
 }
 
 /**
@@ -151,7 +149,6 @@ export function VettaPanel({
   showResearchOptions = false,
   initialCategory = 'other',
   initialScanType = 'quick',
-  initialIncludeSpecialized = false,
 }: VettaPanelProps) {
   const router = useRouter()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -159,7 +156,6 @@ export function VettaPanel({
   const [filter, setFilter] = useState<RowFilterId | 'all'>('all')
   const [category, setCategory] = useState<Category>(initialCategory)
   const [scanType, setScanType] = useState<ScanType>(initialScanType)
-  const [includeSpecialized, setIncludeSpecialized] = useState(initialIncludeSpecialized)
 
   /*
     The field follows the URL: clicking an example on a result page swaps the
@@ -190,7 +186,6 @@ export function VettaPanel({
     rememberName(trimmed)
     const query = new URLSearchParams({ as: category })
     if (scanType === 'deep') query.set('deep', '1')
-    if (includeSpecialized) query.set('broad', '1')
     router.push(`/n/${encodeURIComponent(trimmed)}?${query.toString()}`)
   }
 
@@ -302,9 +297,6 @@ export function VettaPanel({
             <p className="text-xs leading-relaxed text-faint sm:col-span-2">
               {scanType === 'quick' ? COUNTS.quick : COUNTS.deep} sources, chosen for this use
             </p>
-            <div className="sm:col-span-2">
-              <BroaderCheck checked={includeSpecialized} onChange={setIncludeSpecialized} />
-            </div>
           </div>
         ) : null}
 
