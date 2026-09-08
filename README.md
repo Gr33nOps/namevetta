@@ -4,48 +4,56 @@
 
 <h1 align="center">NameVetta</h1>
 
-<p align="center">Research where a name is already in use.</p>
+<p align="center">Check a name before you make it yours.</p>
 
 <p align="center"><a href="https://namevetta.vercel.app">Open NameVetta</a></p>
 
-![NameVetta search](assets/screenshots/home-dark.png)
+![NameVetta in dark mode](assets/screenshots/home-dark.png)
 
-NameVetta helps founders, makers, and teams research a name before they commit to it. It brings together useful signals across domains, public platforms, code registries, business surfaces, and app stores, then clearly separates findings from checks that still need a person to verify them.
+NameVetta researches existing uses of a name across domains, social platforms, businesses, code registries, and app stores. Check a name you already have, or describe an idea and explore a screened shortlist.
 
 ## What it does
 
-- Research a candidate name with a Quick Check or deeper research pass.
-- Generate a short list of considered name ideas from a real brief.
-- Show exact conflicts, close matches, clear checks, manual checks, and sources that were intentionally not searched for the selected use.
-- Keep saved research in one place for signed-in users.
-
-## Built for honest research
-
-A clear result means a source completed a relevant check without finding a conflict. It does not mean legal clearance or guaranteed availability. If a platform cannot answer reliably, NameVetta keeps it manual or marks it as unverified instead of treating uncertainty as clear.
+- **Research a name.** Choose a category and run a Quick Check or Deep Research. Reports separate conflicts, similar names, clear results, and checks that still need a person.
+- **Find four name ideas.** Describe your audience, purpose, and preferred tone. AI generates a candidate pool, then a separate editorial pass reviews distinctiveness, meaning, pronunciation, and spelling.
+- **Screen before showing names.** Candidates undergo exact `.com` registration lookups and conflict checks. Rejected candidates are replaced in further rounds. A successful run returns exactly four names; if four cannot be verified within the run, it offers a retry instead of padding the list.
+- **Keep your research.** Signed-in users can revisit their history and saved names.
 
 ## A look at the product
 
-| Check a name | Find names that fit |
-| --- | --- |
-| ![Light-mode homepage](assets/screenshots/home-light.png) | ![Find names that fit](assets/screenshots/ideas-dark.png) |
+### Light and dark themes
 
-## How it works
+![NameVetta in light mode](assets/screenshots/home-light.png)
 
-1. Choose what you are naming.
-2. NameVetta selects relevant research sources.
-3. Review findings, evidence, and anything that needs direct verification.
+### Describe an idea freely
 
-See the live [source status](https://namevetta.vercel.app/status) page for the current catalog and how each source is used.
+![Current name generator](assets/screenshots/ideas-dark.png)
+
+### Categories and mobile
+
+![Grouped category picker](assets/screenshots/categories-dark.png)
+
+<p align="center"><img src="assets/screenshots/ideas-mobile.png" width="320" alt="NameVetta generator on mobile"></p>
+
+The interface uses translucent glass surfaces, the logo's blue-violet gradients, and neutral text. Floating loading cards, animated progress stages, and staggered results show activity while research runs. Motion respects reduced-motion preferences.
+
+Screenshots captured from the live website in September 2026.
+
+## What a result means
+
+A clear check means that source completed its check without finding a conflict. A `.com` result marked "No registration found" reflects an RDAP lookup, not a guarantee that a registrar will sell the domain. Purchase confirmation and trademark clearance are separate.
+
+Failed, blocked, skipped, and manual-only checks are not counted as verified clear results. AI helps create and review names; it does not certify legal availability or pretend to have conducted native-speaker or customer testing.
+
+See [how the checks work](https://namevetta.vercel.app/how-it-works) and the live [source status](https://namevetta.vercel.app/status) page for current coverage.
 
 ## Technology
 
-The product is built with Next.js, TypeScript, React, Supabase, and Vercel. Research runs server-side and is normalised into a strict result model so the report can distinguish evidence from uncertainty.
+Built with Next.js, React, TypeScript, Supabase, Groq, and Vercel. Research runs server-side and is normalised into structured evidence. The [architecture overview](docs/architecture.md) describes the public product flow.
 
-The diagram in [docs/architecture.md](docs/architecture.md) shows the public, high-level flow.
+## Feedback
 
-## Status and feedback
-
-NameVetta is live at [namevetta.vercel.app](https://namevetta.vercel.app). Feedback and reproducible product issues are welcome through this repository's [issues](https://github.com/Gr33nOps/namevetta/issues).
+NameVetta is live at [namevetta.vercel.app](https://namevetta.vercel.app). Report reproducible product issues through this repository's [issues](https://github.com/Gr33nOps/namevetta/issues).
 
 ## Proprietary project
 
