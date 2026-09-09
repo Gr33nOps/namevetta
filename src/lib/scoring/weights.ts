@@ -23,12 +23,13 @@ import type { Category } from '@/lib/core/scan'
 import type { SourceId } from '@/lib/core/types'
 
 /**
- * 3 — an exact, confirmed collision now ceilings the score below the "Mostly
- * Clear" band, whatever weight its group carries for the category. Reports
- * stamped 2 could show 100 beside a confirmed conflict; 1 also folded
- * trademark into the number. Weights themselves are unchanged from 2.
+ * 4 — multiple independent matches now accumulate with diminishing weight,
+ * risky sources cannot be averaged away inside a group, and exact-conflict
+ * ceilings reflect the evidence severity. Version 3 introduced a fixed exact
+ * conflict ceiling; 2 could show 100 beside a confirmed conflict; 1 also
+ * folded trademark into the number. Weights themselves are unchanged from 2.
  */
-export const SCORING_VERSION = 3
+export const SCORING_VERSION = 4
 
 /* -------------------------------------------------------------------------- */
 /* Groups                                                                     */

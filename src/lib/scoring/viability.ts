@@ -39,12 +39,16 @@ const SEVERITY_PENALTY: Record<MatchSeverity, number> = {
   critical: 90,
 }
 
-function strongestMatch(result: SourceResult): Match | undefined {
-  const all = [...result.exactMatches, ...result.similarMatches]
-  if (all.length === 0) return undefined
-  return all.reduce((worst, m) =>
-    SEVERITY_PENALTY[m.severity] > SEVERITY_PENALTY[worst.severity] ? m : worst,
-  )
+function distinctMatches(result: SourceResult): Match[] {
+  const unique = new Map<string, Match>()
+  for (const match of [...result.exactMatches, ...result.similarMatches]) {
+    const key = match.externalId || match.url || match.name.trim().toLocaleLowerCase()
+    const existing = unique.get(key)
+    const risk = SEVERITY_PENALTY[match.severity] * match.similarity.overall
+    const existingRisk = existing === undefined ? -1 : SEVERITY_PENALTY[existing.severity] * existing.similarity.overall
+    if (risk > existingRisk) unique.set(key, match)
+  }
+  return [...unique.values()]
 }
 
 /**
@@ -59,13 +63,23 @@ export function sourceSubscore(result: SourceResult): number | null {
   if (!isVerified(result.status)) return null
   if (result.status === 'no_conflict') return 100
 
-  const worst = strongestMatch(result)
-  if (worst === undefined) {
+  const matches = distinctMatches(result)
+  if (matches.length === 0) {
     return result.status === 'confirmed_conflict' ? 10 : 85
   }
 
-  const penalty = SEVERITY_PENALTY[worst.severity] * (worst.similarity.overall / 100)
-  return Math.max(0, Math.min(100, Math.round(100 - penalty)))
+  const penalties = matches
+    .map((match) => SEVERITY_PENALTY[match.severity] * (match.similarity.overall / 100))
+    .sort((a, b) => b - a)
+
+  // The strongest finding carries the full penalty. Additional independent
+  // findings add diminishing penalties, so genuine crowding matters without
+  // letting a noisy source multiply one weak signal into a score of zero.
+  const totalPenalty = penalties.reduce((total, penalty, index) => {
+    const multiplier = index === 0 ? 1 : index === 1 ? 0.35 : index === 2 ? 0.2 : 0.1
+    return total + penalty * multiplier
+  }, 0)
+  return Math.max(0, Math.min(100, Math.round(100 - totalPenalty)))
 }
 
 /* -------------------------------------------------------------------------- */
@@ -86,6 +100,7 @@ function groupSubscore(results: readonly SourceResult[]): {
 } {
   let weighted = 0
   let totalConfidence = 0
+  let strongestEffectiveRisk = 100
   const contributors: SourceId[] = []
 
   for (const r of results) {
@@ -93,11 +108,17 @@ function groupSubscore(results: readonly SourceResult[]): {
     if (sub === null || r.confidence === 0) continue
     weighted += sub * r.confidence
     totalConfidence += r.confidence
+    // Low-confidence findings move toward clear rather than receiving the same
+    // power as an official API result. A reliable risky source still cannot be
+    // washed away by a long list of clean sources in the same group.
+    const confidenceAdjusted = 100 - (100 - sub) * (r.confidence / 100)
+    strongestEffectiveRisk = Math.min(strongestEffectiveRisk, confidenceAdjusted)
     contributors.push(r.source)
   }
 
   if (totalConfidence === 0) return { subscore: null, contributors }
-  return { subscore: Math.round(weighted / totalConfidence), contributors }
+  const average = weighted / totalConfidence
+  return { subscore: Math.round(Math.min(average, strongestEffectiveRisk + 15)), contributors }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -197,12 +218,15 @@ export function detectCaps(results: readonly SourceResult[]): AppliedCap[] {
   const conflicts = decisiveConflicts(results)
   if (conflicts.length > 0) {
     const first = conflicts[0] as DecisiveConflict
+    const conflictCeiling = results
+      .filter((result) => result.status === 'confirmed_conflict' && result.exactMatches.length > 0)
+      .reduce((lowest, result) => Math.min(lowest, sourceSubscore(result) ?? lowest), CONFIRMED_CONFLICT_MAX)
     caps.push({
       reason:
         conflicts.length === 1
           ? `Exact conflict confirmed on ${SOURCE_MANIFEST[first.source].label}`
           : `${conflicts.length} exact conflicts confirmed, including ${SOURCE_MANIFEST[first.source].label}`,
-      maximum: CONFIRMED_CONFLICT_MAX,
+      maximum: conflictCeiling,
     })
   }
 

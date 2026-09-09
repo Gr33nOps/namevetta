@@ -7,7 +7,7 @@
  * at a glance. Unverified states are rendered grey and neutral, never green and
  * never amber: amber reads as "minor problem", and the truth is "no information".
  */
-import { type MatchSeverity, type SourceResult, type SourceStatus } from '@/lib/core/types'
+import { isVerified, type MatchSeverity, type SourceResult, type SourceStatus } from '@/lib/core/types'
 import type { TrademarkConcern, Verdict } from '@/lib/scoring/viability'
 import type { ScreeningStatus } from '@/lib/trademark/provider'
 
@@ -72,7 +72,18 @@ export const SCORE_NAME = 'Score'
 export const SCORE_NAME_SHORT = 'Score'
 
 export const SCORE_EXPLAINER =
-  'A weighted view of domains, code, apps, social, and web results. It does not cover trademarks.'
+  'A category-weighted view of completed domain, code, app, social, and web checks. Multiple independent findings increase risk, and one strong finding cannot be hidden by clear results in the same group. Trademarks are separate.'
+
+export function scoreEvidenceSummary(results: readonly SourceResult[]): string {
+  const completed = results.filter((result) => isVerified(result.status)).length
+  const findings = results.reduce(
+    (total, result) => total + result.exactMatches.length + result.similarMatches.length,
+    0,
+  )
+  const sourceLabel = completed === 1 ? 'source' : 'sources'
+  const findingLabel = findings === 1 ? 'finding' : 'findings'
+  return `${completed} ${sourceLabel} completed. ${findings === 0 ? 'No findings' : `${findings} ${findingLabel}`} affected this score.`
+}
 
 /* -------------------------------------------------------------------------- */
 /* Statuses                                                                   */
