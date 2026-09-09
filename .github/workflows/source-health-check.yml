@@ -1,0 +1,28 @@
+name: Source health check
+
+# Live upstream APIs, checked against their real response shape rather than
+# the mocked fixtures the PR-blocking suite uses. Runs on its own schedule,
+# separate from ci.yml: a provider having a bad day must report, never block
+# a merge that has nothing to do with it.
+on:
+  schedule:
+    # 06:00 UTC daily — outside any release window, well within GitHub's
+    # advertised cron scheduling delay.
+    - cron: '0 6 * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      - name: Check live source endpoints
+        run: npm run check-sources

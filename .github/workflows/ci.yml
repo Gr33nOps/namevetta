@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# The quality gate. `npm test` includes the golden dataset, so a change that
+# starts missing real conflicts fails the build rather than merging quietly —
+# which is the whole point of having the dataset (§54).
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Tests and quality benchmark
+        run: npm test
+
+      # Fails the build only on a high or critical advisory in a production
+      # dependency. Dev-only and lower-severity advisories are surfaced by
+      # Dependabot rather than blocking a merge, so this gate stays signal, not
+      # noise the team learns to ignore.
+      - name: Dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Build
+        run: npm run build
+        env:
+          # The build must succeed with no credentials at all. Sources that need
+          # a key report `unable_to_verify` and coverage drops — the product is
+          # designed to degrade, not to break.
+          NEXT_TELEMETRY_DISABLED: '1'
+
+  # Separate from `verify`, and deliberately not a dependency of it. These run a
+  # real browser against a real dev server, so they can fail for reasons a unit
+  # test cannot (a slow cold start, a flaky click). Keeping them parallel means
+  # a browser hiccup never hides a genuine unit-test result, and the reverse.
+  #
+  # No credentials are set here either, so the app under test runs in its
+  # database-less mode, which is exactly the configuration `verify` builds.
+  e2e:
+    runs-on: ubuntu-latest
+    # A stalled runner should fail in minutes, not sit until GitHub's six-hour
+    # default. One run hung 12.5 minutes inside apt before being killed by hand
+    # and never reached a test.
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # Chromium only. Cross-browser rendering is not where this app's risk
+      # lives, and one engine keeps the minutes (and the cost) down.
+      #
+      # Without `--with-deps`: that flag runs `apt-get install` on every run,
+      # and a run stalled for 12.5 minutes fetching Ubuntu package lists before
+      # a single test executed. The ubuntu-latest image already ships the
+      # libraries Chromium needs, so the apt step bought nothing and was the
+      # only thing in this job that could hang on someone else's mirror. If a
+      # library ever does go missing, Chromium fails to launch immediately and
+      # says which one, which is a better failure than a silent stall.
+      - name: Install Chromium
+        run: npx playwright install chromium
+
+      - name: End-to-end tests
+        run: npm run test:e2e
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+
+      # Only on failure: Playwright writes no HTML report when everything
+      # passes, so the unconditional version warned "no files were found" on
+      # every green run.
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

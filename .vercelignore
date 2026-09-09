@@ -1,0 +1,5 @@
+# Local audit captures and diagnostics are not application assets.
+artifacts/
+audit-*
+debug.log
+/logo.png
