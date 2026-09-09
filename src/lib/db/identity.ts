@@ -3,8 +3,8 @@ import 'server-only'
 /**
  * Guest identity.
  *
- * Guests get daily quotas and their own scan history without an account, which
- * means we need a stable per-visitor key. That key must not be, or lead back
+ * Guests get daily quotas without an account, which
+ * means we need a network quota key. That key must not be, or lead back
  * to, an IP address.
  *
  * Approach: HMAC-SHA256 of the client IP under a server-side salt, truncated.

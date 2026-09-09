@@ -4,7 +4,7 @@ import { headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { currentUser } from '@/lib/db/auth'
 import { createShareLink, deleteScan, revokeShareLink } from '@/lib/db/history'
-import { identifySubject, type Subject } from '@/lib/db/identity'
+import type { Subject } from '@/lib/db/identity'
 
 /**
  * History actions.
@@ -15,7 +15,7 @@ import { identifySubject, type Subject } from '@/lib/db/identity'
  */
 async function subjectFromRequest(): Promise<Subject | undefined> {
   const user = await currentUser()
-  return identifySubject(await headers(), user?.id)
+  return user === undefined ? undefined : { type: 'user', id: user.id }
 }
 
 export async function removeScan(scanId: string): Promise<{ ok: boolean; error?: string }> {

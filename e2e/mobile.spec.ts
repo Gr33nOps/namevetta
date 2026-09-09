@@ -151,6 +151,13 @@ test.describe('hydration', () => {
 })
 
 test.describe('private routes on mobile', () => {
+  test('signed-out history shows a sign-in gate rather than saved research', async ({ page }) => {
+    await page.goto('/history')
+    await expect(page.getByText('Your history is private to your account.')).toBeVisible()
+    await expect(page.locator('main').getByRole('link', { name: 'Sign in', exact: true })).toBeVisible()
+    await expect(page.getByRole('searchbox', { name: 'Search history by name' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Open report' })).toHaveCount(0)
+  })
   test('/history is noindex and declares no canonical of its own', async ({ page }) => {
     await page.goto('/history')
     expect(await page.locator('meta[name="robots"]').getAttribute('content')).toContain('noindex')
