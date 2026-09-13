@@ -64,6 +64,7 @@ export interface NamingTrace {
 }
 export interface NamingOptions {
   exclude?: readonly string[]
+  screeningFeedback?: { name: string; reason: string }[]
   /** Legacy callers cannot bypass the multi-stage pipeline. */
   maxAttempts?: number
   signal?: AbortSignal
@@ -105,6 +106,7 @@ async function stage(
     temperature,
     json: true,
     maxOutputTokens: 3072,
+    fallbackMaxOutputTokens: input.stage === 'explore' || input.stage === 'refine' ? 350 : 700,
     signal: options.signal,
   }
   let result
@@ -128,7 +130,7 @@ async function stage(
         }
         const timer = setTimeout(
           finish,
-          error.reason === 'rate_limited' ? 61_000 : 1500,
+          error.reason === 'rate_limited' ? Math.max(1000, error.retryAfterMs ?? 61_000) : 1500,
         )
         const abort = () => {
           clearTimeout(timer)
@@ -440,7 +442,10 @@ export async function generateNames(
   seed: string | undefined,
   options: NamingOptions = {},
 ): Promise<GenerateNamesOutcome> {
-  const brief = { category, idea: description ?? '', seed: seed ?? null }
+  const brief = {
+    category, idea: description ?? '', seed: seed ?? null,
+    ...(options.screeningFeedback?.length ? { priorScreening: options.screeningFeedback.slice(-16) } : {}),
+  }
   try {
     options.signal?.throwIfAborted()
     const parsed = options.analysis
@@ -494,6 +499,9 @@ Prism, Kairos, Aether, Lumen and Spectra. These fit almost anything, so say litt
 No feature-word plus branding-word templates such as ProgressPulse or FrameVault.
 Short idiomatic phrases and overlooked everyday words are welcome. Do not merely
 rename or combine the territory labels. Prefer a name someone would actually say.
+Prior screening records actual rejected names. If it shows occupied namespaces,
+change direction toward distinctive, meaningful combinations or fluent inventions,
+not another common dictionary label or a decorated version of a rejected name.
 Return {"names":["..."]}. Excluded names are not inspiration.`,
           {
             stage: 'explore',
@@ -590,8 +598,9 @@ claim availability. Return {"names":["..."]}.`,
         status: 'unavailable',
         reason:
           'The naming service could not respond. Your brief has been kept.',
-        retryable: true,
-        retryAfterMs: cause.reason === 'rate_limited' ? 61000 : 1500,
+        // Stages already retry in place. Restarting this round repeats every
+        // successful exploration and spends the quota again.
+        retryable: false,
       }
     }
     return {

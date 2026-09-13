@@ -121,7 +121,7 @@ it.each(['no_api_key','budget_exhausted','rate_limited','timeout'] as const)('re
   const result=await pending
   vi.useRealTimers()
   expect(result.status).toBe('unavailable')
-  if(result.status==='unavailable' && reason==='rate_limited') expect(result.retryAfterMs).toBe(61000)
+  if(result.status==='unavailable' && reason==='rate_limited') expect(result.retryable).toBe(false)
 })
 it('does not call a provider after cancellation',async()=>{
   await generateNames('Website','an idea',undefined,{signal:AbortSignal.abort()})

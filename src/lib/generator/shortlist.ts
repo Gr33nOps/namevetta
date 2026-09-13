@@ -44,6 +44,7 @@ export async function generateShortlist(
     ...(input.signal ? [input.signal] : []),
   ])
   const seen: string[] = []
+  const screeningFeedback: { name: string; reason: string }[] = []
   const survivors: Candidate[] = []
   const domains = new Map<
     string,
@@ -91,6 +92,7 @@ export async function generateShortlist(
         input.seed,
         {
           exclude: [...seen],
+          screeningFeedback: [...screeningFeedback],
           signal,
           analysis,
           onAnalysis: (value) => {
@@ -110,7 +112,7 @@ export async function generateShortlist(
                       ? 'Developing stronger alternatives.'
                       : stage === 'critique'
                         ? 'Reviewing names for meaning, clarity and originality.'
-                        : 'The naming service is busy. Your naming progress is kept while we retry.',
+                        : 'Waiting for the AI provider to accept the next request. This can take about a minute.',
             }),
         },
       )
@@ -142,10 +144,7 @@ export async function generateShortlist(
       }
       unavailable = undefined
       input.onProgress?.({ checked, accepted: survivors.length, round })
-      for (const name of generated.names) {
-        if (signal.aborted || fullChecks >= 16) break
-        if (seen.some((previous) => sameFamily(name, previous))) continue
-        seen.push(name)
+      async function screen(name: string): Promise<Candidate | undefined> {
         const com = await checkCandidateDomain(
           name,
           AbortSignal.any([signal, AbortSignal.timeout(8_000)]),
@@ -186,7 +185,7 @@ export async function generateShortlist(
             domain
         }
         const checkedAt = new Date().toISOString()
-        if (signal.aborted) break
+        if (signal.aborted) return undefined
         if (domain.state === 'no_registration') {
           fullChecks++
           const summary = await runScanToCompletion(
@@ -199,21 +198,17 @@ export async function generateShortlist(
             },
             { signal, overallTimeoutMs: 12_000 },
           )
-          if (signal.aborted) break
-          // Namespace occupancy remains visible research, not a trademark veto.
-          // Keep the hard stop for established competing brands and a domain
-          // registration that contradicts the selected exact .com observation.
+          if (signal.aborted) return undefined
+          // A free domain variant cannot clear a conflicting brand name.
           const conflict =
-            summary.viability.caps.some(
-              (cap) => cap.reason === 'Exact major same-industry business',
-            ) ||
+            summary.viability.caps.length > 0 ||
+            summary.results.some(result => result.status === 'confirmed_conflict') ||
             summary.results.some(
               (result) =>
                 domain.domain === com.domain &&
                 result.meta?.canonicalComState === 'registered',
             )
-          if (!conflict && summary.coverage >= 50) {
-            survivors.push({ name, summary })
+          if (!conflict && summary.coverage >= 50 && summary.viability.score >= 65) {
             domains.set(name, {
               name: domain.domain,
               checkedAt,
@@ -223,15 +218,40 @@ export async function generateShortlist(
                 ? 'registered'
                 : com.state,
             })
+            return { name, summary }
           }
+          screeningFeedback.push({ name, reason: conflict
+            ? 'Confirmed conflict: ' + (summary.viability.caps.map(cap => cap.reason).join('; ') || 'existing use found')
+            : summary.coverage < 50 ? 'Not enough checks completed' : 'Low research score' })
+        } else {
+          screeningFeedback.push({ name, reason: 'No domain option could be verified as unregistered' })
         }
-        checked++
+        return undefined
+      }
+      const pendingNames = generated.names.filter(name => {
+        if (seen.some(previous => sameFamily(name, previous))) return false
+        seen.push(name)
+        return true
+      })
+      // Two scans at a time leave more of the deadline for replacement names,
+      // without flooding every source with the entire hidden pool.
+      for (let offset = 0; offset < pendingNames.length;) {
+        if (signal.aborted || fullChecks >= 24) break
+        const size = Math.min(2, GENERATED_NAME_COUNT - survivors.length, 24 - fullChecks)
+        const batch = pendingNames.slice(offset, offset + size)
+        offset += batch.length
+        const screened = await Promise.allSettled(batch.map(screen))
+        if (signal.aborted) break
+        for (const outcome of screened) {
+          checked++
+          if (outcome.status === 'fulfilled' && outcome.value) survivors.push(outcome.value)
+        }
         input.onProgress?.({ checked, accepted: survivors.length, round })
         if (survivors.length === GENERATED_NAME_COUNT) {
           return { status: 'ready', ranked: rankedSurvivors() }
         }
       }
-      if (fullChecks >= 16) break
+      if (fullChecks >= 24) break
     }
     return finish()
   }

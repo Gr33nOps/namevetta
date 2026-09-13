@@ -137,7 +137,7 @@ async function callGroq(key: string, request: LLMRequest): Promise<LLMResult> {
         // Near-zero: this is restatement of supplied facts. Sampling variety is
         // exactly the behaviour the grounding validator would then reject.
         temperature: request.temperature ?? 0.2,
-        max_completion_tokens: Math.min(request.maxOutputTokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS),
+        max_completion_tokens: Math.min(request.fallbackMaxOutputTokens ?? request.maxOutputTokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS),
         // Qwen instruct mode leaves the output budget for the requested answer.
         // Thinking mode can exhaust it before emitting the required JSON.
         reasoning_effort: 'none',
@@ -146,7 +146,9 @@ async function callGroq(key: string, request: LLMRequest): Promise<LLMResult> {
     })
 
     if (response.status === 429) {
-      throw new LLMUnavailableError('rate_limited', 'The AI service is rate-limited right now.')
+      const retry = response.headers.get('retry-after')
+      const delay = retry === null ? NaN : /^\d+(\.\d+)?$/.test(retry) ? Number(retry) * 1000 : Date.parse(retry) - Date.now()
+      throw new LLMUnavailableError('rate_limited', 'The AI service is rate-limited right now.', Number.isFinite(delay) ? Math.max(0, delay) : 61_000)
     }
     if (response.status === 401 || response.status === 403) {
       throw new LLMUnavailableError('provider_error', 'The AI service rejected our credentials.')
@@ -233,7 +235,8 @@ async function paced(key: string, request: LLMRequest): Promise<LLMResult> {
     }
   }
 
-  const estimate = estimateTokens(request.system + request.user) + Math.min(request.maxOutputTokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS)
+  request.signal?.throwIfAborted()
+  const estimate = estimateTokens(request.system + request.user) + Math.min(request.fallbackMaxOutputTokens ?? request.maxOutputTokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS)
 
   const now = Date.now()
   if (spentInWindow(now) + estimate > TOKEN_BUDGET_PER_MINUTE) {
@@ -243,6 +246,7 @@ async function paced(key: string, request: LLMRequest): Promise<LLMResult> {
     throw new LLMUnavailableError(
       'rate_limited',
       'The AI service is briefly at its request limit.',
+      Math.max(1000, (spends[0]?.at ?? now) + 60_000 - now),
     )
   }
 

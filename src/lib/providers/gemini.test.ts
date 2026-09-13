@@ -18,3 +18,7 @@ it('rejects truncated output instead of returning broken names', async () => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ candidates: [{ finishReason: 'MAX_TOKENS', content: { parts: [{ text: '{"names":[' }] } }] })))
   await expect(geminiProvider.complete({ system: 's', user: 'u' })).rejects.toMatchObject({ reason: 'provider_error' })
 })
+it('recognizes a daily quota instead of retrying it as minute congestion', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ error: { details: [{ violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] }, { retryDelay: '44s' }] } }, { status: 429 })))
+  await expect(geminiProvider.complete({ system: 's', user: 'u' })).rejects.toMatchObject({ reason: 'budget_exhausted' })
+})

@@ -68,7 +68,7 @@ it('offers a checked domain variant without changing the brand name', async () =
       domain: { name: 'getcedartable.com', comState: 'registered' },
     })
 })
-it('keeps namespace warnings visible without treating them as trademark clearance', async () => {
+it('rejects confirmed namespace conflicts even when a domain variant is free', async () => {
   vi.mocked(runScanToCompletion).mockImplementation(
     async () =>
       ({
@@ -84,11 +84,7 @@ it('keeps namespace warnings visible without treating them as trademark clearanc
     category: 'saas',
     description: 'a media tracker',
   })
-  expect(result.status).toBe('ready')
-  if (result.status === 'ready')
-    expect(result.ranked.candidates[0]?.caps).toContain(
-      'Exact conflict confirmed on npm',
-    )
+  expect(result.status).toBe('incomplete')
 })
 it('still rejects an established same-industry business', async () => {
   vi.mocked(runScanToCompletion).mockImplementation(
@@ -343,4 +339,25 @@ it('can retry a provider cooldown on the last round and keep verified names', as
   })
   expect(result.status).toBe('ready')
   expect(runScanToCompletion).toHaveBeenCalledTimes(4)
+})
+
+it('checks two candidates concurrently and preserves editorial order', async () => {
+  let active = 0
+  let peak = 0
+  vi.mocked(runScanToCompletion).mockImplementation(async () => {
+    active++
+    peak = Math.max(peak, active)
+    await new Promise(resolve => setTimeout(resolve, 5))
+    active--
+    return clean() as Awaited<ReturnType<typeof runScanToCompletion>>
+  })
+  const result = await generateShortlist({category:'saas',description:'a media tracker'})
+  expect(peak).toBe(2)
+  if(result.status==='ready') expect(result.ranked.candidates.map(c=>c.name)).toEqual(names.slice(0,4))
+})
+it('passes rejected screening findings into the next naming request', async () => {
+  vi.mocked(generateNames).mockResolvedValueOnce({status:'ready',names:['Taken Name']})
+  vi.mocked(runScanToCompletion).mockResolvedValueOnce({...clean(),viability:{...clean().viability,score:35,caps:[{reason:'Exact conflict confirmed on npm',maximum:35}]}} as Awaited<ReturnType<typeof runScanToCompletion>>)
+  await generateShortlist({category:'saas',description:'a media tracker'})
+  expect(generateNames).toHaveBeenNthCalledWith(2,expect.any(String),expect.any(String),undefined,expect.objectContaining({screeningFeedback:expect.arrayContaining([expect.objectContaining({name:'Taken Name',reason:expect.stringContaining('conflict')})])}))
 })

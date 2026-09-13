@@ -164,3 +164,15 @@ describe('estimateTokens', () => {
     expect(estimateTokens('')).toBe(0)
   })
 })
+it('uses the actual provider retry delay', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({}, { status: 429, headers: { 'retry-after': '3' } })))
+  await expect(groqProvider.complete({ system: 's', user: 'u' })).rejects.toMatchObject({ reason: 'rate_limited', retryAfterMs: 3000 })
+})
+it('reserves the smaller answer budget for naming exploration', async () => {
+  const fetcher = mockFetch(body => {
+    expect(body).toMatchObject({ max_completion_tokens: 350 })
+    return OK_RESPONSE
+  })
+  vi.stubGlobal('fetch', fetcher)
+  await groqProvider.complete({ system: 's', user: 'u', maxOutputTokens: 3072, fallbackMaxOutputTokens: 350 } as Parameters<typeof groqProvider.complete>[0])
+})

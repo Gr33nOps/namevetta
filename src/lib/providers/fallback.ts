@@ -14,7 +14,7 @@ export async function completeWithFallback(request: LLMRequest): Promise<LLMResu
       // Preserve either provider's cooldown instead of retrying an outage
       // immediately while the remaining provider is still rate limited.
       if (fallbackError instanceof LLMUnavailableError && fallbackError.reason === 'rate_limited') throw fallbackError
-      if (primaryError instanceof LLMUnavailableError && primaryError.reason === 'no_api_key') throw fallbackError
+      if (primaryError instanceof LLMUnavailableError && ['no_api_key', 'budget_exhausted'].includes(primaryError.reason)) throw fallbackError
       throw primaryError
     }
   }

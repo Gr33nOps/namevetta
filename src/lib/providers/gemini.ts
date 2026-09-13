@@ -30,7 +30,19 @@ export const geminiProvider: LLMProvider = {
           },
         }),
       })
-      if (!response.ok) throw new LLMUnavailableError(response.status === 429 ? 'rate_limited' : 'provider_error', 'The AI service could not respond.')
+      if (!response.ok) {
+        const failure = await response.json().catch(() => ({})) as {
+          error?: { details?: { violations?: { quotaId?: string }[]; retryDelay?: string }[] }
+        }
+        const details = failure.error?.details ?? []
+        const daily = details.some(detail => detail.violations?.some(v => /PerDay/i.test(v.quotaId ?? '')))
+        const delay = Number.parseFloat(details.find(detail => detail.retryDelay)?.retryDelay ?? '') * 1000
+        throw new LLMUnavailableError(
+          response.status === 429 ? daily ? 'budget_exhausted' : 'rate_limited' : 'provider_error',
+          daily ? 'The daily AI allowance has been reached.' : 'The AI service could not respond.',
+          Number.isFinite(delay) ? delay : undefined,
+        )
+      }
       const data = await response.json() as { modelVersion?: string; candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[]; usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } }
       const candidate = data.candidates?.[0]
       const text = candidate?.content?.parts?.filter((part) => !part.thought).map((part) => part.text ?? '').join('').trim()

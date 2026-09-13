@@ -24,6 +24,13 @@ it.skipIf(process.env.NAMING_LIVE_CHECK !== '1')(
       expect(result.ranked.candidates.length).toBeLessThan(4)
       expect(result.message).toContain("couldn't complete all four")
     }
+    if (result.status !== 'incomplete') {
+      for (const candidate of result.ranked.candidates) {
+        expect(candidate.caps).toEqual([])
+        expect(candidate.score).toBeGreaterThanOrEqual(65)
+        expect(candidate.coverage).toBeGreaterThanOrEqual(50)
+      }
+    }
   },
   280_000,
 )

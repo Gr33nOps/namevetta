@@ -22,6 +22,8 @@ export interface LLMRequest {
   /** The evidence digest. Never raw scan data — see `ai/digest.ts`. */
   user: string
   maxOutputTokens?: number
+  /** Answer-only allowance for the fallback, which does not reserve thinking tokens. */
+  fallbackMaxOutputTokens?: number
   /** Low by default: this is summarisation of given facts, not invention. */
   temperature?: number
   /** Ask the provider to constrain output to JSON where it supports it. */
@@ -54,7 +56,7 @@ export type LLMUnavailableReason =
 export class LLMUnavailableError extends Error {
   readonly reason: LLMUnavailableReason
 
-  constructor(reason: LLMUnavailableReason, message: string) {
+  constructor(reason: LLMUnavailableReason, message: string, readonly retryAfterMs?: number) {
     super(message)
     this.name = 'LLMUnavailableError'
     this.reason = reason
