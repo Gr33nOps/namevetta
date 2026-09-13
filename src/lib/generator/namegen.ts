@@ -65,6 +65,8 @@ export interface NamingTrace {
 export interface NamingOptions {
   exclude?: readonly string[]
   screeningFeedback?: { name: string; reason: string }[]
+  /** Cheap external screening before spending the editorial request. */
+  prepareCandidates?: (names: string[]) => Promise<string[]>
   /** Legacy callers cannot bypass the multi-stage pipeline. */
   maxAttempts?: number
   signal?: AbortSignal
@@ -527,11 +529,12 @@ Return {"names":["..."]}. Excluded names are not inspiration.`,
       seen.push(...batch)
     }
     const rejected: RejectedName[] = []
-    const edited = await review(pool, brief, analysis, options, rejected)
+    const prepared = options.prepareCandidates ? await options.prepareCandidates(pool) : pool
+    const edited = await review(prepared, brief, analysis, options, rejected)
     // A weak pool needs new ideas, not lower scores or unchecked padding.
     if (
       seen.length - (options.exclude?.length ?? 0) >= 20 &&
-      diverseOrder(edited).length < 8
+      diverseOrder(edited).length < (options.prepareCandidates ? 4 : 8)
     ) {
       try {
         const repair = NamesSchema.safeParse(
@@ -565,8 +568,9 @@ claim availability. Return {"names":["..."]}.`,
               !genericConstruction(name, description ?? '') &&
               !seen.some((prior) => sameFamily(name, prior)),
           )
-          if (fresh.length)
-            edited.push(...(await review(fresh, brief, analysis, options)))
+          const preparedFresh = options.prepareCandidates ? await options.prepareCandidates(fresh) : fresh
+          if (preparedFresh.length)
+            edited.push(...(await review(preparedFresh, brief, analysis, options)))
         }
       } catch (cause) {
         options.signal?.throwIfAborted()

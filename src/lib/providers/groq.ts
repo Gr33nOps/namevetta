@@ -37,11 +37,11 @@ export const GROQ_PROVIDER_ID = 'groq'
 /**
  * Default model.
  *
- * Newest general-purpose text model available on this account, verified
- * against the model catalog and a live JSON completion in September 2026.
- * This is the backup for Gemini 3.8 Flash.
+ * GPT-OSS 120B accepts larger output reservations on this free account.
+ * Verified with a live completion; Qwen's 1,000 output-token/minute allowance
+ * made the multi-stage naming pipeline repeatedly wait for capacity.
  */
-const DEFAULT_MODEL = 'qwen/qwen3.8-27b'
+const DEFAULT_MODEL = 'openai/gpt-oss-120b'
 
 /** Measured ceiling. Kept as a named constant so the pacer explains itself. */
 const TOKENS_PER_MINUTE = 8_000
@@ -57,12 +57,13 @@ const TOKENS_PER_MINUTE = 8_000
 const TOKEN_BUDGET_PER_MINUTE = 6_000
 
 const REQUEST_TIMEOUT_MS = 20_000
-// This account enforces 1,000 output tokens/minute for Qwen. A 1,200-token
-// request is rejected even with an empty window. Instruct mode needs no
-// reasoning reserve; 700 covers the bounded name lists and explanations.
-const MAX_OUTPUT_TOKENS = 700
-
-/* ── token pacing ─────────────────────────────────────────────────────────── */
+// Low reasoning needs an allowance separate from the JSON answer.
+const MAX_OUTPUT_TOKENS = 1500
+function outputBudget(request: LLMRequest): number {
+  return Math.min(request.fallbackMaxOutputTokens !== undefined
+    ? request.fallbackMaxOutputTokens + 512
+    : request.maxOutputTokens ?? 700, MAX_OUTPUT_TOKENS)
+}
 
 interface Spend {
   at: number
@@ -137,10 +138,9 @@ async function callGroq(key: string, request: LLMRequest): Promise<LLMResult> {
         // Near-zero: this is restatement of supplied facts. Sampling variety is
         // exactly the behaviour the grounding validator would then reject.
         temperature: request.temperature ?? 0.2,
-        max_completion_tokens: Math.min(request.fallbackMaxOutputTokens ?? request.maxOutputTokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS),
-        // Qwen instruct mode leaves the output budget for the requested answer.
-        // Thinking mode can exhaust it before emitting the required JSON.
-        reasoning_effort: 'none',
+        max_completion_tokens: outputBudget(request),
+        // Keep reasoning bounded and reserve room for the complete answer.
+        reasoning_effort: 'low',
         ...(request.json === true ? { response_format: { type: 'json_object' } } : {}),
       }),
     })
@@ -210,7 +210,7 @@ export const groqProvider: LLMProvider = {
     const key = env().GROQ_API_KEY
     if (key === undefined) return { ok: false, detail: 'No API key configured' }
     try {
-      await callGroq(key, { system: 'Reply with OK.', user: 'ping', maxOutputTokens: 5 })
+      await callGroq(key, { system: 'Reply with OK.', user: 'ping', maxOutputTokens: 64 })
       return { ok: true }
     } catch (cause) {
       return { ok: false, detail: cause instanceof Error ? cause.message : 'unknown' }
@@ -236,7 +236,7 @@ async function paced(key: string, request: LLMRequest): Promise<LLMResult> {
   }
 
   request.signal?.throwIfAborted()
-  const estimate = estimateTokens(request.system + request.user) + Math.min(request.fallbackMaxOutputTokens ?? request.maxOutputTokens ?? MAX_OUTPUT_TOKENS, MAX_OUTPUT_TOKENS)
+  const estimate = estimateTokens(request.system + request.user) + outputBudget(request)
 
   const now = Date.now()
   if (spentInWindow(now) + estimate > TOKEN_BUDGET_PER_MINUTE) {

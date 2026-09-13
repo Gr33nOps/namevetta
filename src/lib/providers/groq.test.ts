@@ -23,9 +23,9 @@ const OK_RESPONSE = {
   },
 }
 
-it('uses instruct mode so reasoning cannot consume the JSON output allowance', async () => {
+it('uses bounded reasoning on the higher-capacity backup', async () => {
   const fetcher = mockFetch((body) => {
-    expect(body).toMatchObject({ model: 'qwen/qwen3.8-27b', reasoning_effort: 'none', max_completion_tokens: 700 })
+    expect(body).toMatchObject({ model: 'openai/gpt-oss-120b', reasoning_effort: 'low', max_completion_tokens: 1200 })
     return OK_RESPONSE
   })
   vi.stubGlobal('fetch', fetcher)
@@ -170,9 +170,16 @@ it('uses the actual provider retry delay', async () => {
 })
 it('reserves the smaller answer budget for naming exploration', async () => {
   const fetcher = mockFetch(body => {
-    expect(body).toMatchObject({ max_completion_tokens: 350 })
+    expect(body).toMatchObject({ max_completion_tokens: 862 })
     return OK_RESPONSE
   })
   vi.stubGlobal('fetch', fetcher)
   await groqProvider.complete({ system: 's', user: 'u', maxOutputTokens: 3072, fallbackMaxOutputTokens: 350 } as Parameters<typeof groqProvider.complete>[0])
+})
+it('uses the higher-capacity backup with room for reasoning and complete JSON', async () => {
+  vi.stubGlobal('fetch',mockFetch(body => {
+    expect(body).toMatchObject({model:'openai/gpt-oss-120b',reasoning_effort:'low',max_completion_tokens:1212})
+    return OK_RESPONSE
+  }))
+  await groqProvider.complete({system:'s',user:'u',maxOutputTokens:3072,fallbackMaxOutputTokens:700})
 })

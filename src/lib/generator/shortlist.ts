@@ -45,6 +45,7 @@ export async function generateShortlist(
   ])
   const seen: string[] = []
   const screeningFeedback: { name: string; reason: string }[] = []
+  const domainChecks = new Map<string, Awaited<ReturnType<typeof checkCandidateDomain>>>()
   const survivors: Candidate[] = []
   const domains = new Map<
     string,
@@ -93,6 +94,25 @@ export async function generateShortlist(
         {
           exclude: [...seen],
           screeningFeedback: [...screeningFeedback],
+          prepareCandidates: async (names) => {
+            input.onProgress?.({ checked, accepted: survivors.length, round, message: 'Checking domain options across the candidate pool.' })
+            let cursor = 0
+            const precheckSignal = AbortSignal.any([signal, AbortSignal.timeout(20_000)])
+            await Promise.all(Array.from({ length: Math.min(4, names.length) }, async () => {
+              while (cursor < names.length && !precheckSignal.aborted) {
+                const name = names[cursor++]!
+                if (domainChecks.has(name)) continue
+                const result = await checkCandidateDomain(name, AbortSignal.any([precheckSignal, AbortSignal.timeout(2500)]))
+                // Retry unknown lookups during the full screening pass.
+                if (result.state !== 'unknown') domainChecks.set(name, result)
+              }
+            }))
+            signal.throwIfAborted()
+            const clear = names.filter(name => domainChecks.get(name)?.state === 'no_registration')
+            // Prefer a less crowded pool without claiming domains establish
+            // brand clearance. Full conflict checks still follow the critique.
+            return clear.length >= 4 ? clear : names
+          },
           signal,
           analysis,
           onAnalysis: (value) => {
@@ -145,7 +165,7 @@ export async function generateShortlist(
       unavailable = undefined
       input.onProgress?.({ checked, accepted: survivors.length, round })
       async function screen(name: string): Promise<Candidate | undefined> {
-        const com = await checkCandidateDomain(
+        const com = domainChecks.get(name) ?? await checkCandidateDomain(
           name,
           AbortSignal.any([signal, AbortSignal.timeout(8_000)]),
         )

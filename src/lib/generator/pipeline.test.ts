@@ -299,3 +299,28 @@ it('retries the failed stage without discarding an existing analysis', async () 
     vi.useRealTimers()
   }
 })
+it('reviews the screened pool rather than spending critique on occupied names', async () => {
+  const prepareCandidates = vi.fn(async () => ['Ticket Orchard'])
+  complete.mockImplementation(async request => {
+    const input = JSON.parse(request.user)
+    if(input.stage === 'analyze') return reply(analysis)
+    if(input.stage === 'explore') return reply({names:['Shelfmark','Ticket Orchard']})
+    expect(input.names).toEqual(['Ticket Orchard'])
+    return reply({reviews:[[0,Array(9).fill(9),0,true]]})
+  })
+  await generateNames('Website','media tracker',undefined,{prepareCandidates} as Parameters<typeof generateNames>[3])
+  expect(prepareCandidates).toHaveBeenCalled()
+})
+it('screens four domain-ready editorial survivors before spending on optional refinement', async () => {
+  const good = ['Shelfmark','After the Credits','Ticket Drawer','Second Sitting']
+  complete.mockImplementation(async request => {
+    const input = JSON.parse(request.user)
+    if(input.stage==='analyze') return reply(analysis)
+    if(input.stage==='explore') return reply({names:[...good,...Array.from({length:16},(_,i)=>`Paper ${String.fromCharCode(97+i)}garden`)]})
+    if(input.stage==='refine') return reply({names:[]})
+    return reply({reviews:input.names.map((name:string,id:number)=>({id,scores:Array(9).fill(9),territory:name,issue:''}))})
+  })
+  const result=await generateNames('Website','media tracker',undefined,{prepareCandidates:async()=>good})
+  expect(result).toEqual({status:'ready',names:good})
+  expect(complete.mock.calls.some(([request])=>JSON.parse(request.user).stage==='refine')).toBe(false)
+})

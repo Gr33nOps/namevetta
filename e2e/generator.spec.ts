@@ -93,3 +93,18 @@ test('loading remains cancellable and respects reduced motion', async ({ page })
     await expect(page.getByLabel('What are you naming?', { exact: true })).toHaveValue('An independent bakery making seasonal bread')
   } finally { release() }
 })
+test('glass reflection keeps moving during its second loop', async ({ page }) => {
+  await page.goto('/generate')
+  const positions = await page.locator('.panel').first().evaluate(element => {
+    const animation = element.getAnimations({subtree:true}).find(item => (item as CSSAnimation).animationName === 'glass-reflection')!
+    animation.pause()
+    const duration = Number(animation.effect!.getTiming().duration)
+    return [1.4,1.45,1.5].map(progress => {
+      animation.currentTime = duration * progress
+      return getComputedStyle(element,'::before').backgroundPositionX
+    })
+  })
+  expect(new Set(positions).size).toBe(3)
+  const values = positions.map(Number.parseFloat)
+  expect(values[1]! - values[0]!).toBeCloseTo(values[2]! - values[1]!, 1)
+})
