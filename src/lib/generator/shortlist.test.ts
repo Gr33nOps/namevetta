@@ -49,6 +49,68 @@ beforeEach(() => {
     async () => clean() as Awaited<ReturnType<typeof runScanToCompletion>>,
   )
 })
+it('offers a checked domain variant without changing the brand name', async () => {
+  vi.mocked(checkCandidateDomain).mockImplementation(
+    async (name, _signal, tld = 'com') => ({
+      domain: name.replaceAll(' ', '').toLowerCase() + '.' + tld,
+      state: name.startsWith('get ') ? 'no_registration' : 'registered',
+      note: '',
+    }),
+  )
+  const result = await generateShortlist({
+    category: 'saas',
+    description: 'a media tracker',
+  })
+  expect(result.status).toBe('ready')
+  if (result.status === 'ready')
+    expect(result.ranked.candidates[0]).toMatchObject({
+      name: 'Cedar Table',
+      domain: { name: 'getcedartable.com', comState: 'registered' },
+    })
+})
+it('keeps namespace warnings visible without treating them as trademark clearance', async () => {
+  vi.mocked(runScanToCompletion).mockImplementation(
+    async () =>
+      ({
+        ...clean(),
+        viability: {
+          ...clean().viability,
+          score: 35,
+          caps: [{ reason: 'Exact conflict confirmed on npm', maximum: 35 }],
+        },
+      }) as Awaited<ReturnType<typeof runScanToCompletion>>,
+  )
+  const result = await generateShortlist({
+    category: 'saas',
+    description: 'a media tracker',
+  })
+  expect(result.status).toBe('ready')
+  if (result.status === 'ready')
+    expect(result.ranked.candidates[0]?.caps).toContain(
+      'Exact conflict confirmed on npm',
+    )
+})
+it('still rejects an established same-industry business', async () => {
+  vi.mocked(runScanToCompletion).mockImplementation(
+    async () =>
+      ({
+        ...clean(),
+        viability: {
+          ...clean().viability,
+          score: 40,
+          caps: [{ reason: 'Exact major same-industry business', maximum: 40 }],
+        },
+      }) as Awaited<ReturnType<typeof runScanToCompletion>>,
+  )
+  expect(
+    (
+      await generateShortlist({
+        category: 'saas',
+        description: 'a media tracker',
+      })
+    ).status,
+  ).toBe('incomplete')
+})
 it('returns checked progress when no further names pass', async () => {
   vi.mocked(generateNames)
     .mockResolvedValueOnce({ status: 'ready', names: ['Cedar Table'] })
@@ -137,7 +199,7 @@ it('refills with new directions when a whole pool has occupied domains', async (
   vi.mocked(checkCandidateDomain).mockImplementation(
     async (name, _signal, tld = 'com') => ({
       domain: name.replaceAll(' ', '').toLowerCase() + '.' + tld,
-      state: name === 'Taken Name' ? 'registered' : 'no_registration',
+      state: name.includes('Taken Name') ? 'registered' : 'no_registration',
       note: '',
     }),
   )

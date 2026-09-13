@@ -12,7 +12,6 @@ import {
 } from '@/lib/compare/rank'
 import { generateNames, type NamingAnalysis } from './namegen'
 import { sameFamily } from './dedupe'
-import { disqualificationReason } from './screen'
 import { checkCandidateDomain } from '@/lib/sources/domain'
 import { runScanToCompletion } from '@/lib/orchestrator/run'
 
@@ -173,6 +172,19 @@ export async function generateShortlist(
             alternatives.find((option) => option.state === 'no_registration') ??
             com
         }
+        if (domain.state !== 'no_registration' && !signal.aborted) {
+          const variants = await Promise.all(
+            ['get', 'try'].map((prefix) =>
+              checkCandidateDomain(
+                `${prefix} ${name}`,
+                AbortSignal.any([signal, AbortSignal.timeout(8000)]),
+              ),
+            ),
+          )
+          domain =
+            variants.find((option) => option.state === 'no_registration') ??
+            domain
+        }
         const checkedAt = new Date().toISOString()
         if (signal.aborted) break
         if (domain.state === 'no_registration') {
@@ -188,20 +200,19 @@ export async function generateShortlist(
             { signal, overallTimeoutMs: 12_000 },
           )
           if (signal.aborted) break
-          // A score cannot compensate for missing evidence or a known conflict.
-          const conflict = summary.results.some(
-            (result) =>
-              (result.source !== 'domain' &&
-                result.status === 'confirmed_conflict') ||
-              (domain.domain.endsWith('.com') &&
-                result.meta?.canonicalComState === 'registered'),
-          )
-          if (
-            !conflict &&
-            summary.coverage >= 50 &&
-            summary.viability.score >= 65 &&
-            disqualificationReason(summary) === undefined
-          ) {
+          // Namespace occupancy remains visible research, not a trademark veto.
+          // Keep the hard stop for established competing brands and a domain
+          // registration that contradicts the selected exact .com observation.
+          const conflict =
+            summary.viability.caps.some(
+              (cap) => cap.reason === 'Exact major same-industry business',
+            ) ||
+            summary.results.some(
+              (result) =>
+                domain.domain === com.domain &&
+                result.meta?.canonicalComState === 'registered',
+            )
+          if (!conflict && summary.coverage >= 50) {
             survivors.push({ name, summary })
             domains.set(name, {
               name: domain.domain,

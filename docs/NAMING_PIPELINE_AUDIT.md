@@ -130,3 +130,15 @@ event with a notice and retry action. They are not presented as a complete four-
 result. Zero survivors remains an error. The entire workflow now has an explicit
 timer and abort race, including adapters outside the model call; this addresses
 the live hang that the earlier model-only deadline did not resolve.
+
+## Research versus clearance
+
+Further live testing showed namespace occupancy still rejected useful naming
+directions. Generation now preserves namespace warnings, score caps and low
+research scores in the cards instead of presenting those findings as trademark
+clearance or a universal brand veto. Major established same-industry business
+conflicts remain a rejection, as does insufficient coverage. Domain variants
+(`get{name}.com` / `try{name}.com`) are checked only after exact-name extensions
+fail. They change the domain option, never the brand name. This supersedes the
+earlier blanket non-domain conflict and 65-point acceptance gates.
+

@@ -26,7 +26,8 @@ export function GeneratedNames({ result, category }: { result: ComparisonResult;
               </div>
               <h3 className="font-display mt-4 break-words text-2xl font-semibold tracking-tight text-charcoal">{candidate.name}</h3>
               {candidate.domain ? <p className="mt-2 break-all text-xs text-charcoal-2"><span className="font-mono">{candidate.domain.name}</span> · No registration found</p> : null}
-              {candidate.domain && !candidate.domain.name.endsWith('.com') ? <p className="mt-1 text-xs text-faint">{candidate.domain.comState === 'registered' ? 'The matching .com is registered.' : 'The matching .com could not be verified.'} Confirm the alternative with a registrar.</p> : null}
+              {candidate.domain && candidate.domain.comState !== undefined && candidate.domain.comState !== 'no_registration' ? <p className="mt-1 text-xs text-faint">{candidate.domain.comState === 'registered' ? 'The matching .com is registered.' : 'The matching .com could not be verified.'} Confirm the alternative with a registrar.</p> : null}
+              {candidate.caps.length > 0 ? <p className="mt-2 text-xs text-warn">Existing uses found. Review check details before choosing.</p> : null}
               <p className="mt-2 text-sm leading-relaxed text-charcoal-2">{candidate.coverage < 50 ? 'Several sources could not be checked. Review this name before choosing it.' : verdict.detail}</p>
               <div className="mt-5 border-t border-line pt-4">
                 <div className="flex items-baseline justify-between gap-3 text-sm">
