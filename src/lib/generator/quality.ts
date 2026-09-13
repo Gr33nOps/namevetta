@@ -1,18 +1,14 @@
 /**
  * Brandability assessment for generated candidates (§12, §25).
  *
- * The screening pipeline downstream answers "is this name free?" — it says
- * nothing about whether the name is any *good*. That is this module's job, and
- * it is deliberately deterministic: an LLM can be asked to invent names, but its
- * own opinion of them is exactly the unstable, hallucination-prone signal §22
- * warns against trusting. So a name's brand quality is measured here, in code,
- * from properties a person actually reacts to — length, pronounceability, how it
- * reads and types, and whether it leans on the tired patterns that make a name
- * feel machine-generated.
+ * Deterministic structural prefilter before contextual editorial review. These
+ * spelling and shape heuristics can catch obvious noise, but cannot establish
+ * semantic fit, consumer recall or originality. Their score must not override
+ * the later contextual ranking.
  *
  * Two outputs, kept separate on purpose:
  *
- *  - `score` (0..100) ranks the survivors so the best names lead the list.
+ *  - `score` (0..100) summarizes structural warning signals.
  *  - `rejected` is a hard gate: garbage never reaches the (expensive, sequential)
  *    availability screening at all.
  *
@@ -183,7 +179,11 @@ export function assessBrandability(name: string): BrandabilityAssessment {
     }
   }
   const worstConsonantRun = Math.max(...tokens.map(longestConsonantRun), 0)
-  if (worstConsonantRun >= 4) {
+  // Consonant counts alone wrongly veto real compounds (Matchstick, Sketchbook).
+  // Reject extreme clusters only when vowel support is also missing; the
+  // contextual editor separately checks pronunciation and hear-it/spell-it.
+  const vowelSupport = [...joined].filter(isVowel).length / Math.max(1, joined.length)
+  if (worstConsonantRun >= 4 && vowelSupport < 0.2) {
     return {
       score: 0,
       flags: [`${worstConsonantRun}-consonant cluster`],
@@ -221,7 +221,7 @@ export function assessBrandability(name: string): BrandabilityAssessment {
 
   // Pronounceability: a 3-consonant cluster is awkward but not fatal; a long
   // vowel run ("aeiou"-ish) reads as a typo.
-  if (worstConsonantRun === 3) {
+  if (worstConsonantRun >= 3) {
     score -= 8
     flags.push('a stiff consonant cluster')
   }

@@ -45,6 +45,10 @@ afterEach(() => {
 })
 
 describe('groqProvider', () => {
+  it('rejects token-truncated completions so the naming stage can retry',async()=>{
+    vi.stubGlobal('fetch',mockFetch(()=>({status:200,body:{choices:[{finish_reason:'length',message:{content:'{"names":['}}]}})))
+    await expect(groqProvider.complete({system:'s',user:'u',json:true})).rejects.toMatchObject({reason:'provider_error'})
+  })
   it('throws no_api_key rather than attempting a call when no key is configured', async () => {
     vi.unstubAllEnvs()
     resetEnvCache()

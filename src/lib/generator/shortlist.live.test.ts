@@ -1,20 +1,29 @@
 import { expect, it } from 'vitest'
-import { appendFileSync, writeFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { parseEnv } from 'node:util'
 import { generateShortlist } from './shortlist'
-it.skipIf(process.env.NAMING_LIVE_CHECK !== '1')('checks a complete four-name shortlist with real providers', async () => {
-  const originalFetch = globalThis.fetch
-  globalThis.fetch = async (...args) => {
-    const response = await originalFetch(...args)
-    if (String(args[0]).includes('api.groq.com') || String(args[0]).includes('generativelanguage.googleapis.com') || String(args[0]).includes('/rpc/consume_provider_budget')) {
-      appendFileSync('artifacts/shortlist-provider-responses.jsonl', JSON.stringify({ status: response.status, body: await response.clone().json() }) + '\n')
+it.skipIf(process.env.NAMING_LIVE_CHECK !== '1')(
+  'returns researched names or a clearly labelled partial shortlist with real providers',
+  async () => {
+    Object.assign(process.env, parseEnv(readFileSync('.env.local', 'utf8')))
+    const result = await generateShortlist({
+      category: 'saas',
+      description: 'media tracking website for games, movies, shows and anime',
+      onProgress: (progress) => console.log('Naming progress', progress),
+    })
+    writeFileSync(
+      'artifacts/naming-live-result.json',
+      JSON.stringify(result, null, 2),
+    )
+    console.log('Naming result', JSON.stringify(result))
+    expect(['ready', 'partial']).toContain(result.status)
+    if (result.status === 'ready')
+      expect(result.ranked.candidates).toHaveLength(4)
+    if (result.status === 'partial') {
+      expect(result.ranked.candidates.length).toBeGreaterThan(0)
+      expect(result.ranked.candidates.length).toBeLessThan(4)
+      expect(result.message).toContain("couldn't complete all four")
     }
-    return response
-  }
-  try {
-  const result = await generateShortlist({ category: 'saas', description: 'A document viewer and converter that works completely offline. For freelancers and small offices who want to open, organize and convert their files without uploading private documents. Calm, trustworthy, easy to say and memorable. Avoid invented tech suffixes.' , onProgress: (progress) => console.log('Naming progress', progress) })
-  writeFileSync('artifacts/naming-live-result.json', JSON.stringify(result, null, 2))
-  console.log('Naming result', JSON.stringify(result))
-  expect(result.status).toBe('ready')
-  if (result.status === 'ready') expect(result.ranked.candidates).toHaveLength(4)
-  } finally { globalThis.fetch = originalFetch }
-}, 280_000)
+  },
+  280_000,
+)

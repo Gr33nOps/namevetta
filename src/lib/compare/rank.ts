@@ -22,7 +22,7 @@ export interface Candidate {
 
 export interface RankedCandidate {
   /** Generator-only RDAP observation, separate from overall research scores. */
-  domain?: { name: string; checkedAt: string }
+  domain?: { name: string; checkedAt: string; comState?: 'registered' | 'no_registration' | 'unknown' }
   name: string
   /** 1-based position. Ties share a rank. */
   rank: number

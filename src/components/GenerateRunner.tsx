@@ -19,7 +19,7 @@ type Phase =
   | { kind: 'setup' }
   | { kind: 'generating' }
   | { kind: 'screening' }
-  | { kind: 'done'; result: ComparisonResult }
+  | { kind: 'done'; result: ComparisonResult; notice?: string }
   | { kind: 'error'; message: string }
 
 interface StreamEvent {
@@ -107,6 +107,10 @@ export function GenerateRunner({
         if (evt.type === 'progress' && typeof evt.checked === 'number') setChecked(evt.checked)
         if (evt.type === 'progress' && typeof evt.accepted === 'number') setAccepted(evt.accepted)
         if (evt.type === 'progress') setProgressMessage(evt.message)
+        if (evt.type === 'partial' && evt.ranked && evt.ranked.candidates.length>0 && evt.ranked.candidates.length<GENERATED_NAME_COUNT) {
+          terminal=true
+          setPhase({kind:'done',result:evt.ranked,notice:evt.message??'Some names are ready. This run could not complete all four.'})
+        }
         if (evt.type === 'result' && evt.ranked !== undefined) {
           terminal = true
           if (evt.ranked.candidates.length !== GENERATED_NAME_COUNT) {
@@ -145,8 +149,9 @@ export function GenerateRunner({
     return (
       <div className="mx-auto w-full max-w-4xl space-y-6">
         <h2 className="font-display text-center text-2xl font-semibold text-charcoal">
-          Four names to consider
+          {phase.notice ? 'Your checked names' : 'Four names to consider'}
         </h2>
+        {phase.notice ? <div className="panel rounded-xl p-4 text-sm text-charcoal-2" role="status"><p>{phase.notice}</p><button type="button" className="btn-secondary mt-3 rounded-xl px-4 py-2" onClick={()=>void submit()}>Try for more names</button></div> : null}
         <GeneratedNames result={phase.result} category={category} />
 
         <button
@@ -251,7 +256,7 @@ export function GenerateRunner({
           />
         </div>
         <button type="submit" className="btn-primary mt-6 w-full gap-2 rounded-xl px-5 py-3.5 text-base">Generate ideas <span aria-hidden="true">→</span></button>
-        <p className="mt-3 text-center text-xs leading-relaxed text-charcoal-2">Four names, screened for conflicts and an unregistered .com. Registrar confirmation and trademark clearance are separate.</p>
+        <p className="mt-3 text-center text-xs leading-relaxed text-charcoal-2">Up to four names, researched for conflicts with domain options checked. A taken .com won&rsquo;t rule out a good name. Confirm registration and trademarks before choosing.</p>
       </div>
 
       <p className="mt-4 text-center text-xs text-faint">

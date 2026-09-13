@@ -39,6 +39,18 @@ test('a final result without a trailing newline still completes', async ({ page 
   await expect(page.getByText('Strongest candidate')).toHaveCount(0)
 })
 
+test('alternative domains show the taken com clearly on mobile', async ({page}) => {
+  const candidates = ['Cedar Table','Copper Apron','Sunday Crumb','Orchard Oven'].map(name=>({name,rank:1,score:80,coverage:80,verdict:'promising',groups:[],strengths:[],weaknesses:[],caps:[],domain:{name:name.replaceAll(' ','').toLowerCase()+'.app',checkedAt:new Date().toISOString(),comState:'registered'}}))
+  await page.setViewportSize({width:390,height:844})
+  await page.route('**/api/generate',route=>route.fulfill({contentType:'application/x-ndjson',body:JSON.stringify({type:'result',ranked:{candidates,winner:null,winnerReason:'',tooCloseToCall:true}})}))
+  await page.goto('/generate')
+  await page.getByLabel('What are you naming?',{exact:true}).fill('A simple recipe app')
+  await page.getByRole('button',{name:'Generate ideas'}).click()
+  await expect(page.getByText('cedartable.app')).toBeVisible()
+  await expect(page.getByText('The matching .com is registered.',{exact:false})).toHaveCount(4)
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+})
+
 test('an incomplete shortlist cannot appear as a successful generation', async ({ page }) => {
   await page.route('**/api/generate', (route) => route.fulfill({ contentType: 'application/x-ndjson', body: JSON.stringify({ type: 'result', ranked: { candidates: [] } }) }))
   await page.goto('/generate')
@@ -46,6 +58,18 @@ test('an incomplete shortlist cannot appear as a successful generation', async (
   await page.getByRole('button', { name: 'Generate ideas' }).click()
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible()
   await expect(page.getByText('This run did not produce four checked names. Please try again.')).toBeVisible()
+})
+
+test('a checked partial result stays usable and is clearly labelled', async ({page})=>{
+  const candidate={name:'Pocket Lantern',rank:1,score:80,coverage:80,verdict:'promising',groups:[],strengths:[],weaknesses:[],caps:[],domain:{name:'pocketlantern.studio',checkedAt:new Date().toISOString(),comState:'registered'}}
+  await page.route('**/api/generate',route=>route.fulfill({contentType:'application/x-ndjson',body:JSON.stringify({type:'partial',message:'One name passed. This run could not complete all four.',ranked:{candidates:[candidate],winner:null,winnerReason:'',tooCloseToCall:true}})}))
+  await page.goto('/generate')
+  await page.getByLabel('What are you naming?',{exact:true}).fill('An indie game studio')
+  await page.getByRole('button',{name:'Generate ideas'}).click()
+  await expect(page.getByRole('heading',{name:'Your checked names'})).toBeVisible()
+  await expect(page.getByRole('button',{name:'Copy Pocket Lantern'})).toBeVisible()
+  await expect(page.getByRole('button',{name:'Try for more names'})).toBeVisible()
+  await expect(page.getByText('One name passed. This run could not complete all four.')).toBeVisible()
 })
 
 test('loading remains cancellable and respects reduced motion', async ({ page }) => {

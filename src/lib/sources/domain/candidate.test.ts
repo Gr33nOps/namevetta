@@ -19,3 +19,10 @@ it('rejects an existing registration', async () => {
   vi.mocked(request).mockResolvedValue({ status: 200, ok: true, text: '{}', headers: new Headers() })
   expect((await checkCandidateDomain('Cedar Table', new AbortController().signal)).state).toBe('registered')
 })
+it('checks the requested alternative extension against its own registry', async () => {
+  vi.mocked(requestJson).mockResolvedValue({data:{services:[[['app'],['https://app-rdap.example']]]}} as Awaited<ReturnType<typeof requestJson>>)
+  vi.mocked(request).mockResolvedValue({status:404,ok:false,text:'',headers:new Headers()})
+  const result = await checkCandidateDomain('Cedar Table',new AbortController().signal,'app')
+  expect(result).toMatchObject({domain:'cedartable.app',state:'no_registration'})
+  expect(request).toHaveBeenCalledWith('https://app-rdap.example/domain/cedartable.app',expect.anything())
+})

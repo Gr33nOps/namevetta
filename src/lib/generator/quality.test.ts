@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { assessBrandability } from './quality'
 
 describe('assessBrandability', () => {
+  it('does not veto pronounceable words just because consonants meet inside them',()=>{
+    for(const name of ['Matchstick','Turnstile','Sketchbook']) expect(assessBrandability(name).rejected,name).toBe(false)
+  })
   it('keeps readable English compounds with consonants at word boundaries', () => {
     for (const name of ['Northstar', 'Hearthside', 'Bright Field', 'Workroom', 'Salt Marsh']) {
       expect(assessBrandability(name).rejected, name).toBe(false)

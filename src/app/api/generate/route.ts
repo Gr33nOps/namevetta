@@ -81,6 +81,7 @@ export async function POST(req: Request): Promise<Response> {
           onProgress: (progress) => { send({ type: 'screening' }); send({ type: 'progress', ...progress }) },
         })
         if (outcome.status === 'ready') send({ type: 'result', ranked: outcome.ranked })
+        else if (outcome.status === 'partial') send({ type: 'partial', ranked: outcome.ranked, message: outcome.message })
         else send({ type: 'error', message: outcome.message })
       } catch {
         send({

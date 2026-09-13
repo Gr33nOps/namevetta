@@ -4,30 +4,19 @@
  * Split out of `namegen.ts` so the client form and marketing copy can name the
  * numbers without importing a `server-only` module. The engine generates a broad
  * pool and filters it down hard, so these are two different figures: how many
- * the model is asked for per attempt, and how big a filtered pool is worth
+ * explored across directed batches, and how big a filtered pool is worth
  * screening.
  */
 
 /**
- * Names requested from the model per attempt. Generous on purpose — most of a
- * raw batch is lost to duplicates, tired-sounding names and famous collisions,
- * so asking for a handful and hoping five survive is exactly how a run ends up
- * showing only two (§7). One large batch also costs far fewer tokens than
- * several small ones under the Groq per-minute ceiling.
+ * Three directed batches of twenty hidden candidates. A weak pool can receive
+ * one additional twenty-name refinement before another editorial review.
  */
-export const CANDIDATE_COUNT = 24
+export const CANDIDATE_COUNT = 60
 
 /**
- * Enough filtered, quality-ranked candidates that sequential availability
- * screening reliably finds five that are free. A coined name usually survives
- * screening, so this leaves comfortable headroom above the five that ship.
+ * Maximum quality-ranked candidates forwarded to availability screening.
+ * This is a ceiling, not a promise that four will pass the external checks.
  */
 export const TARGET_POOL = 18
 
-/**
- * Ceiling on model calls per run. Each call is one refill of the pool with an
- * exclusion list; three is plenty to reach `TARGET_POOL` even on a run where the
- * model returns mostly weak or duplicate names, and it bounds both latency and
- * token spend.
- */
-export const MAX_GENERATION_ATTEMPTS = 3

@@ -100,6 +100,7 @@ export function estimateTokens(text: string): number {
 /* ── provider ─────────────────────────────────────────────────────────────── */
 
 interface GroqChoice {
+  finish_reason?: string
   message?: { content?: string }
 }
 
@@ -155,6 +156,10 @@ async function callGroq(key: string, request: LLMRequest): Promise<LLMResult> {
     }
 
     const data = (await response.json()) as GroqResponse
+    const finish = data.choices?.[0]?.finish_reason
+    if (finish !== undefined && finish !== 'stop') {
+      throw new LLMUnavailableError('provider_error', 'The AI response was incomplete.')
+    }
     const text = data.choices?.[0]?.message?.content
     if (text === undefined || text.trim() === '') {
       throw new LLMUnavailableError('provider_error', 'The AI service returned an empty response.')

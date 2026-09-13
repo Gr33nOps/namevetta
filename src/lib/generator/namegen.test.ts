@@ -1,39 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { LLMUnavailableError } from '@/lib/providers/llm'
-
-const complete = vi.fn()
-vi.mock('@/lib/providers/groq', () => ({
-  groqProvider: { id: 'groq', label: 'Groq', model: 'test-model', complete: (...a: unknown[]) => complete(...a) },
-}))
-
-const { generateNames, sanitiseCandidates, filterQuality, rankByQuality } = await import('./namegen')
-
-/** A batch response shaped like the provider's, for the mock. */
-function batch(names: unknown[]): { text: string; model: string } {
-  return { text: JSON.stringify({ names }), model: 'test-model' }
-}
-
-/** Twenty-plus distinct, clean, non-famous coined names for pool tests. */
-const GOOD_POOL = [
-  'Cloudari', 'Marketrove', 'Nordvel', 'Lumira', 'Nordvel', 'Brixto', 'Pallova', 'Ternex',
-  'Vantel', 'Kestril', 'Orbane', 'Halcyra', 'Juniro', 'Wyndel', 'Sablon', 'Corvina', 'Tavira',
-  'Miravel', 'Dovern', 'Rundis', 'Calyx', 'Feldspar',
-]
-
-beforeEach(() => {
-  complete.mockReset()
-})
-
-it('requests distinctive word pairs rather than crowded literal feature names', async () => {
-  complete.mockResolvedValue(batch(GOOD_POOL))
-  await generateNames('Software', 'An offline file viewer', undefined, { maxAttempts: 1 })
-  expect(complete.mock.calls[0]?.[0].user).toContain('distinctive two-word')
-})
-
-afterEach(() => {
-  vi.clearAllMocks()
-})
-
+const complete=vi.hoisted(()=>vi.fn())
+vi.mock('@/lib/providers/fallback',()=>({completeWithFallback:complete}))
+import { generateNames, sanitiseCandidates, filterQuality, rankByQuality, curateNames } from './namegen'
+const reply=(value:unknown)=>({text:JSON.stringify(value),model:'test',promptTokens:1,completionTokens:1})
+const analysis={purpose:'Build something',audience:'People',concepts:['ritual','memory'],emotions:['delight'],vocabulary:['shelf','story'],territories:['memory','collection','journey','ritual','craft','place']}
+beforeEach(()=>{complete.mockReset()})
 describe('sanitiseCandidates', () => {
   it('trims, dedupes case-insensitively, and preserves first-seen casing', () => {
     expect(sanitiseCandidates(['Zolvex', 'zolvex', ' Zolvex ', 'Marbrix'], undefined)).toEqual([
@@ -94,129 +66,64 @@ describe('rankByQuality', () => {
   })
 })
 
-describe('generateNames', () => {
-  it('returns a ready, quality-ranked pool from a healthy batch', async () => {
-    complete.mockResolvedValueOnce(batch(GOOD_POOL))
-    const outcome = await generateNames('SaaS', 'a project tool', undefined)
-    expect(outcome.status).toBe('ready')
-    if (outcome.status !== 'ready') return
-    expect(outcome.names.length).toBeGreaterThanOrEqual(5)
-    expect(outcome.names.length).toBeLessThanOrEqual(18)
-  })
 
-  it('never lets a famous name or garbage into the pool', async () => {
-    complete.mockResolvedValueOnce(batch([...GOOD_POOL, 'Tekken', 'Google', 'Bcdfgh', 'a b c d e']))
-    const outcome = await generateNames('Game', 'a fighting game', undefined)
-    expect(outcome.status).toBe('ready')
-    if (outcome.status !== 'ready') return
-    expect(outcome.names).not.toContain('Tekken')
-    expect(outcome.names).not.toContain('Google')
-    expect(outcome.names).not.toContain('Bcdfgh')
+function healthy(batches:string[][]) {
+  let index=0
+  complete.mockImplementation(async(request)=>{
+    const input=JSON.parse(request.user)
+    if(input.stage==='analyze') return reply(analysis)
+    if(input.stage==='explore') return reply({names:batches[index++]??[]})
+    return reply({reviews:input.names.map((name:string,id:number)=>({id,scores:[8,8,8,8,8,8,8,8,8],territory:name,issue:''}))})
   })
-
-  it('collapses near-duplicate families into one member', async () => {
-    complete.mockResolvedValueOnce(
-      batch(['Cloudari', 'Cloudarri', 'Cloudari Works', 'Cloudaro', 'Nordvel', 'Marketrove']),
-    )
-    const outcome = await generateNames('SaaS', 'infra tooling', undefined)
-    expect(outcome.status).toBe('ready')
-    if (outcome.status !== 'ready') return
-    const sameIdea = outcome.names.filter((n) => /^cloudar/i.test(n))
-    expect(sameIdea.length).toBe(1)
-  })
-
-  it('refills across attempts, accumulating names it has not seen', async () => {
-    complete
-      .mockResolvedValueOnce(batch(['Cloudari', 'Marketrove', 'Nordvel']))
-      .mockResolvedValueOnce(batch(['Lumira', 'Pallova', 'Brixto']))
-      .mockResolvedValueOnce(batch(['Vantel', 'Kestril']))
-    const outcome = await generateNames('SaaS', 'a tool', undefined)
-    expect(outcome.status).toBe('ready')
-    if (outcome.status !== 'ready') return
-    expect(outcome.names).toEqual(
-      expect.arrayContaining(['Cloudari', 'Lumira', 'Vantel']),
-    )
-    expect(complete).toHaveBeenCalledTimes(3)
-  })
-
-  it('excludes already-seen names on refill so the model is asked for new ones', async () => {
-    complete
-      .mockResolvedValueOnce(batch(['Cloudari', 'Marketrove']))
-      .mockResolvedValueOnce(batch(['Lumira']))
-      .mockResolvedValueOnce(batch(['Nordvel']))
-    await generateNames('SaaS', 'a tool', undefined)
-    // The second call's user prompt should list the first batch as excluded.
-    const secondCall = complete.mock.calls[1]?.[0] as { user: string } | undefined
-    expect(secondCall?.user).toMatch(/Cloudari/)
-    expect(secondCall?.user).toMatch(/do not repeat/i)
-  })
-
-  it('asks for json-mode output', async () => {
-    complete.mockResolvedValueOnce(batch(GOOD_POOL))
-    await generateNames('SaaS', 'x', undefined)
-    expect(complete).toHaveBeenCalledWith(expect.objectContaining({ json: true }))
-  })
-
-  it('does not crash on malformed JSON and reports unavailable', async () => {
-    complete.mockResolvedValue({ text: 'not json at all', model: 'test-model' })
-    const outcome = await generateNames('SaaS', 'x', undefined)
-    expect(outcome.status).toBe('unavailable')
-  })
-
-  it('reports unavailable when the JSON never matches the expected shape', async () => {
-    complete.mockResolvedValue({ text: JSON.stringify({ wrong: true }), model: 'test-model' })
-    const outcome = await generateNames('SaaS', 'x', undefined)
-    expect(outcome.status).toBe('unavailable')
-  })
-
-  it('reports unavailable when every candidate is filtered out', async () => {
-    // All famous or garbage: nothing survives quality filtering.
-    complete.mockResolvedValue(batch(['Tekken', 'Google', 'Bcdfgh']))
-    const outcome = await generateNames('SaaS', 'x', undefined)
-    expect(outcome.status).toBe('unavailable')
-  })
-
-  it('maps a missing key to a clear reason without throwing', async () => {
-    complete.mockRejectedValue(new LLMUnavailableError('no_api_key', 'no key'))
-    const outcome = await generateNames('SaaS', 'x', undefined)
-    expect(outcome).toEqual({
-      status: 'unavailable',
-      reason: 'Name generation is not configured on this deployment.',
-    })
-  })
-
-  it('maps an exhausted budget to a same-day-specific reason', async () => {
-    complete.mockRejectedValue(new LLMUnavailableError('budget_exhausted', 'gone'))
-    const outcome = await generateNames('SaaS', 'x', undefined)
-    expect((outcome as { reason: string }).reason).toContain('allowance')
-  })
-
-  it('salvages an earlier good batch when a later refill fails', async () => {
-    complete
-      .mockResolvedValueOnce(batch(['Cloudari', 'Marketrove', 'Nordvel', 'Lumira']))
-      .mockRejectedValueOnce(new LLMUnavailableError('rate_limited', 'slow down'))
-    const outcome = await generateNames('SaaS', 'a tool', undefined)
-    expect(outcome.status).toBe('ready')
-    if (outcome.status !== 'ready') return
-    expect(outcome.names).toEqual(expect.arrayContaining(['Cloudari']))
-  })
+}
+it('combines independent explorations before editorial review, rejecting famous and repeated names',async()=>{
+  healthy([['Cedar Table','Google','Bcdfgh'],['Cedar Tables','Copper Apron'],['Sunday Crumb','Orchard Oven']])
+  const result=await generateNames('Bakery','a bakery',undefined,{maxAttempts:1})
+  expect(result).toEqual({status:'ready',names:['Cedar Table','Copper Apron','Sunday Crumb','Orchard Oven']})
 })
-
-it('excludes earlier rejected families from replacement batches', async () => {
-  complete.mockResolvedValue(batch(['Cedar Table', 'Cedar Tables', 'Copper Apron', 'Sunday Crumb']))
-  const result = await generateNames('Restaurant', 'A bakery', undefined, { exclude: ['Cedar Table'], maxAttempts: 1 })
+it('passes all already-seen names as exclusions between explorations',async()=>{
+  healthy([['Cedar Table'],['Copper Apron'],['Sunday Crumb']])
+  await generateNames('Bakery','a bakery',undefined)
+  const requests=complete.mock.calls.map(([request])=>JSON.parse(request.user)).filter((input)=>input.stage==='explore')
+  expect(requests[1].exclude).toContain('Cedar Table')
+  expect(requests[2].exclude).toContain('Copper Apron')
+})
+it('rejects previously screened families even if the model repeats them',async()=>{
+  healthy([['Cedar Table','Cedar Tables'],['Copper Apron'],['Sunday Crumb']])
+  const result=await generateNames('Bakery','a bakery',undefined,{exclude:['Cedar Table']})
+  expect(result).toEqual({status:'ready',names:['Copper Apron','Sunday Crumb']})
+})
+it('ignores injected IDs, duplicate IDs and vetoed or weak reviews',async()=>{
+  complete.mockResolvedValue(reply({reviews:[
+    {id:40,scores:[9,9,9,9,9,9,9,9,9],territory:'fake',issue:''},
+    {id:0,scores:[9,9,9,9,9,9,9,9,9],territory:'light',issue:''},
+    {id:0,scores:[9,9,9,9,9,9,9,9,9],territory:'light',issue:''},
+    {id:1,scores:[9,9,9,9,9,9,9,9,9],territory:'fake',issue:'tenuous meaning'},
+    {id:2,scores:[9,9,9,3,3,9,9,9,9],territory:'sound',issue:''},
+  ]}))
+  expect(await curateNames(['Paper Lantern','Mild Folio','Bcdfgh'],'A product')).toEqual(['Paper Lantern'])
+})
+it('rejects malformed or missing analysis without exposing raw names',async()=>{
+  complete.mockResolvedValue(reply({names:['Paper Lantern']}))
+  expect((await generateNames('Website','an idea',undefined)).status).toBe('unavailable')
+})
+it('keeps genuine ordinary words ending in letters used by trendy suffixes',async()=>{
+  healthy([['Family Album'],['Portfolio'],['Olive Branch']])
+  const result=await generateNames('Website','family birthday history',undefined)
   expect(result.status).toBe('ready')
-  if (result.status === 'ready') expect(result.names.every((name) => !name.startsWith('Cedar'))).toBe(true)
-  expect(complete).toHaveBeenCalledTimes(1)
+  if(result.status==='ready') expect(result.names).toContain('Portfolio')
 })
-
-it('keeps only original candidates accepted by the editorial review', async () => {
-  complete.mockResolvedValueOnce(batch(['Paper Lantern', 'Injected Name', 'Paper Lantern']))
-  const { curateNames } = await import('./namegen')
-  expect(await curateNames(['Paper Lantern', 'Mild Folio'], 'Offline document tool')).toEqual(['Paper Lantern'])
+it.each(['no_api_key','budget_exhausted','rate_limited','timeout'] as const)('returns a usable error for %s',async(reason)=>{
+  vi.useFakeTimers()
+  complete.mockRejectedValue(new LLMUnavailableError(reason,'test'))
+  const pending=generateNames('Website','an idea',undefined)
+  await vi.runAllTimersAsync()
+  const result=await pending
+  vi.useRealTimers()
+  expect(result.status).toBe('unavailable')
+  if(result.status==='unavailable' && reason==='rate_limited') expect(result.retryAfterMs).toBe(61000)
 })
-
-it('classifies transient AI failures so generation can recover', async () => {
-  complete.mockRejectedValue(new LLMUnavailableError('rate_limited', 'busy'))
-  expect(await generateNames('SaaS', 'An offline file app', undefined)).toMatchObject({ status: 'unavailable', retryable: true, retryAfterMs: 61000 })
+it('does not call a provider after cancellation',async()=>{
+  await generateNames('Website','an idea',undefined,{signal:AbortSignal.abort()})
+  expect(complete).not.toHaveBeenCalled()
 })

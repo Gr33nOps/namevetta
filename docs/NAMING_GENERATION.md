@@ -2,8 +2,16 @@
 
 The generator uses Gemini 3.8 Flash (`gemini-3.8-flash`) first, with Groq Qwen 3.8 27B (`qwen/qwen3.8-27b`) as its fallback when Gemini is unavailable. The naming framework supplied on September 8 informs its brief analysis, distinct semantic territories, construction variety, pronunciation/spelling rehearsal, negative-association vetoes and weighted creative review. Creative judgments are not presented as measured user research.
 
-A run requests a broad pool, applies the existing famous-name, structural-quality and near-duplicate filters, and asks the same model for a separate editorial review. That review selects only names from the original pool and can reject all of them. It assesses meaning and fit, not availability. The pipeline then checks each exact .com with RDAP before spending a full Quick Check. Only explicit no-registration responses qualify. Unknown lookups do not qualify. Full checks must have at least 50% evidence coverage, a score of at least 65, no conflict caps and no confirmed non-domain conflicts. A later registered .com result also rejects the candidate.
+The runtime now materializes its brief analysis, explores three sets of twenty
+candidates, critiques the combined pool, and uses rejected-name feedback for one
+optional twenty-candidate refinement. Contextual editorial ranking survives the
+availability step. See [the engineering audit](NAMING_PIPELINE_AUDIT.md) for
+prompts, parameters, root causes, validation and remaining constraints.
 
-Names rejected by availability checks are excluded from replacement rounds. A completed result contains exactly four candidates. The process is bounded to four generation/editorial rounds, sixteen full checks and 260 seconds; it reports an incomplete run instead of adding unverified names. Comparison elsewhere remains limited to five names. One generator request still uses one generation quota unit.
+A run requests a broad pool, applies the existing famous-name, structural-quality and near-duplicate filters, and asks the same model for a separate editorial review. That review selects only names from the original pool and can reject all of them. It assesses meaning and fit, not availability. The pipeline checks the exact .com first, then category-appropriate alternative extensions with RDAP before spending a full Quick Check. Only explicit no-registration responses qualify. Unknown lookups do not qualify. Full checks must have at least 50% evidence coverage, a score of at least 65, no conflict caps and no confirmed non-domain conflicts. A later registered .com result rejects a candidate only when that is its selected domain. Alternative domains are shown with the matching .com status.
+
+Names rejected by availability checks are excluded from replacement rounds. A completed result contains exactly four candidates. The process is bounded to four generation/editorial rounds, sixteen full checks and 260 seconds; it returns a clearly labelled partial shortlist when some names pass, or an error when none pass, instead of adding unverified names. Comparison elsewhere remains limited to five names. One generator request still uses one generation quota unit.
 
 RDAP establishes registration-record status, not a purchase guarantee. Registrar confirmation, professional trademark clearance, native-speaker review and real-user recall/spelling tests remain separate. The model must not pretend those activities happened. No domains or accounts are purchased by this flow.
+
+
