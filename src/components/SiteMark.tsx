@@ -18,6 +18,8 @@
  * has to hold the mark, two links, the theme control and the account control,
  * and the word is the only part of it a returning visitor does not need.
  */
+import Image from 'next/image'
+
 export function SiteMark({
   size = 'md',
   wordFrom,
@@ -31,8 +33,8 @@ export function SiteMark({
 
   return (
     <span className="flex items-center gap-2">
-      <img
-        src="/logo.png?v=20260821"
+      <Image
+        src="/logo.png"
         alt=""
         aria-hidden="true"
         width={px}

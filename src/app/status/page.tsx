@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/Badge'
 import { ScrollArea } from '@/components/ui/ScrollArea'
 import type { Tone } from '@/lib/presentation'
 import { SourceLogo } from '@/components/SourceLogo'
+import { PageHeader } from '@/components/PageHeader'
 
 export const metadata = {
   title: 'Source status | NameVetta',
@@ -93,15 +94,8 @@ export default async function Page() {
   const struggling = reporting.filter((s) => (snapshot.get(s.id)?.successRate ?? 1) < 0.8)
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 pt-12 pb-16 sm:pt-16">
-      <header className="text-center">
-        <h1 className="font-display text-3xl font-semibold text-charcoal sm:text-4xl">
-          Source status
-        </h1>
-        <p className="mx-auto mt-4 max-w-[58ch] text-[15.5px] leading-relaxed text-charcoal-2">
-          Recent source reliability.
-        </p>
-      </header>
+    <div className="page-shell">
+      <PageHeader title="Source status">Recent reliability across our research sources.</PageHeader>
 
       {/*
         The three counts, stated as three counts.

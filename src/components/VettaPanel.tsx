@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useRef, useState } from 'react'
+import { useRef, useTransition } from 'react'
 import { ArrowRightIcon, SearchIcon } from '@/components/vetta/Icons'
 import { CategorySelect } from '@/components/CategorySelect'
 import { sourceCounts } from '@/lib/core/adapter'
@@ -10,6 +10,7 @@ import { isVerified, type SourceResult } from '@/lib/core/types'
 import { type Tone } from '@/lib/presentation'
 import { manualVerificationCount, panelRows, ROW_FILTERS, type RowFilterId } from '@/lib/rows'
 import { SourceLogo } from '@/components/SourceLogo'
+import { useSessionState } from '@/components/ResearchSession'
 
 const RECENT_KEY = 'nv-recent'
 const MAX_RECENT = 5
@@ -151,25 +152,13 @@ export function VettaPanel({
   initialScanType = 'quick',
 }: VettaPanelProps) {
   const router = useRouter()
+  const [navigating, startTransition] = useTransition()
   const inputRef = useRef<HTMLInputElement>(null)
-  const [name, setName] = useState(initialName)
-  const [filter, setFilter] = useState<RowFilterId | 'all'>('all')
-  const [category, setCategory] = useState<Category>(initialCategory)
-  const [scanType, setScanType] = useState<ScanType>(initialScanType)
-
-  /*
-    The field follows the URL: clicking an example on a result page swaps the
-    name, and the panel must not keep showing the old one.
-
-    Adjusted during render rather than in an effect. The alternative fires a
-    second render pass after paint, which is the flash of the previous name in
-    the box; this is React's documented way to reset state when a prop changes.
-  */
-  const [lastInitial, setLastInitial] = useState(initialName)
-  if (initialName !== lastInitial) {
-    setLastInitial(initialName)
-    setName(initialName)
-  }
+  const sessionKey = `panel:${initialName}:${initialCategory}:${initialScanType}`
+  const [name, setName] = useSessionState(`${sessionKey}:name`, initialName)
+  const [filter, setFilter] = useSessionState<RowFilterId | 'all'>(`${sessionKey}:filter`, 'all')
+  const [category, setCategory] = useSessionState<Category>(`${sessionKey}:category`, initialCategory)
+  const [scanType, setScanType] = useSessionState<ScanType>(`${sessionKey}:type`, initialScanType)
 
   /**
    * The button is never disabled. It is the brightest thing on the page, and
@@ -186,7 +175,7 @@ export function VettaPanel({
     rememberName(trimmed)
     const query = new URLSearchParams({ as: category })
     if (scanType === 'deep') query.set('deep', '1')
-    router.push(`/n/${encodeURIComponent(trimmed)}?${query.toString()}`)
+    startTransition(() => router.push(`/n/${encodeURIComponent(trimmed)}?${query.toString()}`))
   }
 
   const shown =
@@ -264,9 +253,11 @@ export function VettaPanel({
         </span>
         <button
           type="submit"
+          disabled={navigating}
+          aria-busy={navigating}
           className="btn-primary shrink-0 gap-2 rounded-xl px-5 py-3.5 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
-          Search a name
+          {navigating ? 'Starting your check…' : 'Search a name'}
           <ArrowRightIcon />
         </button>
         </form>
@@ -276,7 +267,7 @@ export function VettaPanel({
             <CategorySelect value={category} onChange={setCategory} />
             <fieldset>
               <legend className="mb-1.5 text-sm font-medium text-charcoal">Research</legend>
-              <div className="flex flex-wrap gap-2" role="group" aria-label="Research depth">
+              <div className="flex min-h-[58px] flex-wrap items-stretch gap-2" role="group" aria-label="Research depth">
                 {(['quick', 'deep'] as const).map((type) => (
                   <button
                     key={type}
@@ -304,6 +295,7 @@ export function VettaPanel({
 
       {results === undefined ? null : (
         <>
+          {note === undefined ? null : <div className="mt-6 rounded-xl border border-line bg-surface px-4 py-3 text-sm leading-relaxed" role="status">{note}</div>}
           {/*
             A fixed column, not `auto`.
 
@@ -319,6 +311,7 @@ export function VettaPanel({
               <ScoreRing score={score ?? 0} tone={busy ? scoreTone : completedScoreTone} />
               <div>
                 <p className="font-display text-sm font-semibold text-charcoal">Score</p>
+                {!busy ? <p className="mb-1 text-xs text-charcoal-2">Out of 100, based on these checks</p> : null}
                 <p className="text-xs tabular-nums text-charcoal-2">
                   {busy
                     ? `${answered} of ${total ?? answered} sources answered`
@@ -372,9 +365,12 @@ export function VettaPanel({
           </div>
 
           {busy && shown.length === 0 ? (
-            <p className="inset mt-5 rounded-2xl px-4 py-6 text-center text-sm text-charcoal-2">
-              {busy ? 'Waiting for the first result.' : 'No results in this filter.'}
-            </p>
+            <div className="inset mt-5 rounded-2xl px-4 py-5">
+              <p role="status" className="text-center text-sm text-charcoal-2">{results.length === 0 ? 'Waiting for the first result.' : 'No results in this filter yet.'}</p>
+              <div aria-hidden="true" className="scan-skeleton mt-4 space-y-4">
+                {[0, 1, 2].map((index) => <div key={index} className="flex items-center gap-3"><span className="skeleton-block h-9 w-9 rounded-xl" /><span className="skeleton-block h-3 flex-1 rounded-full" /><span className="skeleton-block h-6 w-16 rounded-full" /></div>)}
+              </div>
+            </div>
           ) : busy ? (
             /*
               Rules between the rows, and no box around them. The list already
@@ -407,9 +403,6 @@ export function VettaPanel({
             </ul>
           ) : null}
 
-          {note === undefined ? null : (
-            <div className="mt-4 flex items-center gap-2 text-xs text-faint">{note}</div>
-          )}
         </>
       )}
     </div>

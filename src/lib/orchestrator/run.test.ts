@@ -163,3 +163,14 @@ describe('runScan', () => {
     expect(deepSummary.results.map((r) => r.source)).toContain('web')
   })
 })
+
+it('cancels adapters already running when the caller leaves', async () => {
+  const abort = new AbortController()
+  registry.adapters.github = fakeAdapter('github', async (_ctx, deps) => {
+    setTimeout(() => abort.abort(), 5)
+    await new Promise((_resolve, reject) => deps.signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true }))
+    throw new Error('unreachable')
+  })
+  const result = await runScanToCompletion(ctx, { signal: abort.signal })
+  expect(result.results.find((source) => source.source === 'github')?.status).toBe('unable_to_verify')
+})

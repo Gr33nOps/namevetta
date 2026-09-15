@@ -37,7 +37,7 @@ export function SavedList({ names }: { names: SavedName[] }) {
           className="flex flex-wrap items-center justify-between gap-3 card rounded-2xl p-4"
         >
           <div className="min-w-0">
-            <h3 className="font-medium">{n.name}</h3>
+            <h3 className="break-words font-medium">{n.name}</h3>
             <p className="mt-0.5 text-xs text-faint">
               {CATEGORY_LABELS[n.category as Category] ?? n.category}
             </p>
@@ -46,10 +46,10 @@ export function SavedList({ names }: { names: SavedName[] }) {
             ) : null}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/scan?name=${encodeURIComponent(n.name)}&category=${n.category}&type=quick`}
-              className="rounded-lg border border-line px-2.5 py-1.5 text-xs transition-colors hover:border-accent hover:text-accent-ink"
+              className="btn-secondary px-3 py-2 text-xs"
             >
               Research again
             </Link>
@@ -62,7 +62,7 @@ export function SavedList({ names }: { names: SavedName[] }) {
                   if (result.ok) setRemoved((prev) => new Set(prev).add(n.id))
                 })
               }
-              className="rounded-lg border border-line px-2.5 py-1.5 text-xs text-charcoal-2 transition-colors hover:border-danger hover:text-danger disabled:opacity-50"
+              className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-xs text-charcoal-2 hover:bg-danger-soft hover:text-danger disabled:opacity-50"
             >
               Remove
             </button>

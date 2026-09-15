@@ -116,6 +116,19 @@ interface DomainCheck {
   url?: string
 }
 
+/** A cheap, fail-closed knockout check before a generated name gets a full scan. */
+export async function checkCandidateDomain(name: string, signal: AbortSignal, tld = 'com'): Promise<DomainCheck> {
+  if (!/^[a-z]{2,20}$/.test(tld)) throw new Error('Invalid domain extension')
+  const domain = `${normalize(name)}.${tld}`
+  try {
+    signal.throwIfAborted()
+    const bootstrap = await loadBootstrap(signal)
+    const base = bootstrap.get(tld)
+    if (base !== undefined) return await checkViaRdap(domain, base, signal)
+  } catch { /* An outage cannot establish availability. */ }
+  return { domain, state: 'unknown', note: `${domain}: registration could not be checked.` }
+}
+
 async function checkViaRdap(
   domain: string,
   base: string,
@@ -351,6 +364,7 @@ export const domainAdapter: SourceAdapter = {
       status,
       evidence,
       meta: {
+        canonicalComState: checks.find((check) => check.domain === `${label}.com`)?.state ?? 'unknown',
         checked: checks.length,
         registered: registered.length,
         unverified: unknown.length,

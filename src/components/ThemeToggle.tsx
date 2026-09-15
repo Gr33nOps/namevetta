@@ -17,8 +17,8 @@ export type Theme = 'light' | 'dark'
 
 /** The `theme-color` each palette answers to, from `:root` in globals.css. */
 const CHROME_COLOR: Record<Theme, string> = {
-  light: '#f7f7fc',
-  dark: '#0c0b16',
+  light: '#f8f9fb',
+  dark: '#111316',
 }
 
 const prefersDark = (): MediaQueryList => window.matchMedia('(prefers-color-scheme: dark)')

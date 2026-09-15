@@ -1,12 +1,14 @@
 'use client'
 
-import { useId, useRef, useState } from 'react'
-import { ComparisonTable } from '@/components/ComparisonTable'
+import { useId, useRef } from 'react'
+import { useSessionState } from '@/components/ResearchSession'
+import { GeneratedNames } from '@/components/GeneratedNames'
 import { CategorySelect } from '@/components/CategorySelect'
+import { ResearchProgress } from '@/components/ResearchProgress'
 import {
   GENERATE_DESCRIPTION_REQUIRED,
   GenerateRequestSchema,
-  MAX_COMPARE_NAMES,
+  GENERATED_NAME_COUNT,
   MAX_DESCRIPTION_LENGTH,
   MAX_NAME_LENGTH,
   MIN_GENERATE_DESCRIPTION_LENGTH,
@@ -18,13 +20,15 @@ type Phase =
   | { kind: 'setup' }
   | { kind: 'generating' }
   | { kind: 'screening' }
-  | { kind: 'done'; result: ComparisonResult }
+  | { kind: 'done'; result: ComparisonResult; notice?: string }
   | { kind: 'error'; message: string }
 
 interface StreamEvent {
   type: string
   ranked?: ComparisonResult
   message?: string
+  checked?: number
+  accepted?: number
 }
 
 export function GenerateRunner({
@@ -34,16 +38,21 @@ export function GenerateRunner({
   guestGenerateLimit: number
   userGenerateLimit: number
 }) {
-  const [description, setDescription] = useState('')
-  const [category, setCategory] = useState<Category>('saas')
-  const [seed, setSeed] = useState('')
-  const [phase, setPhase] = useState<Phase>({ kind: 'setup' })
-  const [error, setError] = useState<string | null>(null)
-  const descriptionRef = useRef<HTMLInputElement>(null)
+  const [description, setDescription] = useSessionState('generate:description', '')
+  const [category, setCategory] = useSessionState<Category>('generate:category', 'other')
+  const [seed, setSeed] = useSessionState('generate:seed', '')
+  const [phase, setPhase] = useSessionState<Phase>('generate:phase', { kind: 'setup' })
+  const [error, setError] = useSessionState<string | null>('generate:error', null)
+  const descriptionRef = useRef<HTMLTextAreaElement>(null)
+  const [requestRef] = useSessionState('generate:request', () => ({ current: null as AbortController | null }))
+  const [checked, setChecked] = useSessionState('generate:checked', 0)
+  const [accepted, setAccepted] = useSessionState('generate:accepted', 0)
+  const [progressMessage, setProgressMessage] = useSessionState<string | undefined>('generate:message', undefined)
   const errorId = useId()
 
-  const submit = async (event: React.FormEvent): Promise<void> => {
-    event.preventDefault()
+  const submit = async (event?: React.FormEvent): Promise<void> => {
+    event?.preventDefault()
+    if (requestRef.current && !requestRef.current.signal.aborted) return
 
     /*
       Validated before anything is sent, and before the loading state.
@@ -64,32 +73,60 @@ export function GenerateRunner({
       return
     }
     setError(null)
+    setChecked(0)
+    setAccepted(0)
+    setProgressMessage(undefined)
     setPhase({ kind: 'generating' })
-
-    let response: Response
+    const controller = new AbortController()
+    requestRef.current = controller
+    const timeout = setTimeout(() => controller.abort('timeout'), 290_000)
+    let terminal = false
     try {
-      response = await fetch('/api/generate', {
+      const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(parsed.data),
+        signal: controller.signal,
       })
-    } catch {
-      setPhase({ kind: 'error', message: 'Could not reach the server.' })
-      return
-    }
+      if (controller.signal.aborted) return
 
-    if (!response.ok || response.body === null) {
-      const message = await response
-        .json()
-        .then((b: { error?: string }) => b.error)
-        .catch(() => undefined)
-      setPhase({ kind: 'error', message: message ?? 'Name generation could not be started.' })
-      return
-    }
+      if (!response.ok || response.body === null) {
+        const message = await response
+          .json()
+          .then((b: { error?: string }) => b.error)
+          .catch(() => undefined)
+        if (controller.signal.aborted) return
+        setPhase({ kind: 'error', message: message ?? 'Name generation could not be started.' })
+        return
+      }
 
-    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
-    let buffer = ''
-    try {
+      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+      let buffer = ''
+      const handleLine = (line: string): void => {
+        if (controller.signal.aborted) return
+        if (line.trim() === '' || terminal) return
+        let evt: StreamEvent
+        try { evt = JSON.parse(line) } catch { return }
+        if (evt.type === 'screening') setPhase({ kind: 'screening' })
+        if (evt.type === 'progress' && typeof evt.checked === 'number') setChecked(evt.checked)
+        if (evt.type === 'progress' && typeof evt.accepted === 'number') setAccepted(evt.accepted)
+        if (evt.type === 'progress') setProgressMessage(evt.message)
+        if (evt.type === 'partial' && evt.ranked && evt.ranked.candidates.length>0 && evt.ranked.candidates.length<GENERATED_NAME_COUNT) {
+          terminal=true
+          setPhase({kind:'done',result:evt.ranked,notice:evt.message??'Some names are ready. This run could not complete all four.'})
+        }
+        if (evt.type === 'result' && evt.ranked !== undefined) {
+          terminal = true
+          if (evt.ranked.candidates.length !== GENERATED_NAME_COUNT) {
+            setPhase({ kind: 'error', message: 'This run did not produce four checked names. Please try again.' })
+            return
+          }
+          setPhase({ kind: 'done', result: evt.ranked })
+        } else if (evt.type === 'error') {
+          terminal = true
+          setPhase({ kind: 'error', message: evt.message ?? 'Name generation failed. Please try again.' })
+        }
+      }
       for (;;) {
         const { done, value } = await reader.read()
         if (done) break
@@ -98,51 +135,35 @@ export function GenerateRunner({
         const lines = buffer.split('\n')
         buffer = lines.pop() ?? ''
 
-        for (const line of lines) {
-          if (line.trim() === '') continue
-          let evt: StreamEvent
-          try {
-            evt = JSON.parse(line)
-          } catch {
-            continue
-          }
-
-          if (evt.type === 'screening') {
-            setPhase({ kind: 'screening' })
-          } else if (evt.type === 'result' && evt.ranked !== undefined) {
-            setPhase({ kind: 'done', result: evt.ranked })
-          } else if (evt.type === 'error') {
-            setPhase({ kind: 'error', message: evt.message ?? 'Name generation failed.' })
-          }
-        }
+        for (const line of lines) handleLine(line)
+        if (terminal) { await reader.cancel(); break }
       }
+      handleLine(buffer)
+      if (!terminal && !controller.signal.aborted) setPhase({ kind: 'error', message: 'The connection ended before your names arrived. Please try again.' })
     } catch {
-      setPhase({ kind: 'error', message: 'The connection dropped while generating names.' })
+      if (controller.signal.aborted && controller.signal.reason !== 'timeout') return
+      if (!terminal) setPhase({ kind: 'error', message: controller.signal.aborted ? 'This run took too long. Please try again with a more specific brief.' : 'The connection dropped. Check your connection and try again.' })
+    } finally {
+      clearTimeout(timeout)
+      if (requestRef.current === controller) requestRef.current = null
     }
   }
 
   if (phase.kind === 'done') {
-    const found = phase.result.candidates.length
-    const short = found < MAX_COMPARE_NAMES
     return (
       <div className="mx-auto w-full max-w-4xl space-y-6">
         <h2 className="font-display text-center text-2xl font-semibold text-charcoal">
-          {short ? `Top ${found} ${found === 1 ? 'name' : 'names'}` : 'Top 5 names'}
+          {phase.notice ? 'Your checked names' : 'Four names to consider'}
         </h2>
-        {short ? (
-          <p className="mx-auto max-w-xl text-center text-sm text-charcoal-2">
-            We could only clear {found} this time. The rest of the ideas were already
-            taken or too close to an existing name. Try again or add a bit more detail.
-          </p>
-        ) : null}
-        <ComparisonTable result={phase.result} category={category} />
+        {phase.notice ? <div className="panel rounded-xl p-4 text-sm text-charcoal-2" role="status"><p>{phase.notice}</p><button type="button" className="btn-secondary mt-3 rounded-xl px-4 py-2" onClick={()=>void submit()}>Try for more names</button></div> : null}
+        <GeneratedNames result={phase.result} category={category} />
 
         <button
           type="button"
           onClick={() => setPhase({ kind: 'setup' })}
-          className="btn-secondary rounded-xl px-4 py-2 text-sm"
+          className="btn-secondary rounded-xl px-4 py-3 text-sm"
         >
-          Generate more names
+          Edit your brief
         </button>
       </div>
     )
@@ -150,45 +171,29 @@ export function GenerateRunner({
 
   if (phase.kind === 'error') {
     return (
-      <div className="rounded-2xl border border-danger/20 bg-danger-soft p-6 text-center">
+      <div role="alert" className="panel mx-auto max-w-3xl rounded-panel p-6 text-center sm:p-10">
         <h2 className="text-xl font-semibold text-danger">Couldn&rsquo;t generate names</h2>
         <p className="mt-2 text-sm text-danger/90">{phase.message}</p>
         <button
           type="button"
-          onClick={() => setPhase({ kind: 'setup' })}
+          onClick={() => void submit()}
           className="mt-4 btn-primary rounded-xl px-4 py-2 text-sm"
         >
           Try again
         </button>
+        <button type="button" onClick={() => setPhase({ kind: 'setup' })} className="btn-secondary ml-3 mt-4 rounded-xl px-4 py-2 text-sm">Edit your brief</button>
       </div>
     )
   }
 
-  if (phase.kind === 'generating') {
+  if (phase.kind === 'generating' || phase.kind === 'screening') {
     return (
-      <div aria-live="polite" aria-busy="true" className="card rounded-2xl p-6 text-center">
-        <span
-          aria-hidden="true"
-          className="mx-auto block h-6 w-6 animate-spin rounded-full border-2 border-line-strong border-t-accent"
-        />
-        <h2 className="mt-4 text-xl font-semibold">Finding ideas</h2>
-        <p className="mt-1 text-sm text-charcoal-2">This may take a moment.</p>
-      </div>
-    )
-  }
-
-  if (phase.kind === 'screening') {
-    return (
-      <div aria-live="polite" aria-busy="true" className="card rounded-2xl p-6 text-center">
-        <span
-          aria-hidden="true"
-          className="mx-auto block h-6 w-6 animate-spin rounded-full border-2 border-line-strong border-t-accent"
-        />
-        <h2 className="mt-4 text-xl font-semibold">Researching the best ideas</h2>
-        <p className="mt-1 text-sm text-charcoal-2">
-          We&rsquo;ll show the strongest five.
-        </p>
-      </div>
+      <ResearchProgress title={phase.kind === 'generating' ? 'Finding your naming direction' : 'Checking where the names are used'} detail={phase.kind === 'generating' ? 'Creating and reviewing names that fit your brief.' : 'Checking domains and conflicts. We replace rejected ideas until four pass, within this run.'} status={progressMessage ?? (checked > 0 ? `${accepted} of ${GENERATED_NAME_COUNT} names shortlisted · ${checked} checked` : 'Your brief is saved while we work.')}>
+        <ol className="loading-stages mx-auto mt-7 grid max-w-md grid-cols-3 gap-2 text-xs text-charcoal-2" aria-label="Generation stages">
+          {['Find ideas', 'Check names', 'Your shortlist'].map((label, index) => <li key={label} aria-current={index === (phase.kind === 'generating' ? 0 : 1) ? 'step' : undefined} className={`border-t-2 pt-3 ${index <= (phase.kind === 'generating' ? 0 : 1) ? 'border-accent text-accent-ink' : 'border-line'}`}>{label}</li>)}
+        </ol>
+        <button type="button" className="btn-secondary mt-6 rounded-xl px-4 py-2 text-sm" onClick={() => { requestRef.current?.abort(); setPhase({ kind: 'setup' }) }}>Back to your brief</button>
+      </ResearchProgress>
     )
   }
 
@@ -199,8 +204,8 @@ export function GenerateRunner({
           <label htmlFor="gen-description" className="mb-1.5 block text-sm font-medium">
             What are you naming?
           </label>
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <input
+          <div>
+            <textarea
               id="gen-description"
               aria-label="What are you naming?"
               ref={descriptionRef}
@@ -217,16 +222,14 @@ export function GenerateRunner({
               maxLength={MAX_DESCRIPTION_LENGTH}
               aria-invalid={error !== null}
               aria-describedby={error === null ? undefined : errorId}
-              placeholder="A project tool for small design teams"
-              className={`w-full min-w-0 flex-1 field rounded-xl px-3 py-2.5 text-sm ${
+              rows={4}
+              placeholder="Describe your idea, who it is for, and the feeling you want the name to have."
+              className={`w-full min-w-0 resize-y field rounded-xl px-4 py-3 text-base leading-relaxed ${
                 error === null ? '' : 'border-danger'
               }`}
             />
-            <button type="submit" className="btn-primary shrink-0 rounded-xl px-5 py-2.5 text-sm">
-              Generate ideas →
-            </button>
           </div>
-          <p className="mt-1.5 text-xs text-faint">A few words help us narrow the ideas.</p>
+          <p className="mt-2 text-xs text-faint">Include your audience, the feeling you want, and any languages or markets that matter.</p>
           {/*
             The message sits under the field it belongs to, not at the bottom
             of the form: `aria-describedby` points here, and a screen reader
@@ -239,7 +242,7 @@ export function GenerateRunner({
           )}
         </div>
 
-        <div className="mt-4">
+        <div className="mt-5">
           <CategorySelect value={category} onChange={setCategory} />
         </div>
 
@@ -253,13 +256,15 @@ export function GenerateRunner({
             onChange={(e) => setSeed(e.target.value)}
             maxLength={MAX_NAME_LENGTH}
             placeholder="A name you like"
-            className="w-full field rounded-xl px-3 py-2.5 text-sm"
+            className="w-full field rounded-xl px-3 py-2.5 text-base"
           />
         </div>
+        <button type="submit" className="btn-primary mt-6 w-full gap-2 rounded-xl px-5 py-3.5 text-base">Generate ideas <span aria-hidden="true">→</span></button>
+        <p className="mt-3 text-center text-xs leading-relaxed text-charcoal-2">Up to four names, researched for conflicts with domain options checked. A taken .com won&rsquo;t rule out a good name. Confirm registration and trademarks before choosing.</p>
       </div>
 
       <p className="mt-4 text-center text-xs text-faint">
-        Uses one idea run. Guests get {guestGenerateLimit} daily, accounts get {userGenerateLimit}.
+        One run includes ideas and checks. Daily limits: {guestGenerateLimit} as a guest, {userGenerateLimit} with an account.
       </p>
     </form>
   )

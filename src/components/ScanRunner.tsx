@@ -2,7 +2,10 @@
 
 import Link from 'next/link'
 
-import { useEffect, useMemo, useReducer } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
+import { usePathname, useSearchParams } from 'next/navigation'
+import { useSessionState } from '@/components/ResearchSession'
+import { ResearchProgress } from '@/components/ResearchProgress'
 import { Report, type ReportData } from '@/components/Report'
 
 import { NameSuggestions } from '@/components/NameSuggestions'
@@ -99,9 +102,18 @@ function reducer(state: State, action: Action): State {
  * both consume the same `ScanEvent` shape.
  */
 export function ScanRunner({ context }: { context: ScanContext }) {
+  const key = JSON.stringify([context.name, context.category, context.scanType, context.description, context.includeSpecialized])
+  const [attempt, setAttempt] = useSessionState(`scan:attempt:${key}`, 0)
+  const [request] = useSessionState(`scan:request:${key}`, () => ({ attempt: -1 }))
+  const [, setSearchHref] = useSessionState('search:href', '/')
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  useEffect(() => {
+    setSearchHref(`${pathname}${searchParams.size ? `?${searchParams}` : ''}`)
+  }, [pathname, searchParams, setSearchHref])
   const order = useMemo(() => sourcesFor(context.scanType).map((s) => s.id), [context.scanType])
 
-  const [state, dispatch] = useReducer(reducer, undefined, () => ({
+  const [state, setState] = useSessionState<State>(`scan:state:${key}`, () => ({
     phases: {},
     summary: undefined,
     aiSummary: undefined,
@@ -111,8 +123,11 @@ export function ScanRunner({ context }: { context: ScanContext }) {
     retrying: new Set<SourceId>(),
     retryError: undefined,
   }))
+  const dispatch = useCallback((action: Action) => setState(previous => reducer(previous, action)), [setState])
 
   useEffect(() => {
+    if (request.attempt === attempt) return
+    request.attempt = attempt
     const controller = new AbortController()
     dispatch({ type: 'reset', sources: order })
 
@@ -147,12 +162,13 @@ export function ScanRunner({ context }: { context: ScanContext }) {
 
       const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
       let buffer = ''
+      let terminal = false
 
       try {
         for (;;) {
           const { done, value } = await reader.read()
-          if (done) break
-          buffer += value
+          if (done && buffer.trim() === '') break
+          buffer += done ? '\n' : value
 
           // NDJSON: everything before the final newline is a complete event.
           const lines = buffer.split('\n')
@@ -173,20 +189,28 @@ export function ScanRunner({ context }: { context: ScanContext }) {
             if (event.type === 'started' && event.scanId !== undefined) {
               dispatch({ type: 'scanId', scanId: event.scanId })
             } else if (event.type === 'source') dispatch({ type: 'source', result: event.result })
-            else if (event.type === 'complete') dispatch({ type: 'complete', summary: event.summary })
+            else if (event.type === 'complete') {
+              terminal = true
+              dispatch({ type: 'complete', summary: event.summary })
+            }
             else if (event.type === 'ai_summary') dispatch({ type: 'ai_summary', summary: event.summary })
-            else if (event.type === 'error') dispatch({ type: 'error', message: event.message })
+            else if (event.type === 'error') {
+              terminal = true
+              dispatch({ type: 'error', message: event.message })
+            }
           }
+          if (done) break
         }
+        if (!terminal) dispatch({ type: 'error', message: 'The connection ended before the check finished. Please try again.' })
       } catch {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && !terminal) {
           dispatch({ type: 'error', message: 'The connection dropped while researching.' })
         }
       }
     }
 
     void run()
-    return () => controller.abort()
+    // The session owns the stream. Leaving the route only removes its listener.
     /*
       The values, not the object.
 
@@ -199,7 +223,7 @@ export function ScanRunner({ context }: { context: ScanContext }) {
       re-researches.
     */
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [context.name, context.category, context.scanType, context.description, context.includeSpecialized, order])
+  }, [context.name, context.category, context.scanType, context.description, context.includeSpecialized, order, attempt])
 
   /**
    * Retry one source that came back `unable_to_verify`, without spending a
@@ -260,12 +284,12 @@ export function ScanRunner({ context }: { context: ScanContext }) {
           </Link>
         </section>
       ) : (
-      <section className="mx-auto w-full max-w-[520px] rounded-2xl border border-danger/20 bg-danger-soft px-6 py-10 text-center">
+      <section className="panel mx-auto w-full max-w-3xl rounded-panel px-6 py-10 text-center">
           <h1 className="font-semibold text-danger">Couldn&rsquo;t finish the check</h1>
         <p className="mt-2 text-sm text-danger/90">{state.error}</p>
         <button
           type="button"
-          onClick={() => window.location.reload()}
+          onClick={() => setAttempt((value) => value + 1)}
           className="mt-4 btn-primary rounded-xl px-4 py-2 text-sm"
         >
           Try again
@@ -300,9 +324,9 @@ export function ScanRunner({ context }: { context: ScanContext }) {
     const banner = conflictBanner(viability.conflicts)
 
     return (
-      <div className="mx-auto w-full max-w-4xl px-6 py-10">
-        <header className="mb-6 text-center">
-          <h1 className="font-mono text-[30px] leading-none font-medium tracking-tight text-charcoal sm:text-[38px]">
+      <div className="page-shell report-ready">
+        <header className="mb-6">
+          <h1 className="page-title break-words">
             {context.name}
           </h1>
           {context.description === undefined ? null : (
@@ -342,7 +366,7 @@ export function ScanRunner({ context }: { context: ScanContext }) {
             <>
               <span className={`font-semibold ${TONE_TEXT[presentation.tone]}`}>
                 {presentation.label}.
-              </span>
+              </span>{' '}
               <span>
                 {headlineSentence(results, presentation.detail)} Research coverage {coverage}%.
               </span>
@@ -368,23 +392,14 @@ export function ScanRunner({ context }: { context: ScanContext }) {
   }
 
   return (
-    <div aria-live="polite" aria-busy="true" className="mx-auto w-full max-w-4xl px-6 py-10">
-      <h1 className="font-mono mb-6 text-center text-[30px] leading-none font-medium tracking-tight text-charcoal sm:text-[38px]">
+    <div className="page-shell">
+      <h1 className="page-title mb-6 break-words">
         {context.name}
       </h1>
-      <VettaPanel
-        initialName={context.name}
-        results={answered}
-        score={0}
-        total={order.length}
-        busy
-        note={
-          <span>
-            {context.scanType === 'deep' ? 'Deep Research considers' : 'Quick Check uses'} {order.length}{' '}
-            sources. Results appear as each one answers.
-          </span>
-        }
-      />
+      <ResearchProgress title="Checking your name" detail={`${context.scanType === 'deep' ? 'Deep Research considers' : 'Quick Check uses'} ${order.length} sources. Your score and its explanation appear together when the checks finish.`} status={`${answered.length} of ${order.length} sources answered`}>
+        <progress className="research-progress mt-6 h-2 w-full" max={order.length} value={answered.length} aria-label="Sources answered" />
+        <Link href="/" className="btn-secondary mt-6 rounded-xl px-4 py-2 text-sm">Back to search</Link>
+      </ResearchProgress>
     </div>
   )
 }

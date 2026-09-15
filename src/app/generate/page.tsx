@@ -1,5 +1,6 @@
 import { GenerateRunner } from '@/components/GenerateRunner'
 import { effectiveLimits } from '@/lib/quota'
+import { PageHeader } from '@/components/PageHeader'
 
 export const metadata = {
   title: 'Generate names | NameVetta',
@@ -24,18 +25,9 @@ export default function Page() {
   const limits = effectiveLimits()
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 pt-12 pb-16 sm:pt-16">
-      <div className="animate-rise text-center">
-        <h1 className="font-display text-[2.5rem] leading-[1.04] font-semibold text-charcoal sm:text-[3.5rem]">
-          Find names that <span className="brand-gradient-text brand-hero-shimmer">fit</span>.
-        </h1>
-
-        <p className="mx-auto mt-5 max-w-[36rem] text-[15.5px] leading-relaxed text-charcoal-2 sm:text-[17px]">
-          Tell us what you&rsquo;re naming. We&rsquo;ll research the best five.
-        </p>
-      </div>
-
-      <div className="animate-rise mt-10" style={{ animationDelay: '80ms' }}>
+    <div className="page-shell max-w-[840px]">
+      <PageHeader title="Find a name that fits.">Describe your idea. Explore names that suit it, with checks on where they&rsquo;re already used.</PageHeader>
+      <div>
         <GenerateRunner
           guestGenerateLimit={limits.guest.generate}
           userGenerateLimit={limits.user.generate}

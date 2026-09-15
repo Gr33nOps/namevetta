@@ -236,6 +236,7 @@ export const MAX_SOURCE_RETRIES = 3
  * trusted from the client.
  */
 export async function canRetrySource(subject: Subject, scanId: string): Promise<boolean> {
+  if (subject.type !== 'user') return false
   if (!isDatabaseConfigured()) return true
 
   const { data, error } = await serviceClient().rpc('increment_scan_retry', {

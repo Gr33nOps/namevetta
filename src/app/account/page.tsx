@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { DeleteAccountForm } from '@/components/DeleteAccountForm'
 import { SignOutButton } from '@/components/SignOutButton'
+import { PageHeader } from '@/components/PageHeader'
 import { BRAND_LINKS } from '@/lib/brand'
 import { currentUser } from '@/lib/db/auth'
 import { isDatabaseConfigured } from '@/lib/db/client'
@@ -31,21 +32,9 @@ export default async function Page() {
   ])
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 pt-12 pb-16 sm:pt-16">
-      <header className="mx-auto flex max-w-[860px] flex-col items-center gap-4 border-b border-line pb-7 text-center">
-        <div>
-          <p className="text-sm font-medium text-accent-ink">Free account</p>
-          <h1 className="font-display mt-1 text-3xl font-semibold tracking-tight text-charcoal sm:text-4xl">
-            Account
-          </h1>
-          <p className="mt-2 text-sm text-charcoal-2">
-            {user.email === undefined ? 'Signed in.' : `Signed in as ${user.email}`}
-          </p>
-        </div>
-        <SignOutButton />
-      </header>
-
-      <div className="mx-auto max-w-[860px]">
+    <div className="page-shell">
+      <PageHeader title="Account" action={<SignOutButton />}><span className="break-all">{user.email ?? 'Signed in'}</span></PageHeader>
+      <div>
         <section className="mt-8">
           <div className="flex items-baseline justify-between gap-4">
             <h2 className="font-display text-xl font-semibold">Today&rsquo;s research</h2>

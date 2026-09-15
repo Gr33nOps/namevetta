@@ -40,6 +40,14 @@ function summary(results: SourceResult[], score = 80): ScanSummary {
 }
 
 describe('disqualificationReason', () => {
+  it('excludes a capped conflict even when its numeric score is above the shortlist floor', () => {
+    const scan = summary([result({ source: 'youtube', status: 'confirmed_conflict', exactMatches: [match()] })], 69)
+    scan.viability.caps = [{ maximum: 69, reason: 'An exact conflict was confirmed on YouTube' }]
+    expect(disqualificationReason(scan)).toContain('conflict')
+  })
+  it('does not shortlist a name when all checks failed to verify', () => {
+    expect(disqualificationReason({ ...summary([result({ status: 'unable_to_verify' })]), coverage: 0 })).toBeDefined()
+  })
   it('passes a clean scan with no exact conflicts and a decent score', () => {
     const s = summary([result({ source: 'domain' }), result({ source: 'github' })])
     expect(disqualificationReason(s)).toBeUndefined()
@@ -96,6 +104,7 @@ describe('disqualificationReason', () => {
   it('ignores an unverified result even if it were somehow marked with matches', () => {
     const s = summary([
       result({ source: 'domain', status: 'unable_to_verify', confidence: 0 }),
+      result({ source: 'github' }),
     ])
     expect(disqualificationReason(s)).toBeUndefined()
   })

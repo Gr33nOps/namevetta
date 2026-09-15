@@ -1,5 +1,6 @@
 import { ResetPasswordForm } from '@/components/ResetPasswordForm'
 import { connection } from 'next/server'
+import { PageHeader } from '@/components/PageHeader'
 
 export const metadata = {
   title: 'Reset password | NameVetta',
@@ -26,15 +27,8 @@ export default async function Page() {
   await connection()
 
   return (
-    <div className="mx-auto w-full max-w-[420px] px-6 py-14">
-      <div className="text-center">
-        <h1 className="font-display text-3xl font-semibold tracking-tight text-charcoal">
-          Set a new password
-        </h1>
-        <p className="mt-3 text-charcoal-2">
-          Choose a new password.
-        </p>
-      </div>
+    <div className="page-shell max-w-[488px]">
+      <PageHeader title="Set a new password" />
 
       <div className="mt-8">
         <ResetPasswordForm />

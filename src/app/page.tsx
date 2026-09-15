@@ -1,94 +1,37 @@
-import { Fragment } from 'react'
+import Link from 'next/link'
 import { VettaPanel } from '@/components/VettaPanel'
+import { SourceLogo } from '@/components/SourceLogo'
 
-/**
- * The catalog, and what a search of it actually asks.
- *
- * Three numbers, not one. The page used to print the catalog size beside the
- * words "checked on every search", which described neither a Quick Check
- * (which asks fewer) nor the truth about the ones that only run when the
- * category calls for them.
- */
-/**
- * The homepage's own canonical, which used to come from the root layout.
- *
- * Declaring it at the root meant every private, noindex route inherited it.
- * The title and description still come from the layout; only the identity of
- * this particular URL is stated here.
- */
-export const metadata = {
-  alternates: { canonical: '/' },
-  openGraph: { url: '/' },
-}
+export const metadata = { alternates: { canonical: '/' }, openGraph: { url: '/' } }
 
-/**
- * The five kinds of place a check covers, for the line above the headline.
- *
- * Set as terms with hairline rules between them rather than as one string of
- * middle dots. Five nouns run together read as a single grey smear at 12px;
- * separated, they read as five things, which is the only reason the line is
- * there. There used to be a green dot in front of them, borrowed from a status
- * indicator, saying nothing about a page where nothing has been checked yet.
- */
-const COVERAGE_TERMS = ['Domains', 'Handles', 'Packages', 'Registers', 'App stores'] as const
-
-/**
- * What gets checked.
- *
- * Every line here is a claim about the product, so every line is one the
- * engine actually backs. The trademark card in particular says what this does
- * (hands you the registries to search) rather than what a checker in this
- * space usually claims (that it screened them for you), because it doesn't.
- */
-/**
- * The homepage.
- *
- * The search box is the page. Everything under it exists for somebody who has
- * not decided yet, and is ordered the way they ask: what do you check, how
- * does it work, and then the box again.
- */
 export default function Page() {
-
   return (
-    <>
-      {/* ── hero ──────────────────────────────────────────────────────── */}
-      <section className="animate-rise mx-auto max-w-6xl px-6 pt-12 pb-8 text-center sm:pt-16">
-        {/*
-          Five words, not five controls.
-
-          This was a bordered pill with a shadow and a filled background, which
-          is the exact recipe for a segmented button group — and every term in
-          it looked clickable when none of them is. It is a caption above a
-          headline, so it is set as one.
-        */}
-        <p className="inline-flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11.5px] tracking-wide text-faint uppercase sm:text-[12px]">
-          {COVERAGE_TERMS.map((term, i) => (
-            <Fragment key={term}>
-              {i === 0 ? null : (
-                <span aria-hidden="true" className="h-2.5 w-px shrink-0 bg-line" />
-              )}
-              <span>{term}</span>
-            </Fragment>
-          ))}
-        </p>
-
-        <h1 className="font-display mx-auto mt-7 max-w-5xl text-[2.5rem] leading-[1.04] font-semibold text-charcoal sm:text-[3.5rem]">
-          See where a name is <span className="brand-gradient-text brand-hero-shimmer">already</span> in use.
-        </h1>
-
-        <p className="mx-auto mt-4 max-w-[36rem] text-[15.5px] leading-relaxed text-charcoal-2 sm:text-[17px]">
-          Domains, handles, packages, registers, and app stores.
-        </p>
+    <div className="page-shell">
+      <section className="grid items-center gap-8 py-3 lg:grid-cols-[0.8fr_1.2fr] lg:gap-12 lg:py-12">
+        <div>
+          <p className="mb-4 text-sm font-medium text-accent-ink">Name research</p>
+          <h1 className="max-w-lg text-[36px] leading-[1.12] font-semibold tracking-tight sm:text-[46px]">Check a name before you make it yours.</h1>
+          <p className="mt-5 max-w-md text-base leading-relaxed text-charcoal-2">See existing uses across domains, social handles, businesses, and apps. Know what needs a closer look.</p>
+          <Link href="/how-it-works" className="mt-5 inline-flex min-h-11 items-center text-sm font-medium text-charcoal underline decoration-line-strong underline-offset-4">How the checks work <span aria-hidden="true" className="ml-2">→</span></Link>
+        </div>
+        <div id="search" className="min-w-0">
+          <VettaPanel showResearchOptions />
+          <p className="mt-3 text-center text-xs text-faint">No account needed for your first check.</p>
+        </div>
       </section>
-
-      {/* ── the box ───────────────────────────────────────────────────── */}
-      <section id="search" className="animate-rise mx-auto max-w-3xl px-6 pb-16" style={{ animationDelay: '80ms' }}>
-        <VettaPanel showResearchOptions />
-        <p className="mt-4 text-center text-[13px] text-faint">
-          Start without an account.
-        </p>
+      <section className="mt-8 flex flex-col gap-4 border-y border-line py-6 sm:flex-row sm:items-center sm:justify-between">
+        <div><h2 className="text-base font-semibold">Still working on the name?</h2><p className="mt-1 text-sm text-charcoal-2">Start with a short brief and explore checked name ideas.</p></div>
+        <Link href="/generate" className="btn-secondary shrink-0 self-start px-4 py-2 text-sm sm:self-auto">Find name ideas <span aria-hidden="true">→</span></Link>
       </section>
-
-    </>
+      <section className="pt-8" aria-label="Some of the places we research">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-8">
+          <p className="text-xs text-faint">A few of our sources</p>
+          <div className="flex flex-wrap gap-x-6 gap-y-3 text-sm text-charcoal-2">
+            {['GitHub', 'YouTube', 'Reddit', 'App Store', 'npm', 'Steam'].map(label => <span key={label} className="inline-flex items-center gap-1.5"><SourceLogo label={label} size="sm" />{label}</span>)}
+          </div>
+        </div>
+        <p className="mt-6 max-w-2xl text-xs leading-relaxed text-faint">Some sources need a manual check. Results show what we could verify and what remains uncertain.</p>
+      </section>
+    </div>
   )
 }

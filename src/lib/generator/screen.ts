@@ -76,6 +76,9 @@ export interface ScreeningResult {
 
 /** Why, if at all, a completed Quick Check disqualifies its candidate. */
 export function disqualificationReason(summary: ScanSummary): string | undefined {
+  if (!summary.results.some((result) => isVerified(result.status))) {
+    return 'no sources could verify this name'
+  }
   for (const result of summary.results) {
     if (!isVerified(result.status)) continue
     if (!DISQUALIFYING_SOURCES.includes(result.source)) continue
@@ -93,6 +96,10 @@ export function disqualificationReason(summary: ScanSummary): string | undefined
     return label
   }
 
+  if (summary.viability.caps.length > 0) {
+    return 'a confirmed conflict or a serious similarity needs review'
+  }
+
   if (summary.viability.score < MINIMUM_SCORE) {
     return `scored only ${summary.viability.score}/100 once everything else was weighed`
   }
@@ -101,6 +108,7 @@ export function disqualificationReason(summary: ScanSummary): string | undefined
 }
 
 export interface ScreenCandidatesInput {
+  signal?: AbortSignal
   names: readonly string[]
   category: Category
   description: string | undefined
@@ -129,6 +137,7 @@ export async function screenCandidates({
   includeSpecialized = false,
   onCandidate,
   stopAfterSurvivors,
+  signal,
 }: ScreenCandidatesInput): Promise<ScreeningResult> {
   const survivors: ScreenedCandidate[] = []
   const disqualified: DisqualifiedCandidate[] = []
@@ -143,6 +152,7 @@ export async function screenCandidates({
   const surviveGoal = stopAfterSurvivors ?? MAX_COMPARE_NAMES + SELECTION_BUFFER
 
   for (const name of names) {
+    if (signal?.aborted) break
     const ctx: ScanContext = {
       name,
       category,

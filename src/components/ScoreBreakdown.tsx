@@ -1,6 +1,6 @@
 import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import type { SourceResult } from '@/lib/core/types'
-import { coverageCaveat, SCORE_EXPLAINER, TONE_FILL } from '@/lib/presentation'
+import { coverageCaveat, scoreEvidenceSummary, SCORE_EXPLAINER, TONE_FILL } from '@/lib/presentation'
 import { sourceSubscore, type ViabilityResult } from '@/lib/scoring/viability'
 import { GROUP_LABELS } from '@/lib/scoring/weights'
 import { SourceLogo } from '@/components/SourceLogo'
@@ -38,6 +38,7 @@ export function ScoreBreakdown({
   return (
     <div className="space-y-6">
       <p className="text-[13px] leading-relaxed text-charcoal-2">{SCORE_EXPLAINER}</p>
+      <p className="text-[13px] font-medium text-charcoal">{scoreEvidenceSummary(results)}</p>
 
       <div className="grid gap-x-8 sm:grid-cols-2">
         {signals.map((g) => {

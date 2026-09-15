@@ -36,6 +36,16 @@ function clean(score = 80): ScanSummary {
   }
 }
 
+it('stops researching more candidates after a cancelled request', async () => {
+  mockRun.mockResolvedValue(clean())
+  const abort = new AbortController()
+  const result = await screenCandidates({
+    names: ['Willow Way', 'Maple Mill', 'Cedar Table'], category: 'restaurant', description: 'A bakery',
+    signal: abort.signal, onCandidate: () => abort.abort(),
+  })
+  expect(result.survivors.map((candidate) => candidate.name)).toEqual(['Willow Way'])
+})
+
 function taken(): ScanSummary {
   const result: SourceResult = {
     source: 'domain',

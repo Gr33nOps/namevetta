@@ -144,7 +144,7 @@ Phase 4 replaces the NDJSON transport with a database-backed job plus Supabase R
 
 ## Scoring
 
-**Digital Viability Score** — `Σ(weight_group × subscore_group) / Σ(weight_group)` over groups that actually answered, then capped.
+**Digital Viability Score** — `Σ(weight_group × subscore_group) / Σ(weight_group)` over groups that actually answered, then capped. Inside a source, the strongest match carries its full penalty and additional independent matches add diminishing penalties. Duplicate matches are counted once. Inside a group, the confidence-weighted average is bounded by its strongest reliable risk signal, so many clear package registries cannot hide one strong package collision.
 
 Weights are per category (`src/lib/scoring/weights.ts`) and must sum to 100 — enforced by test. Renormalising over answered groups means a Quick Check is not punished for running fewer sources; the gap is reported through coverage.
 
@@ -154,7 +154,7 @@ Weights are per category (`src/lib/scoring/weights.ts`) and must sum to 100 — 
 
 **Confidence** — `base_ceiling × health × freshness`. Official first-party APIs ceiling at 95; web-derived inference at 50; manual-only at 30.
 
-**Caps** (§20) — one survives in V1: an exact, major, same-industry business found through web research caps the score at 40. The two trademark caps are gone from the automatic path, because a cap fired from evidence we never gathered would be fabricated.
+**Caps** (§20) — an exact, major, same-industry business found through web research caps the score at 40. Any other confirmed exact collision also caps the score, with the ceiling derived from the severity and number of findings rather than one fixed number. Trademark caps are absent because a cap fired from evidence we never gathered would be fabricated.
 
 ## AI explanation layer
 

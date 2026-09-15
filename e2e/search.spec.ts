@@ -195,6 +195,10 @@ test.describe('search', () => {
       page.getByText(/(Quick Check uses|Deep Research considers) \d+ sources/),
     ).toBeVisible()
     await expect(page.getByText(/of \d+ sources answered/)).toBeVisible()
+    await expect(page.getByText('Score', { exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Checking your name' })).toBeVisible()
+    await expect(page.locator('.loading-panel')).toHaveCSS('opacity', '1')
+    await page.screenshot({ path: 'artifacts/ux-search-loading.png' })
     release()
   })
 
@@ -324,11 +328,23 @@ test.describe('search', () => {
 
     await page.goto('/')
     // Nothing about signing up before the user has had anything.
-    await expect(page.getByRole('link', { name: /sign in/i })).toHaveCount(0)
+    await expect(page.getByRole('main').getByRole('link', { name: /sign in/i })).toHaveCount(0)
 
     await page.goto('/n/northbeam')
     await expect(page.getByRole('link', { name: 'Sign in for more' })).toBeVisible()
     // A daily limit is not an error, and must not be painted as one.
     await expect(page.getByText('The scan could not complete')).toHaveCount(0)
   })
+})
+
+test('downloads a dedicated PDF report instead of opening browser print', async ({ page }) => {
+  await stubScan(page)
+  await page.goto('/n/northbeam?as=saas')
+  const download = page.waitForEvent('download')
+  await page.getByRole('button', { name: 'Download PDF report' }).click({ timeout: 3000 })
+  const file = await download
+  expect(file.suggestedFilename()).toBe('northbeam-name-report.pdf')
+  await file.saveAs('artifacts/name-report.pdf')
+  const { readFile } = await import('node:fs/promises')
+  expect((await readFile('artifacts/name-report.pdf')).subarray(0, 5).toString()).toBe('%PDF-')
 })

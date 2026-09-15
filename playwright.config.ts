@@ -22,7 +22,7 @@ import { defineConfig, devices } from '@playwright/test'
  * server that is already up, which is also the faster path locally. CI has no
  * server running, so Playwright starts and owns one there.
  */
-const PORT = 3000
+const PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3000)
 
 export default defineConfig({
   testDir: './e2e',

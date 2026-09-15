@@ -175,7 +175,7 @@ export const EvidenceSchema = z.object({
   /** Which source produced this. */
   source: SourceIdSchema,
   /** When the underlying observation was made. */
-  observedAt: z.string().datetime(),
+  observedAt: z.string().datetime({ offset: true }),
 })
 export type Evidence = z.infer<typeof EvidenceSchema>
 
@@ -258,8 +258,8 @@ export const SourceResultSchema = z
     exactMatches: z.array(MatchSchema).default([]),
     similarMatches: z.array(MatchSchema).default([]),
     evidence: z.array(EvidenceSchema).default([]),
-    checkedAt: z.string().datetime(),
-    expiresAt: z.string().datetime(),
+    checkedAt: z.string().datetime({ offset: true }),
+    expiresAt: z.string().datetime({ offset: true }),
     error: SourceErrorSchema.optional(),
     /** Whether this result was served from cache rather than fetched fresh. */
     fromCache: z.boolean().default(false),
@@ -301,3 +301,4 @@ export const SourceResultSchema = z
   })
 
 export type SourceResult = z.infer<typeof SourceResultSchema>
+

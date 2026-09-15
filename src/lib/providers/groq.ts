@@ -37,11 +37,9 @@ export const GROQ_PROVIDER_ID = 'groq'
 /**
  * Default model.
  *
- * `gpt-oss-120b` and `gpt-oss-20b` carry identical rate limits on this tier, so
- * the smaller one buys nothing — take the more capable model. The work is
- * constrained summarisation of supplied facts, where instruction-following
- * matters more than breadth, and the larger model follows the grounding rules
- * noticeably more reliably.
+ * GPT-OSS 120B accepts larger output reservations on this free account.
+ * Verified with a live completion; Qwen's 1,000 output-token/minute allowance
+ * made the multi-stage naming pipeline repeatedly wait for capacity.
  */
 const DEFAULT_MODEL = 'openai/gpt-oss-120b'
 
@@ -59,8 +57,13 @@ const TOKENS_PER_MINUTE = 8_000
 const TOKEN_BUDGET_PER_MINUTE = 6_000
 
 const REQUEST_TIMEOUT_MS = 20_000
-
-/* ── token pacing ─────────────────────────────────────────────────────────── */
+// Low reasoning needs an allowance separate from the JSON answer.
+const MAX_OUTPUT_TOKENS = 1500
+function outputBudget(request: LLMRequest): number {
+  return Math.min(request.fallbackMaxOutputTokens !== undefined
+    ? request.fallbackMaxOutputTokens + 512
+    : request.maxOutputTokens ?? 700, MAX_OUTPUT_TOKENS)
+}
 
 interface Spend {
   at: number
@@ -98,6 +101,7 @@ export function estimateTokens(text: string): number {
 /* ── provider ─────────────────────────────────────────────────────────────── */
 
 interface GroqChoice {
+  finish_reason?: string
   message?: { content?: string }
 }
 
@@ -134,22 +138,17 @@ async function callGroq(key: string, request: LLMRequest): Promise<LLMResult> {
         // Near-zero: this is restatement of supplied facts. Sampling variety is
         // exactly the behaviour the grounding validator would then reject.
         temperature: request.temperature ?? 0.2,
-        max_completion_tokens: request.maxOutputTokens ?? 700,
-        // gpt-oss models reason before they answer, and reasoning tokens are
-        // drawn from the same `max_completion_tokens` budget as the visible
-        // answer. Left at the provider default, a request with a non-trivial
-        // amount to reason about — a busy scan digest, several competing
-        // findings — spent the whole budget thinking and returned empty
-        // content, observed live against this exact endpoint. "low" keeps
-        // reasoning to a handful of tokens, which is all a restatement task
-        // like this genuinely needs.
+        max_completion_tokens: outputBudget(request),
+        // Keep reasoning bounded and reserve room for the complete answer.
         reasoning_effort: 'low',
         ...(request.json === true ? { response_format: { type: 'json_object' } } : {}),
       }),
     })
 
     if (response.status === 429) {
-      throw new LLMUnavailableError('rate_limited', 'The AI service is rate-limited right now.')
+      const retry = response.headers.get('retry-after')
+      const delay = retry === null ? NaN : /^\d+(\.\d+)?$/.test(retry) ? Number(retry) * 1000 : Date.parse(retry) - Date.now()
+      throw new LLMUnavailableError('rate_limited', 'The AI service is rate-limited right now.', Number.isFinite(delay) ? Math.max(0, delay) : 61_000)
     }
     if (response.status === 401 || response.status === 403) {
       throw new LLMUnavailableError('provider_error', 'The AI service rejected our credentials.')
@@ -159,6 +158,10 @@ async function callGroq(key: string, request: LLMRequest): Promise<LLMResult> {
     }
 
     const data = (await response.json()) as GroqResponse
+    const finish = data.choices?.[0]?.finish_reason
+    if (finish !== undefined && finish !== 'stop') {
+      throw new LLMUnavailableError('provider_error', 'The AI response was incomplete.')
+    }
     const text = data.choices?.[0]?.message?.content
     if (text === undefined || text.trim() === '') {
       throw new LLMUnavailableError('provider_error', 'The AI service returned an empty response.')
@@ -207,7 +210,7 @@ export const groqProvider: LLMProvider = {
     const key = env().GROQ_API_KEY
     if (key === undefined) return { ok: false, detail: 'No API key configured' }
     try {
-      await callGroq(key, { system: 'Reply with OK.', user: 'ping', maxOutputTokens: 5 })
+      await callGroq(key, { system: 'Reply with OK.', user: 'ping', maxOutputTokens: 64 })
       return { ok: true }
     } catch (cause) {
       return { ok: false, detail: cause instanceof Error ? cause.message : 'unknown' }
@@ -216,23 +219,14 @@ export const groqProvider: LLMProvider = {
 }
 
 /**
- * Budget, then token pacing, then the call.
+ * Token pacing, then budget, then the call.
  *
- * Order matters: the monthly ceiling is the one that must never be crossed, so
- * it is checked before anything is spent.
+ * Order matters: the monthly ceiling must never be crossed, so it is checked
+ * immediately before the request is sent, but a pacing refusal must not use it.
  */
 async function paced(key: string, request: LLMRequest): Promise<LLMResult> {
-  if (isDatabaseConfigured()) {
-    const allowed = await consumeProviderBudget(GROQ_PROVIDER_ID, env().AI_MONTHLY_BUDGET)
-    if (!allowed) {
-      throw new LLMUnavailableError(
-        'budget_exhausted',
-        'The monthly AI allowance for this deployment has been used.',
-      )
-    }
-  }
-
-  const estimate = estimateTokens(request.system + request.user) + (request.maxOutputTokens ?? 700)
+  request.signal?.throwIfAborted()
+  const estimate = estimateTokens(request.system + request.user) + outputBudget(request)
 
   const now = Date.now()
   if (spentInWindow(now) + estimate > TOKEN_BUDGET_PER_MINUTE) {
@@ -242,7 +236,20 @@ async function paced(key: string, request: LLMRequest): Promise<LLMResult> {
     throw new LLMUnavailableError(
       'rate_limited',
       'The AI service is briefly at its request limit.',
+      Math.max(1000, (spends[0]?.at ?? now) + 60_000 - now),
     )
+  }
+
+  // Charge the monthly allowance only for calls that are actually sent. A
+  // window refusal above spends nothing at the provider.
+  if (isDatabaseConfigured()) {
+    const allowed = await consumeProviderBudget(GROQ_PROVIDER_ID, env().AI_MONTHLY_BUDGET)
+    if (!allowed) {
+      throw new LLMUnavailableError(
+        'budget_exhausted',
+        'The monthly AI allowance for this deployment has been used.',
+      )
+    }
   }
 
   const result = await callGroq(key, request)

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import { SaveNameButton } from '@/components/SaveNameButton'
 import { ScoreBreakdown } from '@/components/ScoreBreakdown'
 import { TrademarkAssist } from '@/components/TrademarkAssist'
@@ -217,6 +218,19 @@ export function Report({
   retryingSources?: ReadonlySet<SourceId>
 }) {
   const { context, results, viability, coverage } = scan
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const exportPdf = async () => {
+    if (exporting) return
+    setExporting(true)
+    setExportError(null)
+    try {
+      const { downloadReport } = await import('@/lib/report-pdf')
+      await downloadReport(scan)
+    } catch {
+      setExportError('The PDF could not be created. Please try again.')
+    } finally { setExporting(false) }
+  }
 
   const flagged = results.filter(
     (r) => r.status === 'similar_found' || r.status === 'confirmed_conflict',
@@ -451,13 +465,15 @@ export function Report({
           </Link>
           <button
             type="button"
-            onClick={() => window.print()}
+            onClick={() => void exportPdf()}
+            disabled={exporting}
             className="text-[13.5px] text-charcoal-2 underline decoration-line-strong underline-offset-4 hover:text-charcoal"
           >
-            Print or save as PDF
+            {exporting ? 'Creating PDF…' : 'Download PDF report'}
           </button>
         </div>
 
+        {exportError && <p role="alert" className="mt-3 text-sm text-danger">{exportError}</p>}
         <p className="mt-5 border-t border-line pt-4 text-xs leading-relaxed text-faint">
           {SCOPE_NOTICE} Score version {viability.scoringVersion}. See{' '}
           <Link href="/how-it-works" className="text-accent-ink underline underline-offset-2">

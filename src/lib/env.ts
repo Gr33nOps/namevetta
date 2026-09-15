@@ -50,6 +50,8 @@ const EnvSchema = z.object({
   TAVILY_API_KEY: optionalSecret,
   /** Groq — the AI explanation layer, always optional (§25). */
   GROQ_API_KEY: optionalSecret,
+  GEMINI_API_KEY: optionalSecret,
+  GEMINI_MODEL: z.string().trim().regex(/^[a-zA-Z0-9.-]+$/).default('gemini-3.8-flash'),
   /**
    * Sentry — server-side error tracking. Optional, free tier, no card.
    * Its client counterpart, `NEXT_PUBLIC_SENTRY_DSN`, is read directly in

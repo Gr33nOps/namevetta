@@ -13,6 +13,14 @@ import { expect, test, type Page } from '@playwright/test'
 const NARROW = [320, 360, 375, 390, 412] as const
 const TABLET = 768
 
+test('the category field stays inside the search panel on a small phone', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 850 })
+  await page.goto('/')
+  const field = await page.getByLabel('Use for').boundingBox()
+  const panel = await page.locator('#search .panel').boundingBox()
+  expect(field!.x + field!.width).toBeLessThanOrEqual(panel!.x + panel!.width - 16)
+})
+
 /** Every route with a table of sources on it. */
 const TABLE_ROUTES = ['/how-it-works', '/status'] as const
 
@@ -143,6 +151,13 @@ test.describe('hydration', () => {
 })
 
 test.describe('private routes on mobile', () => {
+  test('signed-out history shows a sign-in gate rather than saved research', async ({ page }) => {
+    await page.goto('/history')
+    await expect(page.getByText('Your history is private to your account.')).toBeVisible()
+    await expect(page.locator('main').getByRole('link', { name: 'Sign in', exact: true })).toBeVisible()
+    await expect(page.getByRole('searchbox', { name: 'Search history by name' })).toHaveCount(0)
+    await expect(page.getByRole('link', { name: 'Open report' })).toHaveCount(0)
+  })
   test('/history is noindex and declares no canonical of its own', async ({ page }) => {
     await page.goto('/history')
     expect(await page.locator('meta[name="robots"]').getAttribute('content')).toContain('noindex')

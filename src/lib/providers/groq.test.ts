@@ -23,6 +23,15 @@ const OK_RESPONSE = {
   },
 }
 
+it('uses bounded reasoning on the higher-capacity backup', async () => {
+  const fetcher = mockFetch((body) => {
+    expect(body).toMatchObject({ model: 'openai/gpt-oss-120b', reasoning_effort: 'low', max_completion_tokens: 1200 })
+    return OK_RESPONSE
+  })
+  vi.stubGlobal('fetch', fetcher)
+  await groqProvider.complete({ system: 'Return JSON names', user: 'A bakery', json: true, maxOutputTokens: 1200 })
+})
+
 beforeEach(() => {
   resetEnvCache()
   resetGroqPacing()
@@ -36,6 +45,10 @@ afterEach(() => {
 })
 
 describe('groqProvider', () => {
+  it('rejects token-truncated completions so the naming stage can retry',async()=>{
+    vi.stubGlobal('fetch',mockFetch(()=>({status:200,body:{choices:[{finish_reason:'length',message:{content:'{"names":['}}]}})))
+    await expect(groqProvider.complete({system:'s',user:'u',json:true})).rejects.toMatchObject({reason:'provider_error'})
+  })
   it('throws no_api_key rather than attempting a call when no key is configured', async () => {
     vi.unstubAllEnvs()
     resetEnvCache()
@@ -150,4 +163,23 @@ describe('estimateTokens', () => {
     expect(estimateTokens('a'.repeat(35))).toBe(10)
     expect(estimateTokens('')).toBe(0)
   })
+})
+it('uses the actual provider retry delay', async () => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({}, { status: 429, headers: { 'retry-after': '3' } })))
+  await expect(groqProvider.complete({ system: 's', user: 'u' })).rejects.toMatchObject({ reason: 'rate_limited', retryAfterMs: 3000 })
+})
+it('reserves the smaller answer budget for naming exploration', async () => {
+  const fetcher = mockFetch(body => {
+    expect(body).toMatchObject({ max_completion_tokens: 862 })
+    return OK_RESPONSE
+  })
+  vi.stubGlobal('fetch', fetcher)
+  await groqProvider.complete({ system: 's', user: 'u', maxOutputTokens: 3072, fallbackMaxOutputTokens: 350 } as Parameters<typeof groqProvider.complete>[0])
+})
+it('uses the higher-capacity backup with room for reasoning and complete JSON', async () => {
+  vi.stubGlobal('fetch',mockFetch(body => {
+    expect(body).toMatchObject({model:'openai/gpt-oss-120b',reasoning_effort:'low',max_completion_tokens:1212})
+    return OK_RESPONSE
+  }))
+  await groqProvider.complete({system:'s',user:'u',maxOutputTokens:3072,fallbackMaxOutputTokens:700})
 })

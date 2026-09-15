@@ -3,11 +3,8 @@ import 'server-only'
 /**
  * Scan history, saved names and share links.
  *
- * Reads for a signed-in user go through the **RLS client**, so the database
- * decides what they can see rather than this file remembering to filter. Guest
- * reads go through the service client because a guest has no identity RLS can
- * check — the hash is verified here instead, and it is never accepted from the
- * client.
+ * Account history requires a verified session, an owner filter and RLS.
+ * Guest IP hashes are quota buckets, never permission to access saved research.
  */
 import { randomBytes } from 'node:crypto'
 import type { Category } from '@/lib/core/scan'
@@ -68,52 +65,35 @@ const SELECT = 'id, name, category, scan_type, status, created_at, reports(digit
 
 /** Recent scans for a subject. Empty when persistence is unavailable. */
 export async function recentScans(subject: Subject, limit = 50): Promise<HistoryEntry[]> {
-  if (!isDatabaseConfigured()) return []
+  if (subject.type !== 'user' || !isDatabaseConfigured()) return []
 
   if (subject.type === 'user') {
-    // RLS scopes this to the signed-in user; no explicit filter is needed, and
-    // relying on the database rather than a where-clause is the point.
+    // Keep an explicit owner filter as well as the database's RLS policy.
     const supabase = await sessionClient()
     const { data, error } = await supabase
       .from('scans')
       .select(SELECT)
+      .eq('user_id', subject.id)
       .order('created_at', { ascending: false })
       .limit(limit)
     if (error !== null || data === null) return []
     return (data as unknown as ScanRow[]).map(toEntry)
   }
 
-  // Guests have no identity RLS can verify, so the hash is matched server-side
-  // using the service client. The hash itself is derived from the request, never
-  // supplied by the caller.
-  const { data, error } = await serviceClient()
-    .from('scans')
-    .select(SELECT)
-    .eq('guest_hash', subject.id)
-    .order('created_at', { ascending: false })
-    .limit(limit)
-
-  if (error !== null || data === null) return []
-  return (data as unknown as ScanRow[]).map(toEntry)
+  return []
 }
 
 /** Delete one scan, cascading to its results, evidence and report. */
 export async function deleteScan(subject: Subject, scanId: string): Promise<boolean> {
-  if (!isDatabaseConfigured()) return false
+  if (subject.type !== 'user' || !isDatabaseConfigured()) return false
 
   if (subject.type === 'user') {
     const supabase = await sessionClient()
-    const { error } = await supabase.from('scans').delete().eq('id', scanId)
+    const { error } = await supabase.from('scans').delete().eq('id', scanId).eq('user_id', subject.id)
     return error === null
   }
 
-  // Ownership is checked explicitly for guests, since RLS cannot do it.
-  const { error } = await serviceClient()
-    .from('scans')
-    .delete()
-    .eq('id', scanId)
-    .eq('guest_hash', subject.id)
-  return error === null
+  return false
 }
 
 /* -------------------------------------------------------------------------- */
@@ -200,7 +180,7 @@ export async function createShareLink(
   scanId: string,
   origin: string,
 ): Promise<ShareResult | undefined> {
-  if (!isDatabaseConfigured()) return undefined
+  if (subject.type !== 'user' || !isDatabaseConfigured()) return undefined
 
   const db = serviceClient()
 
@@ -215,7 +195,7 @@ export async function createShareLink(
   if (scanError !== null || scan === null) return undefined
   const row = scan as { id: string; user_id: string | null; guest_hash: string | null }
   const owns =
-    subject.type === 'user' ? row.user_id === subject.id : row.guest_hash === subject.id
+    row.user_id === subject.id
   if (!owns) return undefined
 
   const { data: report } = await db
@@ -229,7 +209,7 @@ export async function createShareLink(
   const { error } = await db.from('share_links').insert({
     token,
     report_id: (report as { id: string }).id,
-    created_by: subject.type === 'user' ? subject.id : null,
+    created_by: subject.id,
   })
   if (error !== null) return undefined
 
@@ -422,25 +402,16 @@ function toResult(row: StoredResultRow): Record<string, unknown> {
 /**
  * Load one stored scan, scoped to whoever is asking.
  *
- * A signed-in reader goes through RLS; a guest's ownership is checked here,
- * because a guest hash is not an identity the database can reason about. Both
- * paths return `undefined` rather than throwing on a scan that is missing or
- * someone else's — the caller falls back to offering a fresh check.
+ * Only an account owner can reopen a stored scan. Guests and missing or
+ * inaccessible scans return undefined without disclosing report contents.
  */
 export async function storedScan(
   subject: Subject,
   scanId: string,
 ): Promise<StoredScan | undefined> {
-  if (!isDatabaseConfigured()) return undefined
+  if (subject.type !== 'user' || !isDatabaseConfigured()) return undefined
 
-  const query =
-    subject.type === 'user'
-      ? (await sessionClient()).from('scans').select(STORED_SELECT).eq('id', scanId)
-      : serviceClient()
-          .from('scans')
-          .select(STORED_SELECT)
-          .eq('id', scanId)
-          .eq('guest_hash', subject.id)
+  const query = (await sessionClient()).from('scans').select(STORED_SELECT).eq('id', scanId).eq('user_id', subject.id)
 
   const { data, error } = await query.maybeSingle()
   if (error !== null || data === null) return undefined

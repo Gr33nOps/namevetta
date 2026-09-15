@@ -63,9 +63,9 @@ export function NavSession() {
     return (
       <Link
         href="/auth"
-        className="btn-primary px-4 py-2 text-[14px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="inline-flex min-h-11 items-center px-2 text-sm font-medium text-charcoal hover:text-accent-ink"
       >
-        Sign up
+        Sign in
       </Link>
     )
   }

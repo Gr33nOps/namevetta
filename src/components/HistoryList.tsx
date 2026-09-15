@@ -130,7 +130,7 @@ function Row({ entry }: { entry: HistoryEntry }) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h3 className="font-medium">
-            <Link href={viewHref} className="inline-flex min-h-7 items-center hover:text-accent-ink">
+            <Link href={viewHref} className="inline-flex min-h-7 items-center break-words [overflow-wrap:anywhere] hover:text-accent-ink">
               {entry.name}
             </Link>
           </h3>
@@ -158,24 +158,21 @@ function Row({ entry }: { entry: HistoryEntry }) {
         </div>
       </div>
 
-      <div className="mt-2.5 flex items-center justify-between gap-3">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         <Link
           href={viewHref}
-          className="inline-flex min-h-9 items-center gap-1 rounded-lg text-xs font-semibold text-accent-ink transition-colors hover:text-charcoal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+          className="btn-primary min-h-11 justify-center rounded-xl px-2 py-2 text-center text-xs"
         >
           Open report <span aria-hidden="true">→</span>
         </Link>
-        <details className="group relative">
-          <summary className="min-h-9 cursor-pointer list-none rounded-lg border border-line px-3 py-2 text-xs text-charcoal-2 marker:content-none transition-colors hover:border-line-strong hover:text-charcoal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
+        <Link href={rerunHref} className="btn-secondary min-h-11 justify-center rounded-xl px-2 py-2 text-center text-xs">
+          Research again
+        </Link>
+        <details className="group col-span-2">
+          <summary className="min-h-11 cursor-pointer list-none rounded-lg border border-line px-3 py-3 text-xs text-charcoal-2 marker:content-none transition-colors hover:border-line-strong hover:text-charcoal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
             Actions <span aria-hidden="true" className="ml-1 text-faint group-open:hidden">+</span><span aria-hidden="true" className="ml-1 text-faint hidden group-open:inline">−</span>
           </summary>
-          <div className="absolute right-0 z-10 mt-2 flex min-w-40 flex-col gap-1 rounded-xl border border-line-strong bg-surface p-1.5 shadow-card">
-            <Link
-              href={rerunHref}
-              className="rounded-lg px-2.5 py-2 text-xs text-charcoal-2 transition-colors hover:bg-muted-bg hover:text-charcoal"
-            >
-              Research again
-            </Link>
+          <div className="mt-2 flex flex-col gap-1 rounded-xl border border-line-strong bg-surface p-1.5">
             {entry.score !== undefined ? (
               <button
                 type="button"
@@ -370,18 +367,18 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
   }
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex flex-col items-stretch">
       <input
         type="search"
         value={query}
         onChange={(e) => onQueryChange(e.target.value)}
         placeholder="Find a name"
         aria-label="Search history by name"
-        className="w-full max-w-xs field rounded-xl px-3 py-1.5 text-sm text-charcoal"
+        className="w-full max-w-md field rounded-xl px-3 py-2 text-sm text-charcoal"
       />
 
-      <div className="mt-3 flex w-full flex-col items-center gap-3">
-        <div className="flex flex-wrap justify-center gap-1.5">
+      <div className="mt-4 flex w-full flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-1.5">
           <FilterChip label="All" active={filter === 'all'} onClick={() => onFilterChange('all')} />
           {(Object.keys(FILTER_LABELS) as Exclude<FilterBucket, 'all'>[]).map((bucket) => (
             <FilterChip
@@ -393,7 +390,7 @@ export function HistoryList({ entries }: { entries: HistoryEntry[] }) {
           ))}
         </div>
 
-        <div className="flex flex-wrap items-center justify-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label className="flex items-center gap-2 text-xs text-faint">
             Sort
             <select

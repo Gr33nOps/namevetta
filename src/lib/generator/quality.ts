@@ -1,18 +1,14 @@
 /**
  * Brandability assessment for generated candidates (§12, §25).
  *
- * The screening pipeline downstream answers "is this name free?" — it says
- * nothing about whether the name is any *good*. That is this module's job, and
- * it is deliberately deterministic: an LLM can be asked to invent names, but its
- * own opinion of them is exactly the unstable, hallucination-prone signal §22
- * warns against trusting. So a name's brand quality is measured here, in code,
- * from properties a person actually reacts to — length, pronounceability, how it
- * reads and types, and whether it leans on the tired patterns that make a name
- * feel machine-generated.
+ * Deterministic structural prefilter before contextual editorial review. These
+ * spelling and shape heuristics can catch obvious noise, but cannot establish
+ * semantic fit, consumer recall or originality. Their score must not override
+ * the later contextual ranking.
  *
  * Two outputs, kept separate on purpose:
  *
- *  - `score` (0..100) ranks the survivors so the best names lead the list.
+ *  - `score` (0..100) summarizes structural warning signals.
  *  - `rejected` is a hard gate: garbage never reaches the (expensive, sequential)
  *    availability screening at all.
  *
@@ -32,6 +28,9 @@ function isVowel(ch: string): boolean {
 
 /** The longest run of consecutive consonants in a normalized token. */
 function longestConsonantRun(token: string): number {
+  // English digraphs are one sound, and compounds often meet at a consonant.
+  token = token.replace(/(north|south|hearth|bright|light|night|work|salt)(?=[a-z])/g, '$1a')
+    .replace(/th|sh|ch|ph|wh|ck|gh|ng/g, 't')
   let longest = 0
   let current = 0
   for (const ch of token) {
@@ -78,8 +77,8 @@ const TIRED_PATTERNS: readonly Pattern[] = [
   {
     reason: 'leans on "AI"',
     penalty: 14,
-    test: (_d, tokens, joined) =>
-      tokens.includes('ai') || /(?:^ai|ai$)/.test(joined),
+    test: (display, tokens) =>
+      tokens.includes('ai') || /(?:^AI(?=[A-Z])|AI$)/.test(display),
   },
   { reason: 'ends in "-ly"', penalty: 10, test: (_d, _t, joined) => /ly$/.test(joined) },
   { reason: 'ends in "-ify"', penalty: 12, test: (_d, _t, joined) => /ify$/.test(joined) },
@@ -146,6 +145,19 @@ export function assessBrandability(name: string): BrandabilityAssessment {
   const joined = normalize(display)
   const flags: string[] = []
 
+  // A feature label with a reassuring adjective is not a distinctive brand.
+  // Keep this narrow: ordinary evocative compounds are still welcome.
+  const feature = /(?:viewer|converter|convert|documents?|docuflow|filehub|filetool|pdf|software|app|solution|platform)$/
+  const adjective = /^(?:secure|safe|smart|trusty|trusted|silent|tranquil|easy|simple|quick|fast|private|calm|best|better)/
+  if ((adjective.test(joined) && feature.test(joined)) || /^(?:secure|smart|easy|quick|safe|trusty)(?:docu|data|file)/.test(joined)) {
+    return { score: 25, flags: ['generic feature label'], rejected: true, rejectionReason: 'describes a feature instead of a distinctive name' }
+  }
+
+  const stock = '(?:nova|nexus|quantum|sphere|hub|flow|sync|flux|cloud|stack|grid|forge|pulse|core|zen|labs|ai)'
+  if (new RegExp(`^(?:${stock}){2,}$`).test(joined) || /^(?:nex|zyn|syn|zov|nov)(?:ora|oria|ify|ex|iq|ix)$/.test(joined)) {
+    return { score: 25, flags: ['formulaic tech name'], rejected: true, rejectionReason: 'reads as a weak, generated-sounding name' }
+  }
+
   // Structural rejections first — these are genuine garbage, not style.
   if (joined.length === 0) {
     return { score: 0, flags: ['no usable characters'], rejected: true, rejectionReason: 'no usable characters' }
@@ -167,7 +179,11 @@ export function assessBrandability(name: string): BrandabilityAssessment {
     }
   }
   const worstConsonantRun = Math.max(...tokens.map(longestConsonantRun), 0)
-  if (worstConsonantRun >= 4) {
+  // Consonant counts alone wrongly veto real compounds (Matchstick, Sketchbook).
+  // Reject extreme clusters only when vowel support is also missing; the
+  // contextual editor separately checks pronunciation and hear-it/spell-it.
+  const vowelSupport = [...joined].filter(isVowel).length / Math.max(1, joined.length)
+  if (worstConsonantRun >= 4 && vowelSupport < 0.2) {
     return {
       score: 0,
       flags: [`${worstConsonantRun}-consonant cluster`],
@@ -205,7 +221,7 @@ export function assessBrandability(name: string): BrandabilityAssessment {
 
   // Pronounceability: a 3-consonant cluster is awkward but not fatal; a long
   // vowel run ("aeiou"-ish) reads as a typo.
-  if (worstConsonantRun === 3) {
+  if (worstConsonantRun >= 3) {
     score -= 8
     flags.push('a stiff consonant cluster')
   }

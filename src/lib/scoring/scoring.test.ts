@@ -13,7 +13,7 @@ import {
   trademarkAdvisory,
   verdictFor,
 } from './viability'
-import { conflictBanner, VERDICT_PRESENTATION } from '@/lib/presentation'
+import { conflictBanner, scoreEvidenceSummary, VERDICT_PRESENTATION } from '@/lib/presentation'
 import { CATEGORY_WEIGHTS, SCORE_GROUPS, SOURCE_GROUP } from './weights'
 
 const now = new Date().toISOString()
@@ -246,6 +246,31 @@ describe('sourceSubscore', () => {
     )
     expect(low).toBeGreaterThan(high!)
   })
+
+  it('distinguishes one similar result from several independent similar results', () => {
+    const one = sourceSubscore(
+      res('web', { status: 'similar_found', similarMatches: [match({ externalId: 'one' })] }),
+    )
+    const several = sourceSubscore(
+      res('web', {
+        status: 'similar_found',
+        similarMatches: [
+          match({ externalId: 'one' }),
+          match({ externalId: 'two', name: 'Enviro', similarity: { text: 78, phonetic: 82, visual: 76, overall: 79 } }),
+          match({ externalId: 'three', name: 'Environly', similarity: { text: 76, phonetic: 80, visual: 75, overall: 77 } }),
+        ],
+      }),
+    )
+    expect(several).toBeLessThan(one!)
+    expect(several).toBeGreaterThanOrEqual(0)
+  })
+
+  it('does not count a duplicate match twice', () => {
+    const duplicate = match({ externalId: 'same' })
+    const one = sourceSubscore(res('web', { status: 'similar_found', similarMatches: [duplicate] }))
+    const repeated = sourceSubscore(res('web', { status: 'similar_found', similarMatches: [duplicate, duplicate] }))
+    expect(repeated).toBe(one)
+  })
 })
 
 /* -------------------------------------------------------------------------- */
@@ -278,11 +303,11 @@ describe('detectCaps', () => {
         ],
       }),
     ])
-    // Industry relevance still decides whether the hard 40 cap fires.
-    expect(caps.map((c) => c.maximum)).not.toContain(40)
+    // Industry relevance still decides whether the same-industry business cap fires.
+    expect(caps.map((c) => c.reason)).not.toContain('Exact major same-industry business')
     // It does not decide whether the reader hears about the collision at all:
     // an exact confirmed conflict always ceilings below "Mostly Clear".
-    expect(caps.map((c) => c.maximum)).toContain(69)
+    expect(caps.some((c) => c.maximum <= 69)).toBe(true)
   })
 
   it('never emits a trademark cap, because V1 gathers no trademark evidence', () => {
@@ -312,16 +337,7 @@ describe('detectCaps', () => {
 
 /* -------------------------------------------------------------------------- */
 
-/**
- * The audit finding, in one place.
- *
- * A real production report showed **Vetta Score 100** and "48 of 53 checks
- * clear" on the same screen as a confirmed exact CPAN conflict. Nothing was
- * broken: CPAN sits in the `packages` group, `packages` carries zero weight
- * for a restaurant, and a weighted average over the groups that answered
- * cannot see a group it is not averaging. The arithmetic was right and the
- * report was untrustworthy, which is the worse of the two failures.
- */
+// An exact package collision stays visible without penalizing an unrelated business.
 describe('a confirmed conflict beside a perfect score', () => {
   /** A restaurant scan: `packages` weight is 0, so CPAN cannot move the average. */
   const restaurantWithCpanConflict = () => [
@@ -351,7 +367,7 @@ describe('a confirmed conflict beside a perfect score', () => {
     expect(groups.find((g) => g.group === 'packages')?.weight).toBe(0)
   })
 
-  it('no longer lets the score contradict the finding', () => {
+  it('does not penalize a restaurant for an unrelated package namespace', () => {
     const viability = computeViability({
       category: 'restaurant',
       results: restaurantWithCpanConflict(),
@@ -359,22 +375,17 @@ describe('a confirmed conflict beside a perfect score', () => {
 
     // The average is still 100 — the weighting was not vandalised to fix this.
     expect(viability.rawScore).toBe(100)
-    // But the number a person reads cannot say "clear" over a confirmed
-    // collision, so it is ceilinged below the "Mostly Clear" band.
-    expect(viability.score).toBeLessThan(70)
-    expect(viability.caps.map((c) => c.maximum)).toContain(69)
+    expect(viability.score).toBe(100)
+    expect(viability.caps).toEqual([])
   })
 
-  it('never labels such a report Clear or Mostly Clear', () => {
+  it('uses the category-weighted conclusion while keeping the finding visible', () => {
     const { score } = computeViability({
       category: 'restaurant',
       results: restaurantWithCpanConflict(),
     })
     const label = VERDICT_PRESENTATION[verdictFor(score)].label
-    expect(label).not.toBe('Clear')
-    expect(label).not.toBe('Mostly Clear')
-    // And the tone can never be the green one.
-    expect(VERDICT_PRESENTATION[verdictFor(score)].tone).not.toBe('ok')
+    expect(label).toBe('Clear')
   })
 
   it('names the collision above the score, not only under it', () => {
@@ -386,13 +397,14 @@ describe('a confirmed conflict beside a perfect score', () => {
     expect(conflictBanner(conflicts)).toContain('Northbeam')
   })
 
-  it('applies the ceiling whatever the category, since an exact match is exact', () => {
+  it('reserves the package ceiling for developer tools', () => {
     for (const category of CATEGORIES) {
       const { score } = computeViability({
         category,
         results: restaurantWithCpanConflict(),
       })
-      expect(score, `${category} must not read as clear over an exact conflict`).toBeLessThan(70)
+      if (category === 'developer_tool') expect(score).toBeLessThan(70)
+      else expect(score).toBeGreaterThanOrEqual(70)
     }
   })
 
@@ -501,6 +513,64 @@ describe('computeViability', () => {
     const b = computeViability({ category: 'saas', results: build() })
     expect(a.score).toBe(b.score)
   })
+
+  it('does not let many clear sources hide a strong finding in the same group', () => {
+    const results = [
+      res('npm', {
+        status: 'similar_found',
+        confidence: 95,
+        similarMatches: [match({ severity: 'high', similarity: { text: 88, phonetic: 91, visual: 86, overall: 89 } })],
+      }),
+      res('pypi'),
+      res('crates_io'),
+      res('rubygems'),
+    ]
+    const group = computeViability({ category: 'developer_tool', results }).groups.find((item) => item.group === 'packages')
+    expect(group?.subscore).toBeLessThanOrEqual(65)
+  })
+
+  it('scores a high-severity exact conflict below a medium-severity exact conflict', () => {
+    const exact = (severity: Match['severity']) => computeViability({
+      category: 'saas',
+      results: [
+        res('github', {
+          status: 'confirmed_conflict',
+          exactMatches: [match({ severity, similarity: { text: 100, phonetic: 100, visual: 100, overall: 100 } })],
+        }),
+        res('web'),
+      ],
+    }).score
+    expect(exact('high')).toBeLessThan(exact('medium'))
+  })
+
+  it('scores several exact conflicts below one exact conflict', () => {
+    const one = computeViability({
+      category: 'saas',
+      results: [res('github', { status: 'confirmed_conflict', exactMatches: [match({ externalId: 'one', severity: 'high', similarity: { text: 100, phonetic: 100, visual: 100, overall: 100 } })] })],
+    }).score
+    const several = computeViability({
+      category: 'saas',
+      results: [res('github', { status: 'confirmed_conflict', exactMatches: [
+        match({ externalId: 'one', severity: 'high', similarity: { text: 100, phonetic: 100, visual: 100, overall: 100 } }),
+        match({ externalId: 'two', name: 'Environ App', severity: 'high', similarity: { text: 100, phonetic: 100, visual: 100, overall: 100 } }),
+      ] })],
+    }).score
+    expect(several).toBeLessThan(one)
+  })
+})
+
+describe('scoreEvidenceSummary', () => {
+  it('states how many completed sources and findings support the score', () => {
+    expect(scoreEvidenceSummary([
+      res('github'),
+      res('web', { status: 'similar_found', similarMatches: [match({ externalId: 'one' }), match({ externalId: 'two' })] }),
+      res('npm', { status: 'unable_to_verify', confidence: 0, error: { code: 'TIMEOUT', message: 'Timed out', retryable: true } }),
+    ])).toBe('2 sources completed. 2 findings affected this score.')
+  })
+
+  it('does not imply risk when completed sources found nothing meaningful', () => {
+    expect(scoreEvidenceSummary([res('github')])).toBe('1 source completed. No findings affected this score.')
+  })
 })
 
 /* -------------------------------------------------------------------------- */
@@ -600,11 +670,34 @@ describe('verdictFor', () => {
     expect(verdictFor(0)).toBe('avoid')
   })
 
-  it('makes a confirmed exact conflict the dominant conclusion even beside a high score', () => {
+  it('does not let an unrelated exact conflict override the weighted conclusion', () => {
     const conflict = res('npm', {
       status: 'confirmed_conflict',
       exactMatches: [match({ name: 'Northbeam', severity: 'high' })],
     })
-    expect(dominantVerdict(100, [conflict])).toBe('risky')
+    expect(dominantVerdict(100, [conflict])).toBe('strong')
   })
+})
+
+it('keeps Stay4Credits usable for a mobile app with only an X handle collision', () => {
+  const results = [res('app_store'), res('play_store'), res('web'), res('domain'), res('x_twitter', {
+    status: 'confirmed_conflict', exactMatches: [match({ name: 'Stay4Credits', severity: 'high', similarity: { text: 100, phonetic: 100, visual: 100, overall: 100 } })],
+  })]
+  const mobile = computeViability({ category: 'mobile_app', results })
+  expect(mobile.score).toBeGreaterThanOrEqual(85)
+  expect(mobile.caps).toEqual([])
+  expect(mobile.conflicts).toHaveLength(1)
+  expect(dominantVerdict(mobile.score, results)).toBe('strong')
+  expect(computeViability({ category: 'creator_brand', results }).score).toBeLessThan(70)
+})
+
+it('keeps a direct app store collision consequential for mobile apps', () => {
+  const results = [res('play_store'), res('web'), res('domain'), res('app_store', {
+    status: 'confirmed_conflict', exactMatches: [match({ severity: 'high', similarity: { text: 100, phonetic: 100, visual: 100, overall: 100 } })],
+  })]
+  expect(computeViability({ category: 'mobile_app', results }).score).toBeLessThanOrEqual(40)
+})
+
+it('names the affected service in a single-conflict banner', () => {
+  expect(conflictBanner([{ source: 'x_twitter', name: 'Stay4Credits' }])).toMatch(/X|Twitter/)
 })

@@ -16,7 +16,7 @@
 import 'server-only'
 import type { ScanContext } from '@/lib/core/scan'
 import type { AiSummaryEvent, ScanSummary } from '@/lib/orchestrator/run'
-import { groqProvider } from '@/lib/providers/groq'
+import { completeWithFallback } from '@/lib/providers/fallback'
 import { LLMUnavailableError } from '@/lib/providers/llm'
 import { buildDigest, digestToPrompt } from './digest'
 import { checkGrounding } from './grounding'
@@ -76,7 +76,7 @@ function logGroundingFailure(failures: { rule: string; detail: string }[], text:
 }
 
 async function attempt(userPrompt: string): Promise<{ text: string; model: string }> {
-  const result = await groqProvider.complete({
+  const result = await completeWithFallback({
     system: SYSTEM_PROMPT,
     user: userPrompt,
     // 120 words is roughly 160-200 tokens; the rest of the room is headroom so

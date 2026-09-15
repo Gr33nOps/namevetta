@@ -7,7 +7,8 @@
  * at a glance. Unverified states are rendered grey and neutral, never green and
  * never amber: amber reads as "minor problem", and the truth is "no information".
  */
-import { type MatchSeverity, type SourceResult, type SourceStatus } from '@/lib/core/types'
+import { isVerified, type MatchSeverity, type SourceResult, type SourceStatus } from '@/lib/core/types'
+import { SOURCE_MANIFEST } from '@/lib/core/adapter'
 import type { TrademarkConcern, Verdict } from '@/lib/scoring/viability'
 import type { ScreeningStatus } from '@/lib/trademark/provider'
 
@@ -72,7 +73,18 @@ export const SCORE_NAME = 'Score'
 export const SCORE_NAME_SHORT = 'Score'
 
 export const SCORE_EXPLAINER =
-  'A weighted view of domains, code, apps, social, and web results. It does not cover trademarks.'
+  'Completed checks are weighted for your category. App stores matter most for an app; a taken social handle has less impact. Direct conflicts on important sources can cap the score. Unverified checks affect coverage, not the score. Trademarks are separate.'
+
+export function scoreEvidenceSummary(results: readonly SourceResult[]): string {
+  const completed = results.filter((result) => isVerified(result.status)).length
+  const findings = results.reduce(
+    (total, result) => total + result.exactMatches.length + result.similarMatches.length,
+    0,
+  )
+  const sourceLabel = completed === 1 ? 'source' : 'sources'
+  const findingLabel = findings === 1 ? 'finding' : 'findings'
+  return `${completed} ${sourceLabel} completed. ${findings === 0 ? 'No findings' : `${findings} ${findingLabel}`} affected this score.`
+}
 
 /* -------------------------------------------------------------------------- */
 /* Statuses                                                                   */
@@ -408,7 +420,8 @@ export function conflictBanner(
   if (conflicts === undefined || conflicts.length === 0) return ''
   const first = conflicts[0] as { source: string; name: string }
   if (conflicts.length === 1) {
-    return `“${first.name}” is already claimed.`
+    const source = Object.values(SOURCE_MANIFEST).find(entry => entry.id === first.source)
+    return `“${first.name}” is already used on ${source?.label ?? first.source}.`
   }
   return `“${first.name}” is already claimed in ${conflicts.length} sources.`
 }

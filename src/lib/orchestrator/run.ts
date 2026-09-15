@@ -47,6 +47,7 @@ export type ScanEvent =
   | { type: 'ai_summary'; summary: AiSummaryEvent }
 
 export interface RunOptions {
+  signal?: AbortSignal
   /** Overall ceiling for the whole scan, independent of per-source timeouts. */
   overallTimeoutMs?: number
   log?: (event: string, data?: Record<string, unknown>) => void
@@ -77,6 +78,7 @@ export async function runSource(
   }
 
   const controller = new AbortController()
+  if (parentSignal.aborted) controller.abort()
   const onParentAbort = (): void => controller.abort()
   parentSignal.addEventListener('abort', onParentAbort, { once: true })
   const timer = setTimeout(() => controller.abort(), manifest.timeoutMs)
@@ -184,6 +186,9 @@ export async function* runScan(
   ])
 
   const overall = new AbortController()
+  const onAbort = (): void => overall.abort()
+  options.signal?.addEventListener('abort', onAbort, { once: true })
+  if (options.signal?.aborted) overall.abort()
   const overallTimer = setTimeout(() => overall.abort(), overallTimeoutMs)
 
   const results: SourceResult[] = []
@@ -208,6 +213,7 @@ export async function* runScan(
     }
   } finally {
     clearTimeout(overallTimer)
+    options.signal?.removeEventListener('abort', onAbort)
   }
 
   const viability = computeViability({ category: ctx.category, results })

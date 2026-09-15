@@ -1,0 +1,71 @@
+import 'server-only'
+import { env } from '@/lib/env'
+import { isDatabaseConfigured } from '@/lib/db/client'
+import { consumeProviderBudget } from '@/lib/db/quota'
+import { LLMUnavailableError, type LLMProvider } from './llm'
+
+export const geminiProvider: LLMProvider = {
+  id: 'gemini', label: 'Gemini', model: 'gemini-3.8-flash',
+  async complete(request) {
+    request.signal?.throwIfAborted()
+    const { GEMINI_API_KEY: key, GEMINI_MODEL: model, AI_MONTHLY_BUDGET: budget } = env()
+    if (!key) throw new LLMUnavailableError('no_api_key', 'The AI service is not configured.')
+    if (isDatabaseConfigured() && !await consumeProviderBudget('gemini', budget)) {
+      throw new LLMUnavailableError('budget_exhausted', 'The AI allowance has been reached.')
+    }
+    // Thinking-enabled critiques of a full pool can take longer than 20 seconds.
+    const signal = AbortSignal.any([AbortSignal.timeout(40_000), ...(request.signal ? [request.signal] : [])])
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+        method: 'POST', signal,
+        headers: { 'content-type': 'application/json', 'x-goog-api-key': key.trim() },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: request.system }] },
+          contents: [{ role: 'user', parts: [{ text: request.user }] }],
+          generationConfig: {
+            temperature: request.temperature ?? 0.2,
+            maxOutputTokens: request.maxOutputTokens ?? 700,
+            ...(model.startsWith('gemini-3.') ? { thinkingConfig: { thinkingLevel: 'low' } } : {}),
+            ...(model.startsWith('gemini-2.5-flash') ? { thinkingConfig: { thinkingBudget: 0 } } : {}),
+            ...(request.json ? { responseMimeType: 'application/json' } : {}),
+          },
+        }),
+      })
+      if (!response.ok) {
+        const failure = await response.json().catch(() => ({})) as {
+          error?: { details?: { violations?: { quotaId?: string }[]; retryDelay?: string }[] }
+        }
+        const details = failure.error?.details ?? []
+        const daily = details.some(detail => detail.violations?.some(v => /PerDay/i.test(v.quotaId ?? '')))
+        const delay = Number.parseFloat(details.find(detail => detail.retryDelay)?.retryDelay ?? '') * 1000
+        throw new LLMUnavailableError(
+          response.status === 429 ? daily ? 'budget_exhausted' : 'rate_limited' : 'provider_error',
+          daily ? 'The daily AI allowance has been reached.' : 'The AI service could not respond.',
+          Number.isFinite(delay) ? delay : undefined,
+        )
+      }
+      const data = await response.json() as { modelVersion?: string; candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[]; usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number } }
+      const candidate = data.candidates?.[0]
+      const text = candidate?.content?.parts?.filter((part) => !part.thought).map((part) => part.text ?? '').join('').trim()
+      if (!text || (candidate?.finishReason && candidate.finishReason !== 'STOP')) throw new LLMUnavailableError('provider_error', 'The AI response was incomplete.')
+      return { text, model: data.modelVersion ?? model, promptTokens: data.usageMetadata?.promptTokenCount ?? 0, completionTokens: data.usageMetadata?.candidatesTokenCount ?? 0 }
+    } catch (error) {
+      if (error instanceof LLMUnavailableError) throw error
+      throw new LLMUnavailableError(signal.aborted ? 'timeout' : 'provider_error', 'The AI service could not respond.')
+    }
+  },
+  // Model metadata costs no tokens and still proves the key and model name work.
+  async healthCheck() {
+    const { GEMINI_API_KEY: key, GEMINI_MODEL: model } = env()
+    if (!key) return { ok: false, detail: 'No API key configured' }
+    try {
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}`, {
+        headers: { 'x-goog-api-key': key.trim() },
+        signal: AbortSignal.timeout(8_000),
+      })
+      return response.ok ? { ok: true } : { ok: false, detail: `Gemini returned ${response.status}` }
+    } catch {
+      return { ok: false, detail: 'Gemini did not respond' }
+    }
+  },
+}

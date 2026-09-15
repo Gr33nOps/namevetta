@@ -53,6 +53,12 @@ tool and barely at all for a restaurant.
 They are never blended. A high score with 40% coverage means "looks fine, but we only
 checked part of it", and the report says exactly that.
 
+Scores reflect both the strength and the number of independent findings. Duplicate
+matches count once, extra findings add diminishing risk, and one reliable conflict
+cannot be averaged away by clear results from the same source group. If two names
+produce the same evidence, they can still receive the same score. The app does not
+invent small differences just to make the numbers look varied.
+
 ## Sources
 
 | Source | Cost | Limit posture |

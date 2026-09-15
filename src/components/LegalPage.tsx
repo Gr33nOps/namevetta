@@ -12,6 +12,8 @@
  * made is still here, grouped by the question a reader actually arrives with
  * instead of split into a section each.
  */
+import { PageHeader } from '@/components/PageHeader'
+
 export function LegalPage({
   title,
   updated,
@@ -24,22 +26,16 @@ export function LegalPage({
   children: React.ReactNode
 }) {
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 pt-12 pb-16 sm:pt-16">
+    <div className="page-shell max-w-[840px]">
       {/*
         Centred header, left-aligned body. That split is the alignment rule for
         every page in the app: a heading and its one-line lead are a title
         block and read as one centred object, and everything below is prose,
         which needs a straight left edge to be read at all.
       */}
-      <header className="text-center">
-        <h1 className="font-display text-3xl font-semibold text-charcoal sm:text-4xl">{title}</h1>
-        <p className="mx-auto mt-4 max-w-[58ch] text-[15.5px] leading-relaxed text-charcoal-2">
-          {lead}
-        </p>
-        <p className="mt-3 text-[13px] text-faint">Last updated {updated}</p>
-      </header>
+      <PageHeader title={title}>{lead}<p className="mt-2 text-xs text-faint">Last updated {updated}</p></PageHeader>
 
-      <div className="panel mt-10 divide-y divide-line rounded-panel px-6 sm:px-8">{children}</div>
+      <div className="divide-y divide-line border-t border-line">{children}</div>
     </div>
   )
 }

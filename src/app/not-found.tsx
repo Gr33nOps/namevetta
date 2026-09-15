@@ -2,11 +2,10 @@ import Link from 'next/link'
 
 export default function NotFound() {
   return (
-    <div className="mx-auto flex w-full max-w-[720px] flex-col items-center px-6 py-24 text-center">
-      <p className="font-display text-7xl font-semibold tabular-nums text-accent sm:text-8xl">
+    <div className="page-shell max-w-[840px]">
+      <p className="text-sm font-medium text-faint">
         404
       </p>
-      <div aria-hidden="true" className="mt-5 h-px w-16 border-t border-dashed border-line-strong" />
 
       <h1 className="mt-6 font-display text-[34px] font-semibold tracking-[-0.03em] text-charcoal sm:text-[40px]">
         Page not found

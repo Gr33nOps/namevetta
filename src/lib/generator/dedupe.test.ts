@@ -21,6 +21,9 @@ describe('sameFamily', () => {
 })
 
 describe('dedupeFamilies', () => {
+  it('keeps a family together when a respelling connects the root and its descriptor', () => {
+    expect(dedupeFamilies(['Merro', 'Merrow', 'Merrow Works'])).toEqual(['Merro'])
+  })
   it('collapses a family to its first (best-ranked) member', () => {
     const out = dedupeFamilies(['Nexora', 'Nexorra', 'Nexora AI', 'Nexora Labs', 'Nexoro'])
     expect(out).toEqual(['Nexora'])

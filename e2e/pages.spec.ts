@@ -149,7 +149,7 @@ test.describe('social and structured metadata', () => {
     // And the chrome colour follows the page rather than the system.
     await page.waitForLoadState('networkidle')
     await expect(page.locator('meta[name="theme-color"]')).toHaveCount(1)
-    expect(await page.locator('meta[name="theme-color"]').getAttribute('content')).toBe('#f7f7fc')
+    expect(await page.locator('meta[name="theme-color"]').getAttribute('content')).toBe('#f8f9fb')
     await context.close()
   })
 
@@ -176,7 +176,7 @@ test.describe('social and structured metadata', () => {
       would catch a well-meaning `export const viewport` putting it back.
     */
     await expect(page.locator('meta[name="theme-color"]')).toHaveCount(1)
-    expect(await page.locator('meta[name="theme-color"]').getAttribute('content')).toBe('#0c0b16')
+    expect(await page.locator('meta[name="theme-color"]').getAttribute('content')).toBe('#111316')
     await context.close()
   })
 
@@ -283,10 +283,10 @@ test('Ideas gives a clear route back to a name check', async ({ page }) => {
   await expect(page).toHaveURL('/')
 })
 
-test('primary navigation keeps three destinations visible and marks the current page', async ({ page }) => {
+test('primary navigation keeps four destinations visible and marks the current page', async ({ page }) => {
   await page.goto('/generate')
   const nav = page.getByRole('navigation', { name: 'Main' })
-  await expect(nav.getByRole('link')).toHaveCount(3)
+  await expect(nav.getByRole('link')).toHaveCount(4)
   await expect(nav.getByRole('link', { name: 'Generate ideas' })).toHaveAttribute('aria-current', 'page')
   await expect(nav.getByRole('link', { name: 'Search a name' })).not.toHaveAttribute('aria-current', 'page')
 })
@@ -295,7 +295,7 @@ test('primary navigation fits a compact screen without horizontal overflow', asy
   await page.setViewportSize({ width: 320, height: 800 })
   await page.goto('/')
   const nav = page.getByRole('navigation', { name: 'Main' })
-  await expect(nav.getByRole('link')).toHaveCount(3)
+  await expect(nav.getByRole('link')).toHaveCount(4)
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
     await page.evaluate(() => window.innerWidth),
   )

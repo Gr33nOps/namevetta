@@ -23,12 +23,11 @@ import type { Category } from '@/lib/core/scan'
 import type { SourceId } from '@/lib/core/types'
 
 /**
- * 3 — an exact, confirmed collision now ceilings the score below the "Mostly
- * Clear" band, whatever weight its group carries for the category. Reports
- * stamped 2 could show 100 beside a confirmed conflict; 1 also folded
- * trademark into the number. Weights themselves are unchanged from 2.
+ * 5: category-relevant caps; mobile stores carry 60%, social handles 6%.
+ * 4 added diminishing penalties for independent matches and group crowding.
+ * Stored reports retain their version; reopening recalculates using current rules.
  */
-export const SCORING_VERSION = 3
+export const SCORING_VERSION = 5
 
 /* -------------------------------------------------------------------------- */
 /* Groups                                                                     */
@@ -179,11 +178,11 @@ export const CATEGORY_WEIGHTS: Record<Category, WeightTable> = {
 
   // The two stores are where a mobile name actually collides.
   mobile_app: w({
-    app_store: 27,
-    play_store: 27,
+    app_store: 30,
+    play_store: 30,
     web: 15,
     domain: 12,
-    social: 12,
+    social: 6,
     packages: 4,
     github: 3,
   }),

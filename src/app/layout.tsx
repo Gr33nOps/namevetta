@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { JetBrains_Mono, Outfit } from 'next/font/google'
+import { JetBrains_Mono, Geist } from 'next/font/google'
 import { SiteMark } from '@/components/SiteMark'
 import { SiteNav } from '@/components/SiteNav'
+import { ResearchSession } from '@/components/ResearchSession'
 import { BRAND_LINKS } from '@/lib/brand'
 import { SCOPE_NOTICE } from '@/lib/presentation'
 import { SITE_URL } from '@/lib/site'
@@ -18,8 +19,8 @@ import './globals.css'
  * The full weight range is loaded because the display sizes want 800 and 900
  * while body copy wants 400 and 500.
  */
-const outfit = Outfit({
-  variable: '--font-outfit',
+const outfit = Geist({
+  variable: '--font-geist',
   subsets: ['latin'],
   weight: ['400', '500', '600', '700', '800', '900'],
 })
@@ -110,8 +111,8 @@ export const metadata: Metadata = {
  * follows the visitor's own choice, so a phone set to light with the site
  * toggled to dark would draw a white bar above a black page.
  */
-const CHROME_DARK = '#0c0b16'
-const CHROME_LIGHT = '#f7f7fc'
+const CHROME_DARK = '#111316'
+const CHROME_LIGHT = '#f8f9fb'
 
 /**
  * Theme, before first paint.
@@ -194,10 +195,6 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
           It carries no meaning, so it is not announced, and `print:hidden`
           keeps it off paper.
         */}
-        <div
-          aria-hidden="true"
-          className="page-wash pointer-events-none fixed inset-0 z-0 print:hidden"
-        />
 
         {/*
           First focusable element on every page. A report runs long, so without
@@ -209,13 +206,16 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
         >
           Skip to content
         </a>
+        <div aria-hidden="true" className="glass-atmosphere print:hidden" />
+        <ResearchSession>
         <SiteNav />
         <main id="content" className="relative z-10 flex-1">
           {children}
         </main>
+        </ResearchSession>
 
-        <footer className="relative z-10 mt-20 border-t border-line print:hidden">
-          <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-6 py-9 sm:flex-row sm:items-center sm:justify-between">
+        <footer className="relative z-10 border-t border-line bg-surface print:hidden">
+          <div className="mx-auto flex w-full max-w-[1088px] flex-col gap-5 px-5 py-7 sm:flex-row sm:items-start sm:justify-between sm:px-6">
             <SiteMark size="sm" />
 
             <div className="flex flex-col gap-2 sm:items-end">
@@ -231,7 +231,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
                   </Link>
                 ))}
               </nav>
-              <span className="max-w-[46ch] text-[12px] leading-relaxed text-faint sm:max-w-none sm:whitespace-nowrap sm:text-right">
+              <span className="max-w-[46ch] text-[12px] leading-relaxed text-faint sm:max-w-none sm:text-right">
                 {SCOPE_NOTICE}
               </span>
             </div>

@@ -39,12 +39,16 @@ const SEVERITY_PENALTY: Record<MatchSeverity, number> = {
   critical: 90,
 }
 
-function strongestMatch(result: SourceResult): Match | undefined {
-  const all = [...result.exactMatches, ...result.similarMatches]
-  if (all.length === 0) return undefined
-  return all.reduce((worst, m) =>
-    SEVERITY_PENALTY[m.severity] > SEVERITY_PENALTY[worst.severity] ? m : worst,
-  )
+function distinctMatches(result: SourceResult): Match[] {
+  const unique = new Map<string, Match>()
+  for (const match of [...result.exactMatches, ...result.similarMatches]) {
+    const key = match.externalId || match.url || match.name.trim().toLocaleLowerCase()
+    const existing = unique.get(key)
+    const risk = SEVERITY_PENALTY[match.severity] * match.similarity.overall
+    const existingRisk = existing === undefined ? -1 : SEVERITY_PENALTY[existing.severity] * existing.similarity.overall
+    if (risk > existingRisk) unique.set(key, match)
+  }
+  return [...unique.values()]
 }
 
 /**
@@ -59,13 +63,23 @@ export function sourceSubscore(result: SourceResult): number | null {
   if (!isVerified(result.status)) return null
   if (result.status === 'no_conflict') return 100
 
-  const worst = strongestMatch(result)
-  if (worst === undefined) {
+  const matches = distinctMatches(result)
+  if (matches.length === 0) {
     return result.status === 'confirmed_conflict' ? 10 : 85
   }
 
-  const penalty = SEVERITY_PENALTY[worst.severity] * (worst.similarity.overall / 100)
-  return Math.max(0, Math.min(100, Math.round(100 - penalty)))
+  const penalties = matches
+    .map((match) => SEVERITY_PENALTY[match.severity] * (match.similarity.overall / 100))
+    .sort((a, b) => b - a)
+
+  // The strongest finding carries the full penalty. Additional independent
+  // findings add diminishing penalties, so genuine crowding matters without
+  // letting a noisy source multiply one weak signal into a score of zero.
+  const totalPenalty = penalties.reduce((total, penalty, index) => {
+    const multiplier = index === 0 ? 1 : index === 1 ? 0.35 : index === 2 ? 0.2 : 0.1
+    return total + penalty * multiplier
+  }, 0)
+  return Math.max(0, Math.min(100, Math.round(100 - totalPenalty)))
 }
 
 /* -------------------------------------------------------------------------- */
@@ -86,6 +100,7 @@ function groupSubscore(results: readonly SourceResult[]): {
 } {
   let weighted = 0
   let totalConfidence = 0
+  let strongestEffectiveRisk = 100
   const contributors: SourceId[] = []
 
   for (const r of results) {
@@ -93,11 +108,17 @@ function groupSubscore(results: readonly SourceResult[]): {
     if (sub === null || r.confidence === 0) continue
     weighted += sub * r.confidence
     totalConfidence += r.confidence
+    // Low-confidence findings move toward clear rather than receiving the same
+    // power as an official API result. A reliable risky source still cannot be
+    // washed away by a long list of clean sources in the same group.
+    const confidenceAdjusted = 100 - (100 - sub) * (r.confidence / 100)
+    strongestEffectiveRisk = Math.min(strongestEffectiveRisk, confidenceAdjusted)
     contributors.push(r.source)
   }
 
   if (totalConfidence === 0) return { subscore: null, contributors }
-  return { subscore: Math.round(weighted / totalConfidence), contributors }
+  const average = weighted / totalConfidence
+  return { subscore: Math.round(Math.min(average, strongestEffectiveRisk + 15)), contributors }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -111,26 +132,10 @@ export interface AppliedCap {
 
 const SAME_INDUSTRY_THRESHOLD = 70
 
-/**
- * The ceiling an exact, confirmed collision puts on the score.
- *
- * 69 lands the number one point below `promising`, so the verdict beside it
- * can never read "Mostly Clear" while a source underneath says the exact name
- * is already claimed. Chosen for that reason rather than as a round figure:
- * the verdict bands are what a reader actually acts on.
- */
+/** A confirmed collision on a primary surface stays below Mostly Clear. */
 const CONFIRMED_CONFLICT_MAX = 69
 
-/**
- * Sources whose exact match is a namespace collision worth capping for.
- *
- * Every source that reports `confirmed_conflict` with an exact match
- * qualifies. There is deliberately no allow-list: the bug this closes was a
- * confirmed CPAN conflict sitting beside a score of 100 because CPAN lands in
- * the `packages` group, which carries zero weight for a restaurant. Category
- * relevance is allowed to decide *how much* a conflict costs — it is not
- * allowed to decide whether the reader is told about it.
- */
+/** Every confirmed exact collision remains visible, including secondary sources. */
 export interface DecisiveConflict {
   source: SourceId
   /** The colliding name as the source spells it. */
@@ -157,24 +162,13 @@ export function decisiveConflicts(results: readonly SourceResult[]): DecisiveCon
 }
 
 /**
- * Detect the digital conditions that cap the score (§20).
- *
- * Two now. The first is the original: an exact, major, same-industry business
- * presence found through web research, which caps hard at 40 because that is a
- * name somebody is already trading under.
- *
- * The second is new, and closes the hole the audit found. A weighted average
- * over the groups that answered can produce a perfect 100 while a source
- * inside a zero-weight group reports an exact, confirmed collision — a report
- * that says "100" and "confirmed conflict" on the same screen is not a report
- * anyone should trust. So any confirmed exact collision ceilings the number
- * below the "Mostly Clear" band, and the weighting still decides where under
- * that ceiling it lands.
- *
- * Trademark findings can still cap, but only once the user has actually
- * completed screening; that path is `screeningCaps` below.
+ * Same-industry business collisions cap at 40. Other exact collisions cap only
+ * on primary surfaces (at least 20% category weight). Domains and business
+ * registries alone establish occupancy, so their ceiling is 69; direct product
+ * or creator namespaces also reflect severity. Secondary sources contribute
+ * their weighted risk and remain visible in the evidence.
  */
-export function detectCaps(results: readonly SourceResult[]): AppliedCap[] {
+export function detectCaps(results: readonly SourceResult[], category: Category = 'other'): AppliedCap[] {
   const caps: AppliedCap[] = []
 
   const webMatches: Match[] = []
@@ -194,15 +188,23 @@ export function detectCaps(results: readonly SourceResult[]): AppliedCap[] {
     caps.push({ reason: 'Exact major same-industry business', maximum: 40 })
   }
 
-  const conflicts = decisiveConflicts(results)
+  // Secondary namespaces remain visible but cannot overrule primary surfaces.
+  const relevant = results.filter(result => weightsFor(category)[SOURCE_GROUP[result.source]] >= 20)
+  const conflicts = decisiveConflicts(relevant)
   if (conflicts.length > 0) {
     const first = conflicts[0] as DecisiveConflict
+    const conflictCeiling = relevant
+      .filter((result) => result.status === 'confirmed_conflict' && result.exactMatches.length > 0)
+      .reduce((lowest, result) => Math.min(lowest,
+        SOURCE_GROUP[result.source] === 'domain' || SOURCE_GROUP[result.source] === 'web'
+          ? CONFIRMED_CONFLICT_MAX
+          : sourceSubscore(result) ?? lowest), CONFIRMED_CONFLICT_MAX)
     caps.push({
       reason:
         conflicts.length === 1
           ? `Exact conflict confirmed on ${SOURCE_MANIFEST[first.source].label}`
           : `${conflicts.length} exact conflicts confirmed, including ${SOURCE_MANIFEST[first.source].label}`,
-      maximum: CONFIRMED_CONFLICT_MAX,
+      maximum: conflictCeiling,
     })
   }
 
@@ -353,7 +355,7 @@ export function computeViability(input: ViabilityInput): ViabilityResult {
 
   const rawScore = effectiveWeight === 0 ? 0 : Math.round(weightedTotal / effectiveWeight)
 
-  const caps = detectCaps(input.results)
+  const caps = detectCaps(input.results, input.category)
   const ceiling = caps.reduce((min, cap) => Math.min(min, cap.maximum), 100)
 
   return {
@@ -389,12 +391,10 @@ export function verdictFor(score: number): Verdict {
   return 'avoid'
 }
 
-/**
- * The conclusion shown to a person. A confirmed exact collision is a
- * decision-critical fact, so it outranks a category-weighted score even when
- * that score was already capped. This keeps the label, the banner and the
- * evidence in agreement for both new and stored reports.
- */
-export function dominantVerdict(score: number, results: readonly SourceResult[]): Verdict {
-  return decisiveConflicts(results).length > 0 ? 'risky' : verdictFor(score)
+/** The verdict follows the category-weighted score, including its caps. */
+export function dominantVerdict(score: number, _results: readonly SourceResult[]): Verdict {
+  // Keep the argument for stored-report callers; category relevance is already
+  // reflected in the score and must not be replaced by an unweighted verdict.
+  void _results
+  return verdictFor(score)
 }

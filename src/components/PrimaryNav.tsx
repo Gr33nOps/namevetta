@@ -2,36 +2,39 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useSessionState } from '@/components/ResearchSession'
 
 const ITEMS = [
   { href: '/', label: 'Search a name', compactLabel: 'Search', match: (path: string) => path === '/' || path.startsWith('/n/') || path.startsWith('/scan') },
   { href: '/generate', label: 'Generate ideas', compactLabel: 'Ideas', match: (path: string) => path.startsWith('/generate') },
   { href: '/history', label: 'History', compactLabel: 'History', match: (path: string) => path.startsWith('/history') },
+  { href: '/saved', label: 'Saved names', compactLabel: 'Saved', match: (path: string) => path.startsWith('/saved') },
 ] as const
 
 /** The three primary tasks stay visible so the current page is never a guess. */
 export function PrimaryNav() {
   const pathname = usePathname() ?? '/'
+  const [searchHref] = useSessionState('search:href', '/')
 
   return (
-    <nav aria-label="Main" className="col-span-2 row-start-2 justify-self-center sm:col-span-1 sm:row-start-auto">
-      <div className="flex items-center gap-5 sm:gap-8">
+    <nav aria-label="Main" className="col-span-2 row-start-2 flex min-h-12 w-full items-center lg:col-span-1 lg:row-start-auto lg:min-h-16">
+      <div className="flex w-full items-center justify-between gap-3 lg:justify-start lg:gap-6">
         {ITEMS.map((item) => {
           const active = item.match(pathname)
 
           return (
             <Link
               key={item.href}
-              href={item.href}
+              href={item.href === '/' ? searchHref : item.href}
               aria-current={active ? 'page' : undefined}
-              className={`group relative inline-flex min-h-10 items-center justify-center px-0 text-[13px] font-medium whitespace-nowrap transition-colors duration-300 [transition-timing-function:var(--nv-ease)] motion-reduce:transition-none sm:text-[14px] ${
+              className={`group relative inline-flex min-h-10 items-center justify-center px-0 text-[13px] font-medium whitespace-nowrap transition-colors duration-300 [transition-timing-function:var(--nv-ease)] motion-reduce:transition-none lg:text-[14px] ${
                 active
                   ? 'font-semibold text-charcoal'
                   : 'text-charcoal-2/75 hover:text-charcoal'
               } focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent`}
             >
-              <span className="sm:hidden">{item.compactLabel}</span>
-              <span className="hidden sm:inline">{item.label}</span>
+              <span className="lg:hidden">{item.compactLabel}</span>
+              <span className="hidden lg:inline">{item.label}</span>
               <span
                 aria-hidden="true"
                 className={`brand-gradient-bg pointer-events-none absolute inset-x-0 -bottom-px h-0.5 origin-center rounded-full transition-[opacity,transform] duration-300 [transition-timing-function:var(--nv-ease)] motion-reduce:transition-none ${
@@ -45,3 +48,4 @@ export function PrimaryNav() {
     </nav>
   )
 }
+

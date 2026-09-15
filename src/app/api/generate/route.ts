@@ -1,21 +1,15 @@
 /**
  * The name generator endpoint (§12).
  *
- * Generate a small pool, Quick Check each option, and return the top 5 as one
- * streamed request: names arrive from Groq, then each is researched with a
- * Quick Check exactly like a standalone search, in the same sequential order
- * `/api/compare` uses and for the same reason — parallel would fire a burst of
- * simultaneous requests at every source, which is what the per-source rate
- * limiters exist to prevent, and here there can be six times as many
- * candidates as a comparison ever has.
+ * Generate, reject occupied domains, research survivors, and refill until four
+ * names pass. One streamed request consumes one generation quota unit.
  */
-import { CATEGORY_LABELS, GenerateRequestSchema } from '@/lib/core/scan'
+import { GenerateRequestSchema } from '@/lib/core/scan'
 import { currentUser } from '@/lib/db/auth'
 import { isDatabaseConfigured } from '@/lib/db/client'
 import { identifySubject } from '@/lib/db/identity'
 import { consumeQuota } from '@/lib/db/quota'
-import { generateNames } from '@/lib/generator/namegen'
-import { screenCandidates } from '@/lib/generator/screen'
+import { generateShortlist } from '@/lib/generator/shortlist'
 
 export const maxDuration = 300
 export const dynamic = 'force-dynamic'
@@ -48,7 +42,7 @@ export async function POST(req: Request): Promise<Response> {
   if (!parsed.success) {
     return apiError(parsed.error.issues[0]?.message ?? 'Invalid request', 400)
   }
-  const { category, description, includeSpecialized, seed, stopAfterSurvivors } = parsed.data
+  const { category, description, includeSpecialized, seed } = parsed.data
 
   // One 'generate' unit, regardless of how many candidates end up being
   // researched — the cost of a run is fixed from the caller's point of view,
@@ -68,42 +62,34 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   const encoder = new TextEncoder()
+  const abort = new AbortController()
   const stream = new ReadableStream<Uint8Array>({
+    cancel() { abort.abort() },
     async start(controller) {
       const send = (value: unknown): void => {
+        if (abort.signal.aborted) return
         controller.enqueue(encoder.encode(`${JSON.stringify(value)}\n`))
       }
 
       try {
         send({ type: 'generating' })
 
-        const generated = await generateNames(CATEGORY_LABELS[category], description, seed)
-        if (generated.status === 'unavailable') {
-          send({ type: 'error', message: generated.reason })
-          return
-        }
-        send({ type: 'screening' })
-
-        const { ranked } = await screenCandidates({
-          names: generated.names,
-          category,
-          description,
+        const outcome = await generateShortlist({
+          category, description, seed,
+          signal: AbortSignal.any([abort.signal, req.signal]),
           ...(includeSpecialized ? { includeSpecialized: true } : {}),
-          ...(stopAfterSurvivors === undefined ? {} : { stopAfterSurvivors }),
-          onCandidate: () => {},
+          onProgress: (progress) => { send({ type: 'screening' }); send({ type: 'progress', ...progress }) },
         })
-
-        send({
-          type: 'result',
-          ranked,
-        })
-      } catch (cause) {
+        if (outcome.status === 'ready') send({ type: 'result', ranked: outcome.ranked })
+        else if (outcome.status === 'partial') send({ type: 'partial', ranked: outcome.ranked, message: outcome.message })
+        else send({ type: 'error', message: outcome.message })
+      } catch {
         send({
           type: 'error',
-          message: cause instanceof Error ? cause.message : 'Name generation failed unexpectedly.',
+          message: 'Name generation could not finish. Please try again.',
         })
       } finally {
-        controller.close()
+        if (!abort.signal.aborted) controller.close()
       }
     },
   })

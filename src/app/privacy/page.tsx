@@ -26,8 +26,8 @@ export default function Page() {
     >
       <LegalSection title="What's stored">
         <p>
-          The service works fully without an account. To enforce a daily limit and show you your
-          own history, a guest is tracked by a one-way identifier derived from the IP address: a
+          You can check names without an account. History requires sign-in. To enforce a daily
+          limit, guest requests use a one-way identifier derived from the IP address: a
           keyed hash (HMAC-SHA256 under a server-side secret), not the address itself. That secret
           is what makes it impossible to reverse without it, unlike a plain hash of an IPv4
           address, which is small enough to brute-force in minutes. Nothing about a guest is linked

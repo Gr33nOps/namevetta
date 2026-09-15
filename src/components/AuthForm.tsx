@@ -146,6 +146,16 @@ export function AuthForm({
         ))}
       </div>
 
+      <div className="mb-5 grid gap-2">
+        {(['google', 'github'] as const).map(provider => (
+          <button key={provider} type="button" onClick={() => void continueWith(provider)} disabled={oauthProvider !== undefined} className="btn-secondary w-full px-4 py-3 text-sm">
+            <SourceLogo label={provider === 'google' ? 'Google' : 'GitHub'} />
+            {oauthProvider === provider ? 'Opening…' : `Continue with ${provider === 'google' ? 'Google' : 'GitHub'}`}
+          </button>
+        ))}
+      </div>
+      {oauthError ? <p role="alert" className="mb-4 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{oauthError}</p> : null}
+      <div className="mb-5 flex items-center gap-3 text-xs text-faint"><span className="h-px flex-1 bg-line" /><span>or use email</span><span className="h-px flex-1 bg-line" /></div>
       <form action={isSignIn ? signInAction : signUpAction} className="space-y-4">
         <div>
           <label htmlFor="email" className="mb-1.5 block text-sm font-medium">
@@ -225,43 +235,7 @@ export function AuthForm({
           {pending ? 'Please wait…' : isSignIn ? 'Sign in' : 'Create account'}
         </button>
       </form>
-
-      {isSignIn ? (
-        <>
-          <div className="my-5 flex items-center gap-3 text-xs text-faint" aria-hidden="true">
-            <span className="h-px flex-1 bg-line" />
-            <span>or</span>
-            <span className="h-px flex-1 bg-line" />
-          </div>
-
-          <div className="grid gap-2 sm:grid-cols-2">
-            <button
-              type="button"
-              onClick={() => void continueWith('google')}
-              disabled={oauthProvider !== undefined}
-              className="btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm disabled:cursor-wait disabled:opacity-60"
-            >
-              <SourceLogo label="Google" />
-              {oauthProvider === 'google' ? 'Opening…' : 'Continue with Google'}
-            </button>
-            <button
-              type="button"
-              onClick={() => void continueWith('github')}
-              disabled={oauthProvider !== undefined}
-              className="btn-secondary inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm disabled:cursor-wait disabled:opacity-60"
-            >
-              <SourceLogo label="GitHub" />
-              {oauthProvider === 'github' ? 'Opening…' : 'Continue with GitHub'}
-            </button>
-          </div>
-
-          {oauthError !== undefined ? (
-            <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
-              {oauthError}
-            </p>
-          ) : null}
-        </>
-      ) : null}
     </div>
   )
 }
+

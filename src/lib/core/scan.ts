@@ -97,6 +97,7 @@ export type ScanContext = z.infer<typeof ScanContextSchema>
 /** Comparison runs 2-5 names against the same category (§52). */
 export const MIN_COMPARE_NAMES = 2
 export const MAX_COMPARE_NAMES = 5
+export const GENERATED_NAME_COUNT = 4
 
 export const CompareRequestSchema = z.object({
   names: z

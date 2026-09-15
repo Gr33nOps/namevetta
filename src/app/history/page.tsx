@@ -1,10 +1,9 @@
-import { headers } from 'next/headers'
 import Link from 'next/link'
 import { HistoryList } from '@/components/HistoryList'
+import { PageHeader } from '@/components/PageHeader'
 import { currentUser } from '@/lib/db/auth'
 import { isDatabaseConfigured } from '@/lib/db/client'
 import { recentScans } from '@/lib/db/history'
-import { identifySubject } from '@/lib/db/identity'
 
 export const metadata = {
   title: 'History | NameVetta',
@@ -17,12 +16,24 @@ export const dynamic = 'force-dynamic'
 /**
  * Research history.
  *
- * Works signed out: a guest's own scans are keyed to their salted hash, so they
- * get history without an account. §31 is explicit that viewing history never
+ * Stored history requires a verified account. IP hashes identify quota buckets,
+ * not people. Viewing history never
  * consumes allowance — only fresh research does — which is why nothing on this
  * page touches the quota beyond reading it.
  */
 export default async function Page() {
+  const user = await currentUser()
+  if (user === undefined) {
+    return (
+      <div className="page-shell">
+        <PageHeader title="Research history">Sign in to view your research.</PageHeader>
+        <div className="panel mt-8 rounded-2xl p-6 text-center sm:p-10">
+          <p className="text-charcoal-2">Your history is private to your account.</p>
+          <Link href="/auth?next=/history" className="btn-primary mt-5 min-h-11 px-5 py-3 text-sm">Sign in</Link>
+        </div>
+      </div>
+    )
+  }
   if (!isDatabaseConfigured()) {
     return (
       <div className="mx-auto w-full max-w-[860px] px-6 py-14 text-center">
@@ -34,34 +45,13 @@ export default async function Page() {
     )
   }
 
-  const user = await currentUser()
-  const subject = identifySubject(await headers(), user?.id)
-  const entries = subject === undefined ? [] : await recentScans(subject)
+  const entries = await recentScans({ type: 'user', id: user.id })
 
   return (
-    <div className="mx-auto w-full max-w-[860px] px-6 py-14">
-      <div className="text-center">
-        <h1 className="font-display text-3xl font-semibold tracking-tight">
-          Research history
-        </h1>
-        <p className="mt-2 text-charcoal-2">
-          {user === undefined
-            ? 'Saved on this device.'
-            : 'Your saved research.'}
-        </p>
-
-      </div>
-
-      {user === undefined ? (
-        <div className="card mt-6 rounded-xl px-4 py-3 text-center">
-          <p className="text-sm text-charcoal-2">
-            Keep this research across devices.{' '}
-            <Link href="/auth" className="font-medium text-accent-ink underline underline-offset-2">
-              Create an account
-            </Link>
-          </p>
-        </div>
-      ) : null}
+    <div className="page-shell">
+      <PageHeader title="Research history" action={<Link href="/" className="btn-secondary px-4 py-2 text-sm">Check a name</Link>}>
+          Your saved research.
+      </PageHeader>
 
       <div className="mt-8">
         <HistoryList entries={entries} />

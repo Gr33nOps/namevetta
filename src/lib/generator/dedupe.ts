@@ -57,9 +57,21 @@ export function sameFamily(a: string, b: string): boolean {
  */
 export function dedupeFamilies(names: readonly string[]): string[] {
   const kept: string[] = []
-  for (const name of names) {
-    if (kept.some((k) => sameFamily(k, name))) continue
-    kept.push(name)
+  const visited = new Set<number>()
+  for (let index = 0; index < names.length; index++) {
+    if (visited.has(index)) continue
+    kept.push(names[index]!)
+    const pending = [index]
+    visited.add(index)
+    while (pending.length > 0) {
+      const member = pending.pop()!
+      for (let other = 0; other < names.length; other++) {
+        if (!visited.has(other) && sameFamily(names[member]!, names[other]!)) {
+          visited.add(other)
+          pending.push(other)
+        }
+      }
+    }
   }
   return kept
 }

@@ -69,9 +69,9 @@ export function StoredReport({ scan }: { scan: StoredScan }) {
       scan.recorded.score !== viability.score)
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-10">
-      <header className="mb-6 text-center">
-        <h1 className="font-mono text-[30px] leading-none font-medium tracking-tight text-charcoal sm:text-[38px]">
+    <div className="page-shell">
+      <header className="mb-6">
+        <h1 className="page-title break-words">
           {scan.name}
         </h1>
         <p className="mt-2.5 text-sm text-charcoal-2">

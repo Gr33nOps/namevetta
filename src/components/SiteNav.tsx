@@ -25,17 +25,17 @@ import { ThemeToggle } from '@/components/ThemeToggle'
  */
 export function SiteNav() {
   return (
-    <header className="nav-shell sticky top-0 z-50 px-3 pt-3 sm:px-6 sm:pt-4 print:hidden">
-      <div className="glass-bar mx-auto grid min-h-[52px] w-full max-w-[1200px] grid-cols-[1fr_auto] grid-rows-[auto_auto] items-center gap-1 rounded-2xl px-3 py-1.5 sm:h-[58px] sm:grid-cols-[auto_1fr_auto] sm:grid-rows-1 sm:gap-7 sm:rounded-panel sm:px-3 sm:py-0 sm:pl-5">
+    <header className="nav-shell sticky top-0 z-50 print:hidden">
+      <div className="mx-auto grid w-full max-w-[1088px] grid-cols-[1fr_auto] grid-rows-[auto_auto] items-center gap-x-3 px-5 pt-2 lg:min-h-16 lg:grid-cols-[auto_1fr_auto] lg:grid-rows-1 lg:gap-8 lg:px-6 lg:pt-0">
         <Link
           href="/"
           className="rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
         >
-          <SiteMark wordFrom="sm" />
+          <SiteMark />
         </Link>
 
         <PrimaryNav />
-        <div className="flex items-center justify-self-end gap-1.5 text-[14.5px] text-charcoal-2 sm:gap-3">
+        <div className="flex items-center justify-self-end gap-1.5 text-[14.5px] text-charcoal-2 lg:gap-3">
           <NavSession />
           <span aria-hidden="true" className="h-5 w-px bg-line" />
           <ThemeToggle />
@@ -44,3 +44,4 @@ export function SiteNav() {
     </header>
   )
 }
+
